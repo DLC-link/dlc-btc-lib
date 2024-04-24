@@ -3,13 +3,15 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { hex } from '@scure/base';
 import { Transaction, selectUTXO } from '@scure/btc-signer';
-import { P2TROut, p2tr, p2tr_ns, p2wpkh } from '@scure/btc-signer/payment';
+import { P2TROut, p2ms, p2tr, p2tr_ns, p2wpkh, p2wsh } from '@scure/btc-signer/payment';
 import { taprootTweakPubkey } from '@scure/btc-signer/utils';
 
 import BIP32Factory from 'bip32';
-import { Network } from 'bitcoinjs-lib';
+import { Network, Payment, payments } from 'bitcoinjs-lib';
 import * as ecc from 'tiny-secp256k1';
 import { satsToBitcoin } from './utilities.js';
+import { fromOutputScript, fromBech32 } from 'bitcoinjs-lib/src/address.js';
+import { TARGET_CHILD_NODES, TARGET_NATIVE_SEGWIT_MULTISIG_PUBLICKEYS } from './index.js';
 
 interface TransactionStatus {
   confirmed: boolean;
@@ -25,67 +27,123 @@ interface UTXO {
   value: number;
 }
 
-export function findPublicKeyOfAddress(
-  bitcoinAddress: string,
-  extendedPublicKeyString: string,
-  bitcoinNetwork: Network
-) {
+export function getAddress(publicKey: string, network: Network) {
+  const publicKeyBuffer = Buffer.from(publicKey, 'hex');
+  const { address } = p2wpkh(publicKeyBuffer, network);
+  console.log('Address:', address);
+  return p2wpkh(publicKeyBuffer, network).address;
+}
+
+export function derivePublicKeyFromMasterPublicKey(masterPublicKey: string, derivationPathRoot: string, index: string) {
   const bip32 = BIP32Factory.BIP32Factory(ecc);
-  const root = bip32.fromBase58(extendedPublicKeyString);
-
-  for (let i = 0; i < 1000; i++) {
-    const child = root.derive(1).derive(i);
-    const { address } = p2wpkh(child.publicKey, bitcoinNetwork);
-
-    if (address === bitcoinAddress) {
-      console.log('Found matching public key:', child.publicKey.toString('hex'));
-      return child.publicKey;
-    }
+  const derivationPath = `${derivationPathRoot}${index}`;
+  const masterNode = bip32.fromBase58(masterPublicKey);
+  const publicKey = masterNode.derivePath(derivationPath).publicKey;
+  const publicKeyString = publicKey.toString('hex');
+  if (TARGET_NATIVE_SEGWIT_MULTISIG_PUBLICKEYS.includes(publicKeyString)) {
+    console.log(`Found Matching Public Key:, ${publicKeyString}, at Derivation Path: ${derivationPath}`);
   }
-
-  console.log('No matching public key found.');
-  return null;
+  return publicKey.toString('hex');
 }
 
-/**
- * Gets the UTXOs of the User's Native Segwit Address.
- *
- * @param bitcoinNativeSegwitAddress - The User's Native Segwit Address.
- * @param bitcoinNetwork - The Bitcoin Network to use.
- * @returns A Promise that resolves to the UTXOs of the User's Native Segwit Address.
- */
-async function getUTXOs(bitcoinNativeSegwitAddress: string, bitcoinNetwork: Network): Promise<any> {
-  const bitcoinBlockchainAPIURL = process.env.BITCOIN_BLOCKCHAIN_API_URL;
-
-  try {
-    const response = await fetch(`${bitcoinBlockchainAPIURL}/address/${bitcoinNativeSegwitAddress}/utxo`);
-
-    if (!response.ok) {
-      throw new Error(`Error getting UTXOs: ${response.statusText}`);
-    }
-
-    const allUTXOs = await response.json();
-
-    const userPublicKey = hexToBytes(bitcoinNativeSegwitAddress);
-    const spend = p2wpkh(userPublicKey, bitcoinNetwork);
-
-    const utxos = await Promise.all(
-      allUTXOs.map(async (utxo: UTXO) => {
-        const txHex = await (await fetch(`${bitcoinBlockchainAPIURL}/tx/${utxo.txid}/hex`)).text();
-        return {
-          ...spend,
-          txid: utxo.txid,
-          index: utxo.vout,
-          value: utxo.value,
-          nonWitnessUtxo: hex.decode(txHex),
-        };
-      })
-    );
-    return utxos;
-  } catch (error) {
-    throw new Error(`Error getting UTXOs: ${error}`);
+export function deriveChildNodeFromMasterPublicKey(masterPublicKey: string, id: number, network: Network) {
+  const bip32 = BIP32Factory.BIP32Factory(ecc);
+  const derivationPath = `m/0/0/20/${id}`;
+  const masterNode = bip32.fromBase58(masterPublicKey);
+  const childXPub = masterNode.derivePath(derivationPath).toBase58();
+  console.log('Child Public Key:', childXPub);
+  if (TARGET_CHILD_NODES.includes(childXPub)) {
+    console.log(`Found Matching Public Key: ${childXPub}`);
   }
+  return childXPub;
 }
+
+export function getInnerPublicKey(publicKey: string, id: number, network: Network) {
+  const bip32 = BIP32Factory.BIP32Factory(ecc);
+  const node = bip32.fromBase58(publicKey).publicKey.toString('hex');
+  console.log('Public Key:', node);
+  if (TARGET_NATIVE_SEGWIT_MULTISIG_PUBLICKEYS.includes(node)) {
+    console.log(`Found Matching Public Key: ${node}`);
+  }
+  return node;
+}
+
+export function getTaprootAddress(publicKey: string, bitcoinNetwork: Network) {
+  console.log('Public Key:', publicKey);
+  const publicKeyBuffer = Buffer.from(publicKey, 'hex');
+  const { address } = p2tr(publicKeyBuffer, undefined, bitcoinNetwork);
+  console.log('Address:', address);
+  return address;
+}
+
+export function getPublicKeyFromTaprootAddress(address: string, network: Network): Buffer {
+  const { data } = fromBech32(address);
+  return data;
+}
+
+// export function createP2WSHMultisigAddress(pubkeys: string[], network: Network): string {
+//   const publicKeyBuffers = TARGET_NATIVE_SEGWIT_MULTISIG_PUBLICKEYS.map((hex) => Buffer.from(hex, 'hex'));
+//   const redeemScript = p2ms(2, publicKeyBuffers).redeemScript;
+//   if (!redeemScript) throw new Error('Could not create redeem script');
+//   const scriptPubKey = p2wsh(redeemScript, network);
+//   return fromOutputScript(scriptPubKey!, network);
+// }
+// export function createMultisigSpend(bitcoinNetwork: Network) {
+//   const publicKeysBuffer = TARGET_NATIVE_SEGWIT_MULTISIG_PUBLICKEYS.map((hex) => Buffer.from(hex, 'hex'));
+//   const redeemScript = p2ms(2, publicKeysBuffer);
+//   const spendScript = p2wsh(redeemScript, bitcoinNetwork).address;
+//   console.log('Spend Script:', spendScript);
+// }
+
+export function getMultisigNativeSegwitAddress(publicKeys: string[], bitcoinNetwork: Network) {
+  const publicKeysBuffer = publicKeys.map((hex) => Buffer.from(hex, 'hex'));
+  const redeemScript = p2ms(2, publicKeysBuffer);
+  const multisigAddress = p2wsh(redeemScript, bitcoinNetwork).address;
+  return multisigAddress;
+}
+
+// /**
+//  * Gets the UTXOs of the User's Native Segwit Address.
+//  *
+//  * @param bitcoinNativeSegwitAddress - The User's Native Segwit Address.
+//  * @param bitcoinNetwork - The Bitcoin Network to use.
+//  * @returns A Promise that resolves to the UTXOs of the User's Native Segwit Address.
+//  */
+// export async function getUTXOs(
+//   bitcoinNativeSegwitAddress: string,
+//   publicKeys: string[],
+//   bitcoinNetwork: Network
+// ): Promise<any> {
+//   const bitcoinBlockchainAPIURL = process.env.BITCOIN_BLOCKCHAIN_API_URL;
+
+//   try {
+//     const response = await fetch(`${bitcoinBlockchainAPIURL}/address/${bitcoinNativeSegwitAddress}/utxo`);
+
+//     if (!response.ok) {
+//       throw new Error(`Error getting UTXOs: ${response.statusText}`);
+//     }
+
+//     const allUTXOs = await response.json();
+
+//     const spend = createMultisigSpend(publicKeys, bitcoinNetwork);
+
+//     const utxos = await Promise.all(
+//       allUTXOs.map(async (utxo: UTXO) => {
+//         const txHex = await (await fetch(`${bitcoinBlockchainAPIURL}/tx/${utxo.txid}/hex`)).text();
+//         return {
+//           ...spend,
+//           txid: utxo.txid,
+//           index: utxo.vout,
+//           value: utxo.value,
+//           nonWitnessUtxo: hex.decode(txHex),
+//         };
+//       })
+//     );
+//     return utxos;
+//   } catch (error) {
+//     throw new Error(`Error getting UTXOs: ${error}`);
+//   }
+// }
 
 /**
  * Creates a Multisig Transaction using the Public Key of the User's Taproot Address and the Attestor Group's Public Key.
