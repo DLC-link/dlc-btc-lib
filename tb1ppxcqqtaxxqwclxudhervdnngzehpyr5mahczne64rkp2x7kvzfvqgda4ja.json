@@ -1,39 +1,37 @@
 {
-  "Created Native Segwit Address": {
-    "id": "6628cd7dbad63539229ad37359751670",
-    "address": "tb1ppxcqqtaxxqwclxudhervdnngzehpyr5mahczne64rkp2x7kvzfvqgda4ja",
-    "chain": 30,
-    "index": 1,
-    "coin": "tbtc",
-    "wallet": "6628cc36e43fd24b95b63e5ed1838b7c",
-    "label": "Taproot Address 1",
-    "coinSpecific": {},
-    "addressType": "p2tr",
-    "keychains": [
-      {
-        "id": "6628cc10e0763eec6451c7c2c61da72a",
-        "pub": "xpub661MyMwAqRbcFzH9LyJ7e5dYdUmECDf8CyE6GRaFZqe1h9YAKvHAGp519ES3ftEovPH7G368mdVJstvWkjnSrYMtYDyyMKRHoHKaLL9op7r",
-        "ethAddress": "0x99ab1784e2abd980993e39a6769c23d7af2b7989",
-        "source": "user",
-        "type": "independent",
-        "encryptedPrv": "{\"iv\":\"B01RxkiCbwKmSGVlpx2HJQ==\",\"v\":1,\"iter\":10000,\"ks\":256,\"ts\":64,\"mode\":\"ccm\",\"adata\":\"\",\"cipher\":\"aes\",\"salt\":\"k1Q65rUKUWY=\",\"ct\":\"8yFiRcW6Nph35rcSVBCstzKAyQukcLrGLLkweN9RQlV7KlSNojAC7EgKx4YG0POzhu4IYt+ySrX2aHo72VK6pw/9D36qsCtmTbdnKxS1a6M6wHmKWYMDENTZ/sgPgApcDsc9TmNVPpLe70sVSbOHUKTqFrma68A=\"}"
-      },
-      {
-        "id": "6628cc1130c091bd3c7939aa1b70a57d",
-        "pub": "xpub69AcSTtvBCuMep1Pz5S1ik3xYTPFLqh81NNf3zBgThLcdHKSuZDSxhMwc9A4b2DM8DDC78si5af1kvYcCGpiyXCKcD8zwdsd6mKQK6Y5iFZ",
-        "ethAddress": "0xb8e49c3953081fe25614ef5fee8b68ce64faa770",
-        "source": "backup",
-        "type": "independent",
-        "provider": "dai"
-      },
-      {
-        "id": "6628cc13e43fd24b95b61ed46d97c9f0",
-        "pub": "xpub661MyMwAqRbcFq1F9XgMepGcNmBQgeA3Ue7XhvJ4xtZ9u8iDR6uMNbGZLHzF9Xy7aR9ALbLdWPCngzUue6VtDFFv9aHzPkw7iUhHuTYMNSN",
-        "ethAddress": "0x184e1e2d03d64ec0dcce87eddf2457615922a2f1",
-        "source": "bitgo",
-        "type": "independent",
-        "isBitGo": true
-      }
-    ]
-  }
+  "id": "6628cd7dbad63539229ad37359751670",
+  "address": "tb1ppxcqqtaxxqwclxudhervdnngzehpyr5mahczne64rkp2x7kvzfvqgda4ja",
+  "chain": 30,
+  "index": 1,
+  "coin": "tbtc",
+  "wallet": "6628cc36e43fd24b95b63e5ed1838b7c",
+  "label": "Taproot Address 1",
+  "coinSpecific": {},
+  "addressType": "p2tr",
+  "keychains": [
+    {
+      "id": "6628cc10e0763eec6451c7c2c61da72a",
+      "pub": "xpub661MyMwAqRbcFzH9LyJ7e5dYdUmECDf8CyE6GRaFZqe1h9YAKvHAGp519ES3ftEovPH7G368mdVJstvWkjnSrYMtYDyyMKRHoHKaLL9op7r",
+      "ethAddress": "0x99ab1784e2abd980993e39a6769c23d7af2b7989",
+      "source": "user",
+      "type": "independent",
+      "encryptedPrv": "{\"iv\":\"B01RxkiCbwKmSGVlpx2HJQ==\",\"v\":1,\"iter\":10000,\"ks\":256,\"ts\":64,\"mode\":\"ccm\",\"adata\":\"\",\"cipher\":\"aes\",\"salt\":\"k1Q65rUKUWY=\",\"ct\":\"8yFiRcW6Nph35rcSVBCstzKAyQukcLrGLLkweN9RQlV7KlSNojAC7EgKx4YG0POzhu4IYt+ySrX2aHo72VK6pw/9D36qsCtmTbdnKxS1a6M6wHmKWYMDENTZ/sgPgApcDsc9TmNVPpLe70sVSbOHUKTqFrma68A=\"}"
+    },
+    {
+      "id": "6628cc1130c091bd3c7939aa1b70a57d",
+      "pub": "xpub69AcSTtvBCuMep1Pz5S1ik3xYTPFLqh81NNf3zBgThLcdHKSuZDSxhMwc9A4b2DM8DDC78si5af1kvYcCGpiyXCKcD8zwdsd6mKQK6Y5iFZ",
+      "ethAddress": "0xb8e49c3953081fe25614ef5fee8b68ce64faa770",
+      "source": "backup",
+      "type": "independent",
+      "provider": "dai"
+    },
+    {
+      "id": "6628cc13e43fd24b95b61ed46d97c9f0",
+      "pub": "xpub661MyMwAqRbcFq1F9XgMepGcNmBQgeA3Ue7XhvJ4xtZ9u8iDR6uMNbGZLHzF9Xy7aR9ALbLdWPCngzUue6VtDFFv9aHzPkw7iUhHuTYMNSN",
+      "ethAddress": "0x184e1e2d03d64ec0dcce87eddf2457615922a2f1",
+      "source": "bitgo",
+      "type": "independent",
+      "isBitGo": true
+    }
+  ]
 }
