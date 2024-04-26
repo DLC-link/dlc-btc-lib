@@ -1,17 +1,14 @@
 /** @format */
 
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { hexToBytes } from '@noble/hashes/utils';
 import { hex } from '@scure/base';
-import { Transaction, selectUTXO } from '@scure/btc-signer';
-import { P2TROut, p2ms, p2tr, p2tr_ns, p2wpkh, p2wsh } from '@scure/btc-signer/payment';
+import { selectUTXO } from '@scure/btc-signer';
+import { P2TROut, p2tr, p2tr_ns, p2wpkh } from '@scure/btc-signer/payment';
 import { taprootTweakPubkey } from '@scure/btc-signer/utils';
 
-import BIP32Factory, { TinySecp256k1Interface } from 'bip32';
-import { Network, Payment, payments } from 'bitcoinjs-lib';
-import * as ecc from 'tiny-secp256k1';
+import { Network, Psbt } from 'bitcoinjs-lib';
+import { getNativeSegwitMultisigScript } from './payment-functions.js';
 import { bitcoinToSats } from './utilities.js';
-import { fromOutputScript, fromBech32 } from 'bitcoinjs-lib/src/address.js';
-import { TARGET_CHILD_NODES, TARGET_NATIVE_SEGWIT_MULTISIG_PUBLICKEYS } from './index.js';
 
 interface TransactionStatus {
   confirmed: boolean;
@@ -25,68 +22,6 @@ interface UTXO {
   vout: number;
   status: TransactionStatus;
   value: number;
-}
-
-export function getAddress(publicKey: string, network: Network) {
-  const publicKeyBuffer = Buffer.from(publicKey, 'hex');
-  const { address } = p2wpkh(publicKeyBuffer, network);
-  console.log('Address:', address);
-  return p2wpkh(publicKeyBuffer, network).address;
-}
-
-export function derivePublicKeyFromMasterPublicKey(masterPublicKey: string, derivationPathRoot: string, index: string) {
-  console.log('Derivation Path:', `${derivationPathRoot}${index}`);
-  const bip32 = BIP32Factory.BIP32Factory(ecc);
-  const derivationPath = `${derivationPathRoot}${index}`;
-  const masterNode = bip32.fromBase58(masterPublicKey);
-  const publicKey = masterNode.derivePath(derivationPath).publicKey;
-  const publicKeyString = publicKey.toString('hex');
-  return publicKeyString;
-}
-
-export function getTaprootAddress(publicKey: string, bitcoinNetwork: Network) {
-  console.log('Public Key:', publicKey);
-  const publicKeyBuffer = Buffer.from(publicKey, 'hex');
-  const { address } = p2tr(publicKeyBuffer, undefined, bitcoinNetwork);
-  console.log('Address:', address);
-  return address;
-}
-
-export function getPublicKeyFromTaprootAddress(address: string, network: Network): Buffer {
-  const { data } = fromBech32(address);
-  return data;
-}
-
-// export function createP2WSHMultisigAddress(pubkeys: string[], network: Network): string {
-//   const publicKeyBuffers = TARGET_NATIVE_SEGWIT_MULTISIG_PUBLICKEYS.map((hex) => Buffer.from(hex, 'hex'));
-//   const redeemScript = p2ms(2, publicKeyBuffers).redeemScript;
-//   if (!redeemScript) throw new Error('Could not create redeem script');
-//   const scriptPubKey = p2wsh(redeemScript, network);
-//   return fromOutputScript(scriptPubKey!, network);
-// }
-export function createMultisigSpend(publicKeys: string[], bitcoinNetwork: Network) {
-  const publicKeysBuffer = publicKeys.map((hex) => Buffer.from(hex, 'hex'));
-  const redeemScript = p2ms(2, publicKeysBuffer);
-  const spendScript = p2wsh(redeemScript, bitcoinNetwork);
-  return spendScript;
-}
-
-export function getMultisigNativeSegwitAddress(publicKeys: string[], bitcoinNetwork: Network) {
-  const publicKeysBuffer = publicKeys.map((hex) => Buffer.from(hex, 'hex'));
-  const redeemScript = p2ms(2, publicKeysBuffer);
-  const multisigAddress = p2wsh(redeemScript, bitcoinNetwork).address;
-  return multisigAddress;
-}
-
-export function getMultisigTaprootTransaction(publicKeys: string[], bitcoinNetwork: Network) {
-  const publicKeysBuffer = publicKeys.map((hex) => {
-    const buffer = Buffer.from(hex, 'hex');
-    const uncompressedPublicKey = buffer.slice(1);
-    return uncompressedPublicKey;
-  });
-  const multisig = p2tr_ns(2, publicKeysBuffer);
-  const bitGoMultisig = p2tr(undefined, multisig, bitcoinNetwork);
-  return bitGoMultisig;
 }
 
 /**
@@ -112,7 +47,7 @@ export async function getUTXOs(
 
     const allUTXOs = await response.json();
 
-    const spend = createMultisigSpend(publicKeys, bitcoinNetwork);
+    const spend = getNativeSegwitMultisigScript(publicKeys, bitcoinNetwork);
 
     const utxos = await Promise.all(
       allUTXOs.map(async (utxo: UTXO) => {
@@ -160,56 +95,60 @@ export function createMultisigTransaction(
   return multisigTransaction;
 }
 
-// /**
-//  * Creates a Funding Transaction to fund the Multisig Transaction.
-//  *
-//  * @param bitcoinAmount - The amount of Bitcoin to fund the Transaction with.
-//  * @param bitcoinNetwork - The Bitcoin Network to use.
-//  * @param multisigAddress - The Multisig Address.
-//  * @param utxos - The UTXOs to use for the Transaction.
-//  * @param userChangeAddress - The user's Change Address.
-//  * @param feeRate - The Fee Rate to use for the Transaction.
-//  * @param feePublicKey - The Fee Recipient's Public Key.
-//  * @param feeBasisPoints - The Fee Basis Points.
-//  * @returns The Funding Transaction.
-//  */
-// export function createFundingTransaction(
-//   bitcoinAmount: number,
-//   bitcoinNetwork: Network,
-//   multisigAddress: string,
-//   utxos: any[],
-//   userChangeAddress: string,
-//   feeRate: bigint,
-//   feePublicKey: string,
-//   feeBasisPoints: number
-// ): Transaction {
-//   const feePublicKeyBuffer = Buffer.from(feePublicKey, 'hex');
-//   const { address: feeAddress } = p2wpkh(feePublicKeyBuffer, bitcoinNetwork);
+/**
+ * Creates a Funding Transaction to fund the Multisig Transaction.
+ *
+ * @param bitcoinAmount - The amount of Bitcoin to fund the Transaction with.
+ * @param bitcoinNetwork - The Bitcoin Network to use.
+ * @param multisigAddress - The Multisig Address.
+ * @param utxos - The UTXOs to use for the Transaction.
+ * @param userChangeAddress - The user's Change Address.
+ * @param feeRate - The Fee Rate to use for the Transaction.
+ * @param feePublicKey - The Fee Recipient's Public Key.
+ * @param feeBasisPoints - The Fee Basis Points.
+ * @returns The Funding Transaction.
+ */
+export async function createFundingTransaction(
+  bitcoinAmount: number,
+  bitcoinNetwork: Network,
+  multisigAddress: string,
+  nativeSegwitAddress: string,
+  nativeSegwitPublicKeys: string[],
+  feeRate: bigint,
+  feePublicKey: string,
+  feeBasisPoints: number
+): Promise<Uint8Array> {
+  const feePublicKeyBuffer = Buffer.from(feePublicKey, 'hex');
+  const { address: feeAddress } = p2wpkh(feePublicKeyBuffer, bitcoinNetwork);
 
-//   if (!feeAddress) throw new Error('Could not create Fee Address');
+  if (!feeAddress) throw new Error('Could not create Fee Address');
 
-//   const outputs = [
-//     { address: multisigAddress, amount: BigInt(satsToBitcoin(bitcoinAmount)) },
-//     {
-//       address: feeAddress,
-//       amount: BigInt(satsToBitcoin(bitcoinAmount) * feeBasisPoints),
-//     },
-//   ];
+  const utxos = await getUTXOs(nativeSegwitAddress, nativeSegwitPublicKeys, bitcoinNetwork);
 
-//   const selected = selectUTXO(utxos, outputs, 'default', {
-//     changeAddress: userChangeAddress,
-//     feePerByte: feeRate,
-//     bip69: false,
-//     createTx: true,
-//     network: bitcoinNetwork,
-//   });
+  const outputs = [
+    { address: multisigAddress, amount: BigInt(bitcoinToSats(bitcoinAmount)) },
+    {
+      address: feeAddress,
+      amount: BigInt(bitcoinToSats(bitcoinAmount) * feeBasisPoints),
+    },
+  ];
 
-//   const fundingTX = selected?.tx;
+  const selected = selectUTXO(utxos, outputs, 'default', {
+    changeAddress: nativeSegwitAddress,
+    feePerByte: feeRate,
+    bip69: false,
+    createTx: true,
+    network: bitcoinNetwork,
+  });
 
-//   if (!fundingTX) throw new Error('Could not create Funding Transaction');
+  const fundingTX = selected?.tx;
 
-//   return fundingTX;
-// }
+  if (!fundingTX) throw new Error('Could not create Funding Transaction');
+
+  const fundingPSBT = fundingTX.toPSBT();
+
+  return fundingPSBT;
+}
 
 export function getFeeRecipientAddress(feePublicKey: string, bitcoinNetwork: Network): string {
   const feePublicKeyBuffer = Buffer.from(feePublicKey, 'hex');
@@ -227,7 +166,7 @@ export function getFeeRecipientAddress(feePublicKey: string, bitcoinNetwork: Net
  * @param feeBasisPoints - The Fee Basis Points.
  * @returns The Funding Transaction Info.
  */
-export function createFundingTransactionInfo(
+export function getFundingTransactionRecipients(
   bitcoinAmount: number,
   multisigAddress: string,
   feeRecipientAddress: string,
@@ -244,69 +183,69 @@ export function createFundingTransactionInfo(
   return recipients;
 }
 
-// /**
-//  * Creates the Closing Transaction.
-//  * Uses the Funding Transaction's ID to create the Closing Transaction.
-//  * The Closing Transaction is sent to the User's Native Segwit Address.
-//  *
-//  * @param bitcoinAmount - The Amount of Bitcoin to fund the Transaction with.
-//  * @param bitcoinNetwork - The Bitcoin Network to use.
-//  * @param fundingTransactionID - The ID of the Funding Transaction.
-//  * @param multisigTransaction - The Multisig Transaction.
-//  * @param userNativeSegwitAddress - The User's Native Segwit Address.
-//  * @param feeRate - The Fee Rate to use for the Transaction.
-//  * @param feePublicKey - The Fee Recipient's Public Key.
-//  * @param feeBasisPoints - The Fee Basis Points.
-//  * @returns The Closing Transaction.
-//  */
-// async function createClosingTransaction(
-//   bitcoinAmount: number,
-//   bitcoinNetwork: Network,
-//   fundingTransactionID: string,
-//   multisigTransaction: P2TROut,
-//   userNativeSegwitAddress: string,
-//   feeRate: bigint,
-//   feePublicKey: string,
-//   feeBasisPoints: number
-// ): Promise<Uint8Array> {
-//   const feePublicKeyBuffer = Buffer.from(feePublicKey, 'hex');
-//   const { address: feeAddress } = p2wpkh(feePublicKeyBuffer, bitcoinNetwork);
+/**
+ * Creates the Closing Transaction.
+ * Uses the Funding Transaction's ID to create the Closing Transaction.
+ * The Closing Transaction is sent to the User's Native Segwit Address.
+ *
+ * @param bitcoinAmount - The Amount of Bitcoin to fund the Transaction with.
+ * @param bitcoinNetwork - The Bitcoin Network to use.
+ * @param fundingTransactionID - The ID of the Funding Transaction.
+ * @param multisigTransaction - The Multisig Transaction.
+ * @param userNativeSegwitAddress - The User's Native Segwit Address.
+ * @param feeRate - The Fee Rate to use for the Transaction.
+ * @param feePublicKey - The Fee Recipient's Public Key.
+ * @param feeBasisPoints - The Fee Basis Points.
+ * @returns The Closing Transaction.
+ */
+export async function createClosingTransaction(
+  bitcoinAmount: number,
+  bitcoinNetwork: Network,
+  fundingTransactionID: string,
+  multisigTransaction: P2TROut,
+  userNativeSegwitAddress: string,
+  feeRate: bigint,
+  feePublicKey: string,
+  feeBasisPoints: number
+): Promise<Uint8Array> {
+  const feePublicKeyBuffer = Buffer.from(feePublicKey, 'hex');
+  const { address: feeAddress } = p2wpkh(feePublicKeyBuffer, bitcoinNetwork);
 
-//   if (!feeAddress) throw new Error('Could not create Fee Address');
+  if (!feeAddress) throw new Error('Could not create Fee Address');
 
-//   const inputs = [
-//     {
-//       txid: hexToBytes(fundingTransactionID),
-//       index: 0,
-//       witnessUtxo: {
-//         amount: BigInt(satsToBitcoin(bitcoinAmount)),
-//         script: multisigTransaction.script,
-//       },
-//       ...multisigTransaction,
-//     },
-//   ];
+  const inputs = [
+    {
+      txid: hexToBytes(fundingTransactionID),
+      index: 0,
+      witnessUtxo: {
+        amount: BigInt(bitcoinToSats(bitcoinAmount)),
+        script: multisigTransaction.script,
+      },
+      ...multisigTransaction,
+    },
+  ];
 
-//   const outputs = [
-//     {
-//       address: feeAddress,
-//       amount: BigInt(satsToBitcoin(bitcoinAmount) * feeBasisPoints),
-//     },
-//   ];
+  const outputs = [
+    {
+      address: feeAddress,
+      amount: BigInt(bitcoinToSats(bitcoinAmount) * feeBasisPoints),
+    },
+  ];
 
-//   const selected = selectUTXO(inputs, outputs, 'default', {
-//     changeAddress: userNativeSegwitAddress,
-//     feePerByte: feeRate,
-//     bip69: false,
-//     createTx: true,
-//     network: bitcoinNetwork,
-//   });
+  const selected = selectUTXO(inputs, outputs, 'default', {
+    changeAddress: userNativeSegwitAddress,
+    feePerByte: feeRate,
+    bip69: false,
+    createTx: true,
+    network: bitcoinNetwork,
+  });
 
-//   if (!selected?.tx) throw new Error('Could not create Closing Transaction');
+  if (!selected?.tx) throw new Error('Could not create Closing Transaction');
 
-//   const closingPSBT = selected.tx.toPSBT();
+  const closingPSBT = selected.tx.toPSBT();
 
-//   return closingPSBT;
-// }
+  return closingPSBT;
+}
 
 /**
  * Broadcasts the Transaction to the Bitcoin Network.
@@ -314,17 +253,17 @@ export function createFundingTransactionInfo(
  * @param transaction - The Transaction to broadcast.
  * @returns A Promise that resolves to the Response from the Broadcast Request.
  */
-async function broadcastTransaction(transaction: Transaction): Promise<string> {
+export async function broadcastTransaction(transaction: string): Promise<string> {
   const bitcoinBlockchainAPIURL = process.env.BITCOIN_BLOCKCHAIN_API_URL;
 
   try {
     const response = await fetch(`${bitcoinBlockchainAPIURL}/tx`, {
       method: 'POST',
-      body: bytesToHex(transaction.extract()),
+      body: transaction,
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP Error! Status: ${response.status}`);
+      throw new Error(`HTTP Error! Status: ${await response.text()}`);
     }
 
     const transactionID = await response.text();
