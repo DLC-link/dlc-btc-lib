@@ -1,8 +1,8 @@
 /** @format */
 
 // test values for the integration tests
-export const TEST_BITCOIN_AMOUNT = 0.01;
-export const TEST_FEE_AMOUNT = 0.01;
+export const TEST_BITCOIN_AMOUNT = 0.001;
+export const TEST_FEE_AMOUNT = 0.1;
 export const TEST_ATTESTOR_PUBLIC_KEY = '4caaf4bb366239b0a8b7a5e5a44d043b5f66ae7364895317af8847ac6fadbd2b';
 export const TEST_FEE_PUBLIC_KEY = '03c9fc819e3c26ec4a58639add07f6372e810513f5d3d7374c25c65fdf1aefe4c5';
 export const TEST_VAULT_UUID = '0xcf5f227dd384a590362b417153876d9d22b31b2ed1e22065e270b82437cf1880';

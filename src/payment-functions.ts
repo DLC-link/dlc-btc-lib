@@ -2,8 +2,8 @@
 
 import { p2ms, p2tr, p2tr_ns, p2wpkh, p2wsh } from '@scure/btc-signer';
 import { BIP32Factory } from 'bip32';
-import { Network } from 'bitcoinjs-lib';
 import * as ecc from 'tiny-secp256k1';
+import { Network } from 'bitcoinjs-lib';
 import {
   DERIVATION_PATH_NATIVE_SEGWIT_FROM_CHILD,
   DERIVATION_PATH_NATIVE_SEGWIT_FROM_MASTER,
