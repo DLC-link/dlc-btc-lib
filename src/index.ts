@@ -28,7 +28,8 @@ import {
 import { BitGoAddress } from './models.js';
 import { getNativeSegwitPublicKeys, getTaprootMultisigScript, getTaprootPublicKeys } from './payment-functions.js';
 import { bitcoinToSats } from './utilities.js';
-import { createScripts, testLedger } from './ledger.js';
+import { testLedger } from './ledger_test.js';
+import { getScripts } from './ledger.js';
 
 dotenv.config();
 
@@ -213,7 +214,6 @@ async function getBitGoDetails() {
 async function main() {
   try {
     await testLedger();
-    // createScripts();
   } catch (error) {
     throw new Error(`Error running: ${error}`);
   }

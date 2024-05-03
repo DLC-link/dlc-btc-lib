@@ -34,6 +34,7 @@
     "@bitgo/sdk-api": "^1.45.1",
     "@bitgo/sdk-coin-btc": "^2.0.6",
     "@bitgo/sdk-core": "^26.8.0",
+    "@ledgerhq/hw-app-btc": "^10.2.4",
     "@ledgerhq/hw-transport-node-hid": "^6.28.6",
     "@noble/hashes": "^1.4.0",
     "@scure/base": "^1.1.6",
