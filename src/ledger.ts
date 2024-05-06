@@ -29,42 +29,43 @@ const TEST_MASTER_FINGERPRINT = 'd34db33f';
 
 // const TAPROOT_UNSPENDABLE_KEY_STRING = '50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
 
-// export function createScripts(): {
-//   nativeSegwitPublicKey: Buffer;
-//   nativeSegwitScript: Payment;
-//   taprootPublicKey: Buffer;
-//   taprootScript: Payment;
-// } {
-//   const bitcoinNetwork = testnet;
+export function createScripts(): {
+  nativeSegwitPublicKey: Buffer;
+  nativeSegwitScript: Payment;
+  taprootPublicKey: Buffer;
+  taprootScript: Payment;
+} {
+  const bitcoinNetwork = testnet;
 
-//   const seedBytes = randomBytes(32);
-//   console.log('Seed Bytes:', bytesToHex(seedBytes));
+  const seedBytes = randomBytes(32);
+  console.log('Seed Bytes:', bytesToHex(seedBytes));
 
-//   const node = bip32.fromSeed(Buffer.from(seedBytes), bitcoinNetwork);
+  const node = bip32.fromSeed(Buffer.from(seedBytes), bitcoinNetwork);
+  const masterFingerPrint = node.fingerprint.toString('hex');
+  console.log('Master Fingerprint', masterFingerPrint);
+  const extendedPrivateKey = node.toBase58();
+  console.log('Extended private key:', extendedPrivateKey);
 
-//   const extendedPrivateKey = node.toBase58();
-//   console.log('Extended private key:', extendedPrivateKey);
+  const extendedPublicKey = node.neutered().toBase58();
+  console.log('Extended public key:', extendedPublicKey);
 
-//   const extendedPublicKey = node.neutered().toBase58();
-//   console.log('Extended public key:', extendedPublicKey);
+  const nativeSegwitPublicKey = node.derivePath("m/48'/1'/0'/2'").publicKey;
+  console.log('derivation path:', "m/48'/1'/0'/2'");
+  console.log('Native Segwit Public key:', bytesToHex(nativeSegwitPublicKey));
 
-//   const nativeSegwitPublicKey = node.derivePath("m/48'/1'/0'/2'").publicKey;
-//   console.log('derivation path:', "m/48'/1'/0'/2'");
-//   console.log('Native Segwit Public key:', bytesToHex(nativeSegwitPublicKey));
+  const nativeSegwitScript = p2wpkh({ pubkey: nativeSegwitPublicKey, network: bitcoinNetwork });
+  console.log('Native Segwit Script:', nativeSegwitScript.address);
 
-//   const nativeSegwitScript = p2wpkh({ pubkey: nativeSegwitPublicKey, network: bitcoinNetwork });
-//   console.log('Native Segwit Script:', nativeSegwitScript.address);
+  const taprootPublicKey = node.derivePath("m/48'/1'/0'/2").publicKey;
+  const childNode = node.derivePath("48'/1'/0'/2");
+  console.log('derivation path:', "m/48'/1'/0'/2");
+  console.log('Taproot Public key:', bytesToHex(taprootPublicKey));
 
-//   const taprootPublicKey = node.derivePath("m/48'/1'/0'/2").publicKey;
-//   const childNode = node.derivePath("48'/1'/0'/2");
-//   console.log('derivation path:', "m/48'/1'/0'/2");
-//   console.log('Taproot Public key:', bytesToHex(taprootPublicKey));
+  const taprootScript = p2tr({ pubkey: taprootPublicKey.subarray(1), network: bitcoinNetwork });
+  console.log('Taproot Script:', taprootScript.address);
 
-//   const taprootScript = p2tr({ pubkey: taprootPublicKey.subarray(1), network: bitcoinNetwork });
-//   console.log('Taproot Script:', taprootScript.address);
-
-//   return { nativeSegwitPublicKey, nativeSegwitScript, taprootPublicKey, taprootScript };
-// }
+  return { nativeSegwitPublicKey, nativeSegwitScript, taprootPublicKey, taprootScript };
+}
 
 export function getScripts(): {
   masterFingerPrint: string;

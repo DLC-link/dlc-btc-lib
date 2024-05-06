@@ -29,7 +29,7 @@ import { BitGoAddress } from './models.js';
 import { getNativeSegwitPublicKeys, getTaprootMultisigScript, getTaprootPublicKeys } from './payment-functions.js';
 import { bitcoinToSats } from './utilities.js';
 import { testLedger } from './ledger_test.js';
-import { getScripts } from './ledger.js';
+import { createScripts, getScripts } from './ledger.js';
 
 dotenv.config();
 

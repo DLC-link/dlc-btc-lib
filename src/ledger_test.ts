@@ -16,6 +16,12 @@ const TEST_EXTENDED_PUBLIC_KEY =
 const TEST_MASTER_FINGERPRINT = '8400dc04';
 const TAPROOT_UNSPENDABLE_KEY_STRING = '50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
 
+const TEST_EXTENDED_PRIVATE_KEY_2 =
+  'tprv8ZgxMBicQKsPfJ6T1H5ErNLa1fZyj2fxCR7vRqVokCLvWg9JypYJoGVdvU6UNkj59o6qDdB97QFk7CQa2XnKZGSzQGhfoc4hCGXrviFuxwP';
+const TEST_EXTENDED_PUBLIC_KEY_2 =
+  'tpubD6NzVbkrYhZ4Ym8EtvjqFmzgah5utMrrmiihiMY7AU9KMAQ5cDMtym7W6ccSUinTVbDqK1Vno96HNhaqhS1DuVCrjHoFG9bFa3DKUUMErCv';
+const TEST_MASTER_FINGERPRINT_2 = 'b2cd3e18';
+
 initEccLib(ecc);
 const bip32 = BIP32Factory(ecc);
 
@@ -29,35 +35,40 @@ export async function main(transport: any) {
   const fpr = await ledgerApp.getMasterFingerprint();
 
   // ==> Register Taproot Multisig Wallet ##########################################################
-  const derivationPath = "86'/1'/0'/0/0";
+  const derivationPath = "86'/1'/0'";
 
   // ==> Get Ledger Derived Public Key
   const ledgerExtendedPublicKey = await ledgerApp.getExtendedPubkey(`m/${derivationPath}`);
-  const ledgerDerivedPublicKey = bip32
-    .fromBase58(ledgerExtendedPublicKey, testnet)
-    .publicKey.subarray(1)
-    .toString('hex');
-  console.log(`[Ledger][${bitcoinNetworkName}] Ledger Derived Public Key: ${ledgerDerivedPublicKey}`);
 
-  // ==> Get External Derived Public Key
-  const externalDerivedPublicKey = bip32
+  console.log(`[Ledger][${bitcoinNetworkName}] Ledger Extended Public Key: ${ledgerExtendedPublicKey}`);
+
+  // ==> Get External Derived Public Keys
+  const externalExtendedPublicKey1 = bip32
     .fromBase58(TEST_EXTENDED_PRIVATE_KEY, testnet)
     .derivePath(`m/${derivationPath}`)
     .neutered()
-    .publicKey.toString('hex');
+    .toBase58();
 
-  console.log(`[Ledger][${bitcoinNetworkName}] External Derived Public Key: ${externalDerivedPublicKey}`);
+  const externalExtendedPublicKey2 = bip32
+    .fromBase58(TEST_EXTENDED_PRIVATE_KEY_2, testnet)
+    .derivePath(`m/${derivationPath}`)
+    .neutered()
+    .toBase58();
+
+  console.log(`[Ledger][${bitcoinNetworkName}] External Extended Public Key: ${externalExtendedPublicKey1}`);
+  console.log(`[Ledger][${bitcoinNetworkName}] External Extended Public Key: ${externalExtendedPublicKey2}`);
 
   // ==> Create Key Info
   const ledgerKeyInfo = `[${fpr}/${derivationPath}]${ledgerExtendedPublicKey}`;
-  const externalKeyInfo = `[${TEST_MASTER_FINGERPRINT}/${derivationPath}]${externalDerivedPublicKey}`;
+  const externalKeyInfo1 = `[${TEST_MASTER_FINGERPRINT}/${derivationPath}]${externalExtendedPublicKey1}`;
+  const externalKeyInfo2 = `[${TEST_MASTER_FINGERPRINT_2}/${derivationPath}]${externalExtendedPublicKey2}`;
 
   // ==> Create Multisig Wallet Policy
   // I tried with both the keyInfo as you suggested in the example, and with the actual key, but it didn't work.
-  const multisigPolicy = new WalletPolicy('Multisig Taproot Wallet', `tr(@0,and_v(v:pk(@1),pk(@2)))`, [
-    TAPROOT_UNSPENDABLE_KEY_STRING,
-    externalDerivedPublicKey,
-    ledgerDerivedPublicKey,
+  const multisigPolicy = new WalletPolicy('Multisig Taproot Wallet', `tr(@0/**,and_v(v:pk(@1/**),pk(@2/**)))`, [
+    externalKeyInfo1,
+    externalKeyInfo2,
+    ledgerKeyInfo,
   ]);
 
   // ==> Register Wallet
