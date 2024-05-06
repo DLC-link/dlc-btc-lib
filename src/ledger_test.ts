@@ -9,11 +9,11 @@ import { initEccLib } from 'bitcoinjs-lib';
 
 type BitcoinNetworkName = 'Mainnet' | 'Testnet';
 
-const TEST_EXTENDED_PRIVATE_KEY =
+const TEST_EXTENDED_PRIVATE_KEY_1 =
   'tprv8ZgxMBicQKsPdUfw7LM946yzMWhPrDtmBpB3R5Czx3u98TB2bXgUnkGQbPrNaQ8VQsbjNYseSsggRETuFExqhHoAoqCbrcpVj8pWShR5eQy';
-const TEST_EXTENDED_PUBLIC_KEY =
+const TEST_EXTENDED_PUBLIC_KEY_1 =
   'tpubD6NzVbkrYhZ4Wwhizz1jTWe6vYDL1Z5fm7mphbFJNKhXxwRoDvW4yEtGmWJ6n9JE86wpvQsDpzn5t49uenYStgAqwgmKNjDe1D71TdAjy8o';
-const TEST_MASTER_FINGERPRINT = '8400dc04';
+const TEST_MASTER_FINGERPRINT_1 = '8400dc04';
 const TAPROOT_UNSPENDABLE_KEY_STRING = '50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
 
 const TEST_EXTENDED_PRIVATE_KEY_2 =
@@ -40,11 +40,9 @@ export async function main(transport: any) {
   // ==> Get Ledger Derived Public Key
   const ledgerExtendedPublicKey = await ledgerApp.getExtendedPubkey(`m/${derivationPath}`);
 
-  console.log(`[Ledger][${bitcoinNetworkName}] Ledger Extended Public Key: ${ledgerExtendedPublicKey}`);
-
   // ==> Get External Derived Public Keys
   const externalExtendedPublicKey1 = bip32
-    .fromBase58(TEST_EXTENDED_PRIVATE_KEY, testnet)
+    .fromBase58(TEST_EXTENDED_PRIVATE_KEY_1, testnet)
     .derivePath(`m/${derivationPath}`)
     .neutered()
     .toBase58();
@@ -55,22 +53,25 @@ export async function main(transport: any) {
     .neutered()
     .toBase58();
 
-  console.log(`[Ledger][${bitcoinNetworkName}] External Extended Public Key: ${externalExtendedPublicKey1}`);
-  console.log(`[Ledger][${bitcoinNetworkName}] External Extended Public Key: ${externalExtendedPublicKey2}`);
+  console.log(`[Ledger][${bitcoinNetworkName}] Ledger Extended Public Key: ${ledgerExtendedPublicKey}`);
+  console.log(`[Ledger][${bitcoinNetworkName}] External Extended Public Key 1: ${externalExtendedPublicKey1}`);
+  console.log(`[Ledger][${bitcoinNetworkName}] External Extended Public Key 2: ${externalExtendedPublicKey2}`);
 
   // ==> Create Key Info
   const ledgerKeyInfo = `[${fpr}/${derivationPath}]${ledgerExtendedPublicKey}`;
-  const externalKeyInfo1 = `[${TEST_MASTER_FINGERPRINT}/${derivationPath}]${externalExtendedPublicKey1}`;
-  const externalKeyInfo2 = `[${TEST_MASTER_FINGERPRINT_2}/${derivationPath}]${externalExtendedPublicKey2}`;
+
+  // We don't need to create the external key info, as we can use the extended public key directly.
+  // const externalKeyInfo1 = `[${TEST_MASTER_FINGERPRINT_1}/${derivationPath}]${externalExtendedPublicKey1}`;
+  // const externalKeyInfo2 = `[${TEST_MASTER_FINGERPRINT_2}/${derivationPath}]${externalExtendedPublicKey2}`;
 
   // ==> Create Multisig Wallet Policy
-  // I tried with both the keyInfo as you suggested in the example, and with the actual key, but it didn't work.
   const multisigPolicy = new WalletPolicy('Multisig Taproot Wallet', `tr(@0/**,and_v(v:pk(@1/**),pk(@2/**)))`, [
-    externalKeyInfo1,
-    externalKeyInfo2,
+    externalExtendedPublicKey1,
+    externalExtendedPublicKey2,
     ledgerKeyInfo,
   ]);
 
+  multisigPolicy.descriptorTemplate;
   // ==> Register Wallet
   const [policyId, policyHmac] = await ledgerApp.registerWallet(multisigPolicy);
 
