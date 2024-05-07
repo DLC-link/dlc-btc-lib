@@ -14,7 +14,6 @@ import {
   createClosingTransaction,
   createFundingTransaction,
   createMultisigTransaction,
-  getFeeRecipientAddress,
   getUTXOs,
 } from './bitcoin-functions.js';
 import {
