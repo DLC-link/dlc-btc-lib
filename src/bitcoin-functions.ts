@@ -80,18 +80,17 @@ export async function getUTXOs(
 export function createMultisigTransaction(
   userPublicKey: Uint8Array,
   attestorGroupPublicKey: Uint8Array,
-  internalPublicKey: Uint8Array,
   vaultUUID: string,
   bitcoinNetwork: Network
 ): P2TROut {
   const multisig = p2tr_ns(2, [userPublicKey, attestorGroupPublicKey]);
 
-  // const TAPROOT_UNSPENDABLE_KEY_STR = '50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
-  // const TAPROOT_UNSPENDABLE_KEY = hexToBytes(TAPROOT_UNSPENDABLE_KEY_STR);
+  const TAPROOT_UNSPENDABLE_KEY_STR = '50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
+  const TAPROOT_UNSPENDABLE_KEY = hexToBytes(TAPROOT_UNSPENDABLE_KEY_STR);
 
-  // const tweakedUnspendableWithUUID = taprootTweakPubkey(TAPROOT_UNSPENDABLE_KEY, Buffer.from(vaultUUID))[0];
-  const multisigTransaction = p2tr(internalPublicKey, multisig, bitcoinNetwork);
-  multisigTransaction.tapInternalKey = internalPublicKey;
+  const tweakedUnspendableWithUUID = taprootTweakPubkey(TAPROOT_UNSPENDABLE_KEY, Buffer.from(vaultUUID))[0];
+  const multisigTransaction = p2tr(tweakedUnspendableWithUUID, multisig, bitcoinNetwork);
+  multisigTransaction.tapInternalKey = tweakedUnspendableWithUUID;
 
   return multisigTransaction;
 }
