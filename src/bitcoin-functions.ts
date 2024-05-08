@@ -9,7 +9,7 @@ import { TransactionInput } from '@scure/btc-signer/psbt';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { BitcoinInputSigningConfig, PaymentTypes, UTXO } from './models/bitcoin-models.js';
-import { createRangeFromLength, isDefined, isUndefined } from './utilities.js';
+import { createRangeFromLength, isDefined, isUndefined, satsToBitcoin } from './utilities.js';
 
 const TAPROOT_UNSPENDABLE_KEY_HEX = '50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
 const ECDSA_PUBLIC_KEY_LENGTH = 33;
@@ -47,6 +47,22 @@ export async function getUTXOs(bitcoinNativeSegwitTransaction: P2Ret): Promise<a
     })
   );
   return modifiedUTXOs;
+}
+
+export async function getBalance(bitcoinAddress: string): Promise<number> {
+  const bitcoinBlockchainAPIURL = process.env.BITCOIN_BLOCKCHAIN_API_URL;
+
+  const utxoResponse = await fetch(`${bitcoinBlockchainAPIURL}/address/${bitcoinAddress}/utxo`);
+
+  if (!utxoResponse.ok) {
+    throw new Error(`Error getting UTXOs: ${utxoResponse.statusText}`);
+  }
+
+  const userUTXOs: UTXO[] = await utxoResponse.json();
+
+  const balanceInSats = userUTXOs.reduce((total, utxo) => total + utxo.value, 0);
+
+  return satsToBitcoin(balanceInSats);
 }
 
 /**

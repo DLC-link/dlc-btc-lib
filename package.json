@@ -49,6 +49,7 @@
     "ls-lint": "^0.1.2",
     "noble": "^1.9.1",
     "prettier-eslint": "^16.3.0",
+    "prompts": "^2.4.2",
     "scure": "^1.6.0",
     "tiny-secp256k1": "^2.2.3",
     "ts-unused-exports": "^10.0.1",

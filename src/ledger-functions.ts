@@ -7,9 +7,84 @@ import * as ellipticCurveCryptography from 'tiny-secp256k1';
 import { AppClient, DefaultWalletPolicy, WalletPolicy } from 'ledger-bitcoin';
 import { P2Ret, P2TROut, p2tr, p2tr_ns } from '@scure/btc-signer/payment';
 import { TEST_EXTENDED_PRIVATE_KEY_1, TEST_EXTENDED_PRIVATE_KEY_2 } from './constants.js';
+import { getBalance } from './bitcoin-functions.js';
+
+// @ts-ignore
+import prompts from 'prompts';
 
 initEccLib(ellipticCurveCryptography);
 const bip32 = BIP32Factory(ellipticCurveCryptography);
+
+export async function getLedgerAddressIndexAndDerivationPath(
+  ledgerApp: AppClient,
+  fpr: string,
+  bitcoinNetworkName: string,
+  bitcoinNetworkIndex: string,
+  paymentType: 'wpkh' | 'tr',
+  paymentDerivationPath: string
+) {
+  const nativeSegwitAddressesWithBalances = await getLedgerAddressesWithBalances(
+    ledgerApp,
+    fpr,
+    bitcoinNetworkName,
+    paymentType,
+    paymentDerivationPath,
+    bitcoinNetworkIndex
+  );
+
+  const addressSelectPrompt = await prompts({
+    type: 'select',
+    name: 'addressIndex',
+    message: `Select Native Segwit Address to withdraw from`,
+    choices: nativeSegwitAddressesWithBalances.map((address, index) => ({
+      title: `Address: ${address[0]} | Balance: ${address[1]}`,
+      value: index,
+    })),
+  });
+  const addressIndex = addressSelectPrompt.addressIndex;
+  const rootDerivationPath = `${paymentDerivationPath}/${bitcoinNetworkIndex}/${addressIndex}'`;
+
+  return { addressIndex, rootDerivationPath };
+}
+
+export async function getLedgerAddressesWithBalances(
+  ledgerApp: AppClient,
+  fpr: string,
+  bitcoinNetworkName: string,
+  paymentType: 'wpkh' | 'tr',
+  rootDerivationPath: string,
+  bitcoinNetworkIndex: string
+): Promise<[string, number][]> {
+  const indices = [0, 1, 2, 3, 4]; // Replace with your actual indices
+  const addresses = [];
+
+  for (const index of indices) {
+    const derivationPath = `${rootDerivationPath}/${bitcoinNetworkIndex}/${index}'`;
+    const extendedPublicKey = await ledgerApp.getExtendedPubkey(`m${derivationPath}`);
+
+    const accountPolicy = new DefaultWalletPolicy(
+      `${paymentType}(@0/**)`,
+      `[${fpr}/${derivationPath}]${extendedPublicKey}`
+    );
+
+    const address = await ledgerApp.getWalletAddress(accountPolicy, null, 0, 0, false);
+
+    addresses.push(address);
+
+    console.log(
+      `[Ledger][${bitcoinNetworkName}] Retrieving ${paymentType === 'wpkh' ? 'Native Segwit' : 'Taproot'} Addresses ${index + 1} / ${indices.length}`
+    );
+  }
+
+  const addressesWithBalances = await Promise.all(
+    addresses.map(async (address) => {
+      const balance = await getBalance(address); // Replace with your actual function to get balance
+      return [address, balance] as [string, number];
+    })
+  );
+
+  return addressesWithBalances;
+}
 
 export async function getNativeSegwitAccount(
   ledgerApp: AppClient,
@@ -23,8 +98,6 @@ export async function getNativeSegwitAccount(
   nativeSegwitDerivedPublicKey: Buffer;
   nativeSegwitPayment: P2Ret;
 }> {
-  // ==> Get Ledger Master Fingerprint
-
   // ==> Get Ledger First Native Segwit Extended Public Key
   const ledgerFirstNativeSegwitExtendedPublicKey = await ledgerApp.getExtendedPubkey(
     `m${rootNativeSegwitDerivationPath}`

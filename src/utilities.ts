@@ -10,6 +10,14 @@ export function bitcoinToSats(value: number): number {
   return decimalShiftedValue;
 }
 
+export function satsToBitcoin(value: number): number {
+  const decimalPoweredShift = new Decimal(10 ** 8);
+  const decimalValue = new Decimal(Number(value));
+  const decimalShiftedValue = decimalValue.div(decimalPoweredShift).toNumber();
+
+  return decimalShiftedValue;
+}
+
 export function createRangeFromLength(length: number) {
   return [...Array(length).keys()];
 }

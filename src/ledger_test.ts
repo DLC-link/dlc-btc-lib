@@ -3,6 +3,7 @@
 import Transport from '@ledgerhq/hw-transport-node-hid';
 import { Network, bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { AppClient } from 'ledger-bitcoin';
+
 import {
   NATIVE_SEGWIT_DERIVATION_PATH,
   TAPROOT_DERIVATION_PATH,
@@ -11,9 +12,14 @@ import {
   TEST_FEE_PUBLIC_KEY,
   TEST_FEE_RATE,
 } from './constants.js';
-import { getNativeSegwitAccount, getTaprootMultisigAccount } from './ledger-functions.js';
-import { handleClosingTransaction, handleFundingTransaction } from './psbt-functions.js';
+import {
+  getLedgerAddressIndexAndDerivationPath,
+  getLedgerAddressesWithBalances,
+  getNativeSegwitAccount,
+  getTaprootMultisigAccount,
+} from './ledger-functions.js';
 import { BitcoinNetworkName } from './models/bitcoin-models.js';
+import { handleClosingTransaction, handleFundingTransaction } from './psbt-functions.js';
 
 function getBitcoinNetwork(): [BitcoinNetworkName, Network, string] {
   const { BITCOIN_NETWORK } = process.env;
@@ -33,7 +39,6 @@ export async function runLedger() {
     // ==> Get Bitcoin Network
     const [bitcoinNetworkName, bitcoinNetwork, bitcoinNetworkIndex] = getBitcoinNetwork();
     const rootTaprootDerivationPath = `${TAPROOT_DERIVATION_PATH}/${bitcoinNetworkIndex}/0'`;
-    const rootNativeSegwitDerivationPath = `${NATIVE_SEGWIT_DERIVATION_PATH}/${bitcoinNetworkIndex}/0'`;
 
     // ==> Get Transport from Ledger
     const transport = await Transport.default.create();
@@ -43,6 +48,20 @@ export async function runLedger() {
 
     // ==> Get Ledger Master Fingerprint
     const fpr = await ledgerApp.getMasterFingerprint();
+
+    const { addressIndex: nativeSegwitAddressIndex, rootDerivationPath: rootNativeSegwitDerivationPath } =
+      await getLedgerAddressIndexAndDerivationPath(
+        ledgerApp,
+        fpr,
+        bitcoinNetworkName,
+        bitcoinNetworkIndex,
+        'wpkh',
+        NATIVE_SEGWIT_DERIVATION_PATH
+      );
+
+    console.log(
+      `[Ledger][${bitcoinNetworkName}] Selected Native Segwit Address Index: ${[nativeSegwitAddressIndex][0]}`
+    );
 
     // ==> Get Native Segwit Account
     const { lednerNativeSegwitAccountPolicy, nativeSegwitAddress, nativeSegwitDerivedPublicKey, nativeSegwitPayment } =
