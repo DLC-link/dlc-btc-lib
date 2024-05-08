@@ -10,7 +10,7 @@ import {
   DERIVATION_PATH_TAPROOT_FROM_CHILD,
   DERIVATION_PATH_TAPROOT_FROM_MASTER,
 } from './constants.js';
-import { BitGoAddress } from './models.js';
+import { BitGoAddress } from './models/bitgo-models.js';
 
 const bip32 = BIP32Factory(ecc);
 
