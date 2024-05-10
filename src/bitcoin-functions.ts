@@ -9,7 +9,7 @@ import { TransactionInput } from '@scure/btc-signer/psbt';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { BitcoinInputSigningConfig, PaymentTypes, UTXO } from './models/bitcoin-models.js';
-import { createRangeFromLength, isDefined, isUndefined, satsToBitcoin } from './utilities.js';
+import { createRangeFromLength, isDefined, isUndefined, unshiftValue } from './utilities.js';
 
 const TAPROOT_UNSPENDABLE_KEY_HEX = '50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
 const ECDSA_PUBLIC_KEY_LENGTH = 33;
@@ -62,7 +62,7 @@ export async function getBalance(bitcoinAddress: string): Promise<number> {
 
   const balanceInSats = userUTXOs.reduce((total, utxo) => total + utxo.value, 0);
 
-  return satsToBitcoin(balanceInSats);
+  return unshiftValue(balanceInSats);
 }
 
 /**

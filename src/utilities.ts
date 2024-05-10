@@ -1,8 +1,9 @@
 /** @format */
 
 import { Decimal } from 'decimal.js';
+import { Vault } from './models/ethereum-models.js';
 
-export function bitcoinToSats(value: number): number {
+export function shiftValue(value: number): number {
   const decimalPoweredShift = new Decimal(10 ** 8);
   const decimalValue = new Decimal(Number(value));
   const decimalShiftedValue = decimalValue.mul(decimalPoweredShift).toNumber();
@@ -10,12 +11,29 @@ export function bitcoinToSats(value: number): number {
   return decimalShiftedValue;
 }
 
-export function satsToBitcoin(value: number): number {
+export function unshiftValue(value: number): number {
   const decimalPoweredShift = new Decimal(10 ** 8);
   const decimalValue = new Decimal(Number(value));
   const decimalShiftedValue = decimalValue.div(decimalPoweredShift).toNumber();
 
   return decimalShiftedValue;
+}
+
+export function customShiftValue(value: number, shift: number, unshift: boolean): number {
+  const decimalPoweredShift = new Decimal(10 ** shift);
+  const decimalValue = new Decimal(Number(value));
+  const decimalShiftedValue = unshift
+    ? decimalValue.div(decimalPoweredShift).toNumber()
+    : decimalValue.mul(decimalPoweredShift).toNumber();
+
+  return decimalShiftedValue;
+}
+
+export function truncateAddress(address: string): string {
+  const truncationLength = 4;
+  const prefix = address.substring(0, truncationLength);
+  const suffix = address.substring(address.length - truncationLength);
+  return `${prefix}...${suffix}`;
 }
 
 export function createRangeFromLength(length: number) {
@@ -28,6 +46,10 @@ export function isUndefined(value: unknown): value is undefined {
 
 export function isDefined<T>(argument: T | undefined): argument is T {
   return !isUndefined(argument);
+}
+
+export async function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function reverseBytes(bytes: Buffer): Buffer;

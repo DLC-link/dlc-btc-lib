@@ -9,7 +9,7 @@ import {
   getUTXOs,
 } from './bitcoin-functions.js';
 import { BitcoinInputSigningConfig, PaymentTypes } from './models/bitcoin-models.js';
-import { bitcoinToSats, reverseBytes } from './utilities.js';
+import { shiftValue, reverseBytes } from './utilities.js';
 import { P2Ret, P2TROut, p2wpkh } from '@scure/btc-signer/payment';
 import { Transaction, selectUTXO } from '@scure/btc-signer';
 import { AppClient, WalletPolicy } from 'ledger-bitcoin';
@@ -163,9 +163,9 @@ export async function createFundingTransaction(
   feeBasisPoints: number
 ): Promise<Uint8Array> {
   const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
-  const feeRecipientOutputValue = BigInt(bitcoinToSats(bitcoinAmount) * feeBasisPoints);
+  const feeRecipientOutputValue = BigInt(shiftValue(bitcoinAmount) * feeBasisPoints);
 
-  const outputValue = BigInt(bitcoinToSats(bitcoinAmount));
+  const outputValue = BigInt(shiftValue(bitcoinAmount));
 
   const userUTXOs = await getUTXOs(bitcoinNativeSegwitTransaction);
 
@@ -229,7 +229,7 @@ export function createClosingTransaction(
       txid: hexToBytes(fundingTransactionID),
       index: 0,
       witnessUtxo: {
-        amount: BigInt(bitcoinToSats(bitcoinAmount)),
+        amount: BigInt(shiftValue(bitcoinAmount)),
         script: multisigTransaction.script,
       },
       ...multisigTransaction,
@@ -239,7 +239,7 @@ export function createClosingTransaction(
   const outputs = [
     {
       address: feeAddress,
-      amount: BigInt(bitcoinToSats(bitcoinAmount) * feeBasisPoints),
+      amount: BigInt(shiftValue(bitcoinAmount) * feeBasisPoints),
     },
   ];
 

@@ -1,8 +1,6 @@
 /** @format */
 
-import Transport from '@ledgerhq/hw-transport-node-hid';
 import { Network, bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
-import { AppClient } from 'ledger-bitcoin';
 
 import {
   NATIVE_SEGWIT_DERIVATION_PATH,
@@ -13,22 +11,23 @@ import {
   TEST_FEE_RATE,
 } from './constants.js';
 import {
+  LEDGER_APPS_MAP,
   getLedgerAddressIndexAndDerivationPath,
-  getLedgerAddressesWithBalances,
+  getLedgerApp,
   getNativeSegwitAccount,
   getTaprootMultisigAccount,
 } from './ledger-functions.js';
 import { BitcoinNetworkName } from './models/bitcoin-models.js';
 import { handleClosingTransaction, handleFundingTransaction } from './psbt-functions.js';
 
-function getBitcoinNetwork(): [BitcoinNetworkName, Network, string] {
+function getBitcoinNetwork(): [BitcoinNetworkName, Network, string, string] {
   const { BITCOIN_NETWORK } = process.env;
 
   switch (BITCOIN_NETWORK) {
     case 'Mainnet':
-      return ['Mainnet', bitcoin, "0'"];
+      return ['Mainnet', bitcoin, "0'", LEDGER_APPS_MAP.BITCOIN_MAINNET];
     case 'Testnet':
-      return ['Testnet', testnet, "1'"];
+      return ['Testnet', testnet, "1'", LEDGER_APPS_MAP.BITCOIN_TESTNET];
     default:
       throw new Error('Invalid Bitcoin Network');
   }
@@ -37,14 +36,16 @@ function getBitcoinNetwork(): [BitcoinNetworkName, Network, string] {
 export async function runLedger() {
   try {
     // ==> Get Bitcoin Network
-    const [bitcoinNetworkName, bitcoinNetwork, bitcoinNetworkIndex] = getBitcoinNetwork();
+    const [bitcoinNetworkName, bitcoinNetwork, bitcoinNetworkIndex, ledgerAppName] = getBitcoinNetwork();
+
     const rootTaprootDerivationPath = `${TAPROOT_DERIVATION_PATH}/${bitcoinNetworkIndex}/0'`;
 
-    // ==> Get Transport from Ledger
-    const transport = await Transport.default.create();
+    // ==> Open Ledger App
+    const ledgerApp = await getLedgerApp(ledgerAppName);
 
-    // ==> Create a new instance of the AppClient
-    const ledgerApp = new AppClient(transport);
+    if (!ledgerApp) {
+      throw new Error(`[Ledger][${bitcoinNetworkName}] Could not open Ledger ${ledgerAppName} App`);
+    }
 
     // ==> Get Ledger Master Fingerprint
     const fpr = await ledgerApp.getMasterFingerprint();
@@ -109,6 +110,7 @@ export async function runLedger() {
       TEST_FEE_PUBLIC_KEY,
       TEST_FEE_AMOUNT
     );
+    console.log(`[Ledger][${bitcoinNetworkName}] Signed Funding and Closing Transaction`);
 
     ledgerApp.transport.close();
   } catch (error) {
