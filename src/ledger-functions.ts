@@ -8,9 +8,9 @@ import { Network, initEccLib } from 'bitcoinjs-lib';
 import { AppClient, DefaultWalletPolicy, WalletPolicy } from 'ledger-bitcoin';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 import {
-  broadcastTransaction,
+  // broadcastTransaction,
   getBalance,
-  getBitcoinNetwork,
+  // getBitcoinNetwork,
   getUnspendableKeyCommittedToUUID,
 } from './bitcoin-functions.js';
 import { LEDGER_APPS_MAP, NATIVE_SEGWIT_DERIVATION_PATH, TAPROOT_DERIVATION_PATH, TEST_FEE_RATE } from './constants.js';
@@ -19,10 +19,10 @@ type TransportInstance = Awaited<ReturnType<typeof Transport.default.create>>;
 
 import prompts from 'prompts';
 
-import { createPSBTEvent, getAttestorURLs, getExtendedAttestorGroupPublicKey } from './attestor-functions.js';
-import { LedgerError } from './models/errors.js';
-import { RawVault } from './models/ethereum-models.js';
-import { handleClosingTransaction, handleFundingTransaction } from './psbt-functions.js';
+// import { createPSBTEvent, getAttestorURLs, getExtendedAttestorGroupPublicKey } from './attestor-functions.js';
+// import { LedgerError } from './models/errors.js';
+// import { RawVault } from './models/ethereum-models.js';
+// import { handleClosingTransaction, handleFundingTransaction } from './psbt-functions.js';
 import { delay, truncateAddress } from './utilities.js';
 
 initEccLib(ellipticCurveCryptography);
@@ -69,7 +69,8 @@ export async function getLedgerAddressIndexAndDerivationPath(
   bitcoinNetworkName: string,
   bitcoinNetworkIndex: string,
   paymentType: 'wpkh' | 'tr',
-  paymentDerivationPath: string
+  paymentDerivationPath: string,
+  bitcoinBlockchainAPIURL: string
 ) {
   const nativeSegwitAddressesWithBalances = await getLedgerAddressesWithBalances(
     ledgerApp,
@@ -77,7 +78,8 @@ export async function getLedgerAddressIndexAndDerivationPath(
     bitcoinNetworkName,
     paymentType,
     paymentDerivationPath,
-    bitcoinNetworkIndex
+    bitcoinNetworkIndex,
+    bitcoinBlockchainAPIURL
   );
 
   const addressSelectPrompt = await prompts({
@@ -101,7 +103,8 @@ export async function getLedgerAddressesWithBalances(
   bitcoinNetworkName: string,
   paymentType: 'wpkh' | 'tr',
   rootDerivationPath: string,
-  bitcoinNetworkIndex: string
+  bitcoinNetworkIndex: string,
+  bitcoinBlockchainAPIURL: string
 ): Promise<[string, number][]> {
   const indices = [0, 1, 2, 3, 4]; // Replace with your actual indices
   const addresses = [];
@@ -127,7 +130,7 @@ export async function getLedgerAddressesWithBalances(
 
   const addressesWithBalances = await Promise.all(
     addresses.map(async (address) => {
-      const balance = await getBalance(address); // Replace with your actual function to get balance
+      const balance = await getBalance(address, bitcoinBlockchainAPIURL); // Replace with your actual function to get balance
       return [address, balance] as [string, number];
     })
   );
@@ -228,8 +231,8 @@ export async function getTaprootMultisigAccount(
   //   .neutered()
   //   .toBase58();
 
-  const attestorURLs = getAttestorURLs();
-  const attestorExtendedPublicKey = await getExtendedAttestorGroupPublicKey(attestorURLs[0]);
+  // const attestorURLs = getAttestorURLs();
+  // const attestorExtendedPublicKey = await getExtendedAttestorGroupPublicKey(attestorURLs[0]);
 
   console.log(`[Ledger][${bitcoinNetworkName}] Ledger Extended Public Key: ${ledgerExtendedPublicKey}`);
   console.log(`[Ledger][${bitcoinNetworkName}] Unspendable Extended Public Key: ${unspendableExtendedPublicKey}`);
@@ -303,7 +306,7 @@ export async function getTaprootMultisigAccount(
   };
 }
 
-export async function signFundingAndClosingTransactionWithLedger(userVault: RawVault) {
+export async function signFundingAndClosingTransactionWithLedger(userVault: RawVault, bitcoinBlockchainAPIURL: string) {
   try {
     // ==> Get Bitcoin Network
     const [bitcoinNetworkName, bitcoinNetwork, bitcoinNetworkIndex, ledgerAppName] = getBitcoinNetwork();
@@ -327,7 +330,8 @@ export async function signFundingAndClosingTransactionWithLedger(userVault: RawV
         bitcoinNetworkName,
         bitcoinNetworkIndex,
         'wpkh',
-        NATIVE_SEGWIT_DERIVATION_PATH
+        NATIVE_SEGWIT_DERIVATION_PATH,
+        bitcoinBlockchainAPIURL
       );
 
     console.log(

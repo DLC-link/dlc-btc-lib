@@ -248,24 +248,17 @@ export async function getVault(
   throw new EthereumError(`Failed to fetch Vault ${vaultUUID} after ${maxRetries} retries`);
 }
 
-// async function getAllFundedVaults(ethereumNetwork: EthereumNetwork): Promise<RawVault[]> {
-//   try {
-//     const dlcManagerContract = await getDefaultProvider(ethereumNetwork, 'DLCManager');
-//     const vaults: RawVault[] = await dlcManagerContract.getFundedDLCs(0, 10000);
-//     const filteredVaults = vaults.filter(
-//       (vault) => vault.uuid != '0x0000000000000000000000000000000000000000000000000000000000000000'
-//     );
-//     return filteredVaults;
-//   } catch (error) {
-//     throw new EthereumError(`Could not fetch Funded Vaults: ${error}`);
-//   }
-// }
+export async function getRawVault(protocolContract: Contract, vaultUUID: string): Promise<RawVault> {
+  const vault: RawVault = await protocolContract.getVault(vaultUUID);
+  if (!vault) throw new Error('Vault is undefined');
+  return vault;
+}
 
 export async function setupVault(
   protocolContract: Contract,
   ethereumNetworkName: string,
   btcDepositAmount: number
-): Promise<string | undefined> {
+): Promise<any | undefined> {
   try {
     const shiftedBtcDepositAmount = shiftValue(btcDepositAmount);
     await protocolContract.callStatic.setupVault(shiftedBtcDepositAmount);
@@ -287,5 +280,35 @@ export async function closeVault(protocolContract: Contract, ethereumNetworkName
     return transactionReceipt;
   } catch (error: any) {
     throw new EthereumError(`Could not close Vault: ${error}`);
+  }
+}
+
+async function getDefaultProvider(ethereumNetwork: EthereumNetwork, contractName: string): Promise<ethers.Contract> {
+  try {
+    const ethereumNetworkName = ethereumNetwork.name.toLowerCase();
+    const provider = ethers.providers.getDefaultProvider(ethereumNetwork.defaultNodeURL);
+
+    const repositoryBranchName = process.env.ETHEREUM_DEPLOYMENT_BRANCH;
+
+    const deploymentPlanURL = `${SOLIDITY_CONTRACT_URL}/${repositoryBranchName}/deploymentFiles/${ethereumNetworkName}/${contractName}.json`;
+
+    const response = await fetch(deploymentPlanURL);
+    const contractData = await response.json();
+
+    const protocolContract = new ethers.Contract(contractData.contract.address, contractData.contract.abi, provider);
+
+    return protocolContract;
+  } catch (error) {
+    throw new EthereumError(`Could not get Default Provider: ${error}}`);
+  }
+}
+
+export async function getAttestorGroupPublicKey(ethereumNetwork: EthereumNetwork): Promise<string> {
+  try {
+    const dlcManagerContract = await getDefaultProvider(ethereumNetwork, 'DLCManager');
+    const attestorGroupPubKey = await dlcManagerContract.attestorGroupPubKey();
+    return attestorGroupPubKey;
+  } catch (error) {
+    throw new EthereumError(`Could not fetch Attestor Public Key: ${error}`);
   }
 }

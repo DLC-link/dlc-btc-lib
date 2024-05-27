@@ -19,6 +19,14 @@ export interface BitcoinInputSigningConfig {
   index: number;
 }
 
+export interface FeeRates {
+  fastestFee: number;
+  halfHourFee: number;
+  hourFee: number;
+  economyFee: number;
+  minimumFee: number;
+}
+
 export type PaymentTypes = 'p2pkh' | 'p2sh' | 'p2wpkh-p2sh' | 'p2wpkh' | 'p2tr';
 
-export type BitcoinNetworkName = 'Mainnet' | 'Testnet';
+export type BitcoinNetworkName = 'Mainnet' | 'Testnet' | 'Regtest';
