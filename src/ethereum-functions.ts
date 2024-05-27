@@ -1,11 +1,10 @@
 /** @format */
+import chalk from 'chalk';
 import { Contract, ethers } from 'ethers';
-import { DisplayVault, EthereumError, RawVault, Vault, VaultState } from './models/ethereum-models.js';
-import { customShiftValue, delay, shiftValue, truncateAddress, unshiftValue } from './utilities.js';
-import { Logger } from 'ethers/lib/utils.js';
-import { EthereumNetwork, ethereumArbitrumSepolia, ethereumArbitrum } from './ethereum-network.js';
-import { fetchVault } from './prompt-functions.js';
-
+import { EthereumNetwork, ethereumArbitrum, ethereumArbitrumSepolia } from './ethereum-network.js';
+import { EthereumError } from './models/errors.js';
+import { DisplayVault, ExtendedDisplayVault, RawVault, VaultState } from './models/ethereum-models.js';
+import { customShiftValue, shiftValue, truncateAddress, unshiftValue } from './utilities.js';
 const SOLIDITY_CONTRACT_URL = 'https://raw.githubusercontent.com/DLC-link/dlc-solidity';
 
 interface EthereumContracts {
@@ -20,39 +19,35 @@ interface EthereumInformation {
   ethereumUserAddress: string;
 }
 
-function formatVault(vault: RawVault): Vault {
+export function formatVaultToDisplay(vault: RawVault): DisplayVault {
   return {
     uuid: vault.uuid,
-    timestamp: vault.timestamp.toNumber(),
+    truncatedUUID: truncateAddress(vault.uuid),
+    state: VaultState[vault.status],
     collateral: unshiftValue(vault.valueLocked.toNumber()),
-    state: vault.status,
-    userPublicKey: vault.taprootPubKey,
-    fundingTX: vault.fundingTxId,
-    closingTX: vault.closingTxId,
+    createdAt: new Date(vault.timestamp.toNumber() * 1000).toLocaleDateString('en-US'),
+  };
+}
+
+export function formatVaultDetailsToDisplay(vault: RawVault): ExtendedDisplayVault {
+  return {
+    uuid: vault.uuid,
+    protocolContract: vault.protocolContract,
+    timestamp: vault.timestamp.toNumber(),
+    valueLocked: vault.valueLocked.toNumber(),
+    creator: vault.creator,
+    status: vault.status,
+    fundingTxId: vault.fundingTxId,
+    closingTxId: vault.closingTxId,
     btcFeeRecipient: vault.btcFeeRecipient,
-    btcMintFeeBasisPoints: customShiftValue(vault.btcMintFeeBasisPoints.toNumber(), 4, true),
-    btcRedeemFeeBasisPoints: customShiftValue(vault.btcRedeemFeeBasisPoints.toNumber(), 4, true),
+    btcMintFeeBasisPoints: vault.btcMintFeeBasisPoints.toNumber(),
+    btcRedeemFeeBasisPoints: vault.btcRedeemFeeBasisPoints.toNumber(),
     taprootPubKey: vault.taprootPubKey,
   };
 }
 
-export function formatVaultToDisplay(vault: Vault): DisplayVault {
-  return {
-    uuid: vault.uuid,
-    truncatedUUID: truncateAddress(vault.uuid),
-    state: VaultState[vault.state],
-    collateral: vault.collateral,
-    createdAt: new Date(vault.timestamp * 1000).toLocaleDateString('en-US'),
-  };
-}
-
-export function formatVaultsToDisplay(vaults: Vault[]): DisplayVault[] {
+export function formatVaultsToDisplay(vaults: RawVault[]): DisplayVault[] {
   return vaults.map(formatVaultToDisplay);
-}
-
-// @ts-ignore
-export function throwEthereumError(message: string, error: Error): void {
-  throw new EthereumError(`ETHEREUMERROROCSKA`);
 }
 
 export async function setupEthereum(): Promise<EthereumInformation> {
@@ -120,6 +115,7 @@ async function getEthereumObserverProvider(
       if (!ethereumObserverJSONRPCEndpoint) {
         throw new EthereumError(`Could not get Observer Provider: Ethereum Observer Node Endpoint not set`);
       }
+
       return new ethers.providers.JsonRpcProvider(ethereumObserverJSONRPCEndpoint);
     default:
       throw new EthereumError(`Could not get Observer Provider: Invalid type ${type}`);
@@ -185,25 +181,30 @@ export async function getEthereumContracts(): Promise<EthereumContracts> {
 //   }
 // }
 
-// async function getLockedBTCBalance(): Promise<number | undefined> {
-//   try {
-//     const totalCollateral = vaults.fundedVaults.reduce((sum: number, vault: Vault) => sum + vault.collateral, 0);
-//     return Number(totalCollateral.toFixed(5));
-//   } catch (error) {
-//     throwEthereumError(`Could not fetch locked BTC balance: `, error);
-//   }
-// }
+export async function getLockedBTCBalance(userVaults: RawVault[]): Promise<number | undefined> {
+  try {
+    const fundedVaults = userVaults.filter((vault) => vault.status === VaultState.Funded);
+    const totalCollateral = fundedVaults.reduce(
+      (sum: number, vault: RawVault) => sum + vault.valueLocked.toNumber(),
+      0
+    );
+    return Number(unshiftValue(totalCollateral));
+  } catch (error) {
+    throw new EthereumError(`Could not fetch locked BTC balance: ${error}`);
+  }
+}
 
-// async function getDLCBTCBalance(): Promise<number | undefined> {
-//   try {
-//     if (!dlcBTCContract) throw new Error('Protocol contract not initialized');
-//     await dlcBTCContract.callStatic.balanceOf(address);
-//     const dlcBTCBalance = customShiftValue(await dlcBTCContract.balanceOf(address), 8, true);
-//     return dlcBTCBalance;
-//   } catch (error) {
-//     throwEthereumError(`Could not fetch dlcBTC balance: `, error);
-//   }
-// }
+export async function getDLCBTCBalance(
+  dlcBTCContract: Contract,
+  ethereumUserAddress: string
+): Promise<number | undefined> {
+  try {
+    const dlcBTCBalance = customShiftValue(await dlcBTCContract.balanceOf(ethereumUserAddress), 8, true);
+    return dlcBTCBalance;
+  } catch (error) {
+    throw new EthereumError(`Could not fetch dlcBTC balance: ${error}`);
+  }
+}
 
 // async function getAttestorGroupPublicKey(ethereumNetwork: EthereumNetwork): Promise<string> {
 //   try {
@@ -215,12 +216,10 @@ export async function getEthereumContracts(): Promise<EthereumContracts> {
 //   }
 // }
 
-export async function getAllVaults(protocolContract: Contract, ethereumUserAddress: string): Promise<Vault[]> {
+export async function getAllVaults(protocolContract: Contract, ethereumUserAddress: string): Promise<RawVault[]> {
   try {
     await protocolContract.callStatic.getAllVaultsForAddress(ethereumUserAddress);
-    const vaults: RawVault[] = await protocolContract.getAllVaultsForAddress(ethereumUserAddress);
-    const formattedVaults: Vault[] = vaults.map(formatVault);
-    return formattedVaults;
+    return await protocolContract.getAllVaultsForAddress(ethereumUserAddress);
   } catch (error) {
     throw new EthereumError(`Could not fetch Vaults: ${error}`);
   }
@@ -232,15 +231,14 @@ export async function getVault(
   vaultState: VaultState,
   retryInterval = 5000,
   maxRetries = 10
-): Promise<Vault> {
+): Promise<RawVault> {
   for (let i = 0; i < maxRetries; i++) {
     try {
       if (!observerProtocolContract) throw new Error('Protocol contract not initialized');
       const vault: RawVault = await observerProtocolContract.getVault(vaultUUID);
       if (!vault) throw new Error('Vault is undefined');
       if (vault.status !== vaultState) throw new Error('Vault is not in the correct state');
-      const formattedVault: Vault = formatVault(vault);
-      return formattedVault;
+      return vault;
     } catch (error) {
       // eslint-disable-next-line no-console
       console.log(`Vault with uuid: ${vaultUUID} is not yet updated. Retrying...`);
@@ -276,7 +274,7 @@ export async function setupVault(
     const transactionReceipt = await transaction.wait();
     return transactionReceipt;
   } catch (error: any) {
-    throwEthereumError(`Could not setup Vault: `, error);
+    throw new EthereumError(`Could not setup Vault: ${error}`);
   }
 }
 
@@ -284,10 +282,10 @@ export async function closeVault(protocolContract: Contract, ethereumNetworkName
   try {
     await protocolContract.callStatic.closeVault(vaultUUID);
     const transaction = await protocolContract.closeVault(vaultUUID);
-    const transactionReceipt = await transaction.wait();
     console.log(`[Ethereum][${ethereumNetworkName}] Closing Vault ${vaultUUID}...`);
+    const transactionReceipt = await transaction.wait();
     return transactionReceipt;
   } catch (error: any) {
-    throwEthereumError(`Could not close Vault: `, error);
+    throw new EthereumError(`Could not close Vault: ${error}`);
   }
 }

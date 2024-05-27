@@ -2,24 +2,25 @@
 
 // @ts-ignore
 import prompts from 'prompts';
-import { DisplayVault, Vault, VaultState } from './models/ethereum-models.js';
+import { DisplayVault, RawVault, VaultState } from './models/ethereum-models.js';
 import { Contract } from 'ethers';
 import {
   closeVault,
+  formatVaultDetailsToDisplay,
   formatVaultToDisplay,
   formatVaultsToDisplay,
   getAllVaults,
   getVault,
-  setupEthereum,
   setupVault,
 } from './ethereum-functions.js';
-import { runLedger } from './ledger_test.js';
+import chalk from 'chalk';
+import { signFundingAndClosingTransactionWithLedger } from './ledger-functions.js';
 
 enum CommandChoices {
-  SHOW_ALL_VAULTS = 'Show All Vaults',
+  SHOW_ALL_VAULTS = 'Show Vaults',
   CREATE_VAULT = 'Create Vault',
   CLOSE_VAULT = 'Close Vault',
-  FUND_VAULT = 'Fund Vault',
+  FUND_VAULT = 'Lock Bitcoin',
   HANDLE_VAULT = 'Handle Vault',
   SHOW_VAULT_DETAILS = 'Show Vault Details',
   MAIN_MENU = 'Main Menu',
@@ -36,16 +37,19 @@ export async function showMenu(protocolContract: Contract, ethereumNetworkName: 
   try {
     let command = await selectFromMenu();
     do {
-      if (command.command === CommandChoices.MAIN_MENU) {
+      try {
+        if (command.command === CommandChoices.MAIN_MENU) {
+          command = await selectFromMenu();
+        } else if (command.command !== CommandChoices.EXIT) {
+          command = await callFunctionByCommand(command, protocolContract, ethereumNetworkName, ethereumUserAddress);
+        }
+      } catch (error) {
+        console.error(chalk.bgRed(`[Error]: ${error}`));
         command = await selectFromMenu();
-      } else if (command.command !== CommandChoices.EXIT) {
-        command = await callFunctionByCommand(command, protocolContract, ethereumNetworkName, ethereumUserAddress);
       }
     } while (command.command !== CommandChoices.EXIT);
 
-    if (command.command === CommandChoices.EXIT) {
-      process.exit(0);
-    }
+    process.exit(0);
   } catch (error) {
     console.error(`Error: ${error}`);
     process.exit(1);
@@ -66,7 +70,7 @@ export async function callFunctionByCommand(
     case CommandChoices.CLOSE_VAULT:
       return requestVaultClosing(protocolContract, ethereumNetworkName, command.vaultUUID!);
     case CommandChoices.FUND_VAULT:
-      return fundVault();
+      return fundVault(protocolContract, command.vaultUUID!, command.vaultState!);
     case CommandChoices.HANDLE_VAULT:
       return fetchVault(protocolContract, command.vaultUUID!, command.vaultState!);
     default:
@@ -90,8 +94,6 @@ export async function selectFromMenu(): Promise<Command> {
 export async function showAllVaults(protocolContract: Contract, ethereumUserAddress: string) {
   const userVaults = await getAllVaults(protocolContract, ethereumUserAddress);
 
-  let displayFormattedVaults: DisplayVault[] = [];
-
   const filterVaults = await prompts({
     type: 'select',
     name: 'filter',
@@ -105,18 +107,14 @@ export async function showAllVaults(protocolContract: Contract, ethereumUserAddr
     ],
   });
 
-  console.log('Filtering Vaults', filterVaults.filter);
-  if (filterVaults.filter === 'All') {
-    displayFormattedVaults = formatVaultsToDisplay(userVaults);
-  } else {
-    displayFormattedVaults = formatVaultsToDisplay(userVaults.filter((vault) => vault.state === filterVaults.filter));
-  }
+  const displayFormattedVaults = formatVaultsToDisplay(
+    filterVaults.filter === 'All' ? userVaults : userVaults.filter((vault) => vault.status === filterVaults.filter)
+  );
 
   const selectVault = await prompts({
     type: 'select',
     name: 'vault',
     message: 'Select a Vault to View Actions or Go Back to Main Menu',
-    oncancel: () => ({ command: CommandChoices.MAIN_MENU }),
     choices: displayFormattedVaults
       .map((vault: DisplayVault) => ({
         title: `UUID: ${vault.uuid} | State: ${vault.state} | Collateral: ${vault.collateral} BTC | Created At: ${vault.createdAt}`,
@@ -124,11 +122,11 @@ export async function showAllVaults(protocolContract: Contract, ethereumUserAddr
       }))
       .concat({ title: 'Go Back to Main Menu', value: CommandChoices.MAIN_MENU }),
   });
-  const choice = selectVault.vault;
-  if (choice === CommandChoices.MAIN_MENU) {
-    console.log('Going back to Main Menu');
+
+  if (selectVault.vault === CommandChoices.MAIN_MENU) {
     return { command: CommandChoices.MAIN_MENU };
   }
+
   const selectVaultIndex = userVaults.findIndex((vault) => vault.uuid === selectVault.vault);
   if (selectVaultIndex === -1) {
     throw new Error('Invalid Vault Selection');
@@ -137,7 +135,7 @@ export async function showAllVaults(protocolContract: Contract, ethereumUserAddr
   return {
     command: CommandChoices.HANDLE_VAULT,
     vaultUUID: selectVault.vault,
-    vaultState: userVaults[selectVaultIndex].state,
+    vaultState: userVaults[selectVaultIndex].status,
   };
 }
 
@@ -147,10 +145,13 @@ export async function fetchVault(protocolContract: Contract, vaultUUID: string, 
 
   let choices;
 
-  switch (vault.state) {
+  switch (vault.status) {
     case VaultState.Ready:
       choices = [
-        { title: 'Fund the Vault', value: { command: CommandChoices.FUND_VAULT } },
+        {
+          title: 'Fund the Vault',
+          value: { command: CommandChoices.FUND_VAULT, vaultUUID: vaultUUID, vaultState: vault.status },
+        },
         { title: 'Show Vault Details', value: { command: CommandChoices.SHOW_VAULT_DETAILS } },
         { title: 'Go Back to Main Menu', value: { command: CommandChoices.MAIN_MENU } },
       ];
@@ -159,7 +160,7 @@ export async function fetchVault(protocolContract: Contract, vaultUUID: string, 
       choices = [
         {
           title: 'Close the Vault',
-          value: { command: CommandChoices.CLOSE_VAULT, vaultUUID: vaultUUID, vaultState: vault.state },
+          value: { command: CommandChoices.CLOSE_VAULT, vaultUUID: vaultUUID, vaultState: vault.status },
         },
         { title: 'Show Vault Details', value: { command: CommandChoices.SHOW_VAULT_DETAILS } },
         { title: 'Go Back to Main Menu', value: { command: CommandChoices.MAIN_MENU } },
@@ -188,7 +189,7 @@ export async function fetchVault(protocolContract: Contract, vaultUUID: string, 
     choice = selectAction.vault;
 
     if (choice.command === CommandChoices.SHOW_VAULT_DETAILS) {
-      console.log('Vault Details:', vault);
+      console.log('Vault Details:', formatVaultDetailsToDisplay(vault));
     }
   } while (choice.command === CommandChoices.SHOW_VAULT_DETAILS);
 
@@ -242,8 +243,8 @@ export async function requestVaultClosing(protocolContract: Contract, ethereumNe
   return { command: CommandChoices.HANDLE_VAULT, vaultUUID: vaultUUID, vaultState: VaultState.Closing };
 }
 
-export async function fundVault() {
-  await runLedger();
-
+export async function fundVault(protocolContract: Contract, vaultUUID: string, vaultState: VaultState) {
+  const vault = await getVault(protocolContract, vaultUUID, vaultState);
+  await signFundingAndClosingTransactionWithLedger(vault);
   return { command: CommandChoices.MAIN_MENU };
 }

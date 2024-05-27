@@ -10,20 +10,6 @@ export enum VaultState {
   'Funding',
 }
 
-export interface Vault {
-  uuid: string;
-  timestamp: number;
-  collateral: number;
-  state: number;
-  userPublicKey: string;
-  fundingTX: string;
-  closingTX: string;
-  btcFeeRecipient: string;
-  btcMintFeeBasisPoints: number;
-  btcRedeemFeeBasisPoints: number;
-  taprootPubKey: string;
-}
-
 export interface RawVault {
   uuid: string;
   protocolContract: string;
@@ -47,9 +33,17 @@ export interface DisplayVault {
   createdAt: string;
 }
 
-export class EthereumError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'EthereumError';
-  }
+export interface ExtendedDisplayVault {
+  uuid: string;
+  protocolContract: string;
+  timestamp: number;
+  valueLocked: number;
+  creator: string;
+  status: number;
+  fundingTxId: string;
+  closingTxId: string;
+  btcFeeRecipient: string;
+  btcMintFeeBasisPoints: number;
+  btcRedeemFeeBasisPoints: number;
+  taprootPubKey: string;
 }

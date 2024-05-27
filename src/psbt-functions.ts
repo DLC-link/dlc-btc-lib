@@ -1,6 +1,11 @@
 /** @format */
 
+import { hexToBytes } from '@noble/hashes/utils';
+import { Transaction, selectUTXO } from '@scure/btc-signer';
+import { P2Ret, P2TROut, p2wpkh } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
+import { AppClient, WalletPolicy } from 'ledger-bitcoin';
+import { PartialSignature } from 'ledger-bitcoin/build/main/lib/appClient.js';
 import {
   createBitcoinInputSigningConfiguration,
   ecdsaPublicKeyToSchnorr,
@@ -9,18 +14,14 @@ import {
   getUTXOs,
 } from './bitcoin-functions.js';
 import { BitcoinInputSigningConfig, PaymentTypes } from './models/bitcoin-models.js';
-import { shiftValue, reverseBytes } from './utilities.js';
-import { P2Ret, P2TROut, p2wpkh } from '@scure/btc-signer/payment';
-import { Transaction, selectUTXO } from '@scure/btc-signer';
-import { AppClient, WalletPolicy } from 'ledger-bitcoin';
-import { hexToBytes } from '@noble/hashes/utils';
-import { PartialSignature } from 'ledger-bitcoin/build/main/lib/appClient.js';
+import { BitcoinError } from './models/errors.js';
+import { reverseBytes } from './utilities.js';
 
 export async function handleFundingTransaction(
   ledgerApp: AppClient,
   bitcoinNetwork: Network,
   bitcoinNetworkName: string,
-  bitcoinAmount: number,
+  bitcoinAmount: bigint,
   fpr: string,
   multisigPayment: P2Ret,
   nativeSegwitDerivedPublicKey: Buffer,
@@ -28,61 +29,65 @@ export async function handleFundingTransaction(
   nativeSegwitWalletPolicy: WalletPolicy,
   feeRate: bigint,
   feeRecipientPublicKey: string,
-  feeAmount: number
+  feeAmount: bigint
 ): Promise<Transaction> {
-  // ==> Create Funding Transaction
-  const fundingPSBT = await createFundingTransaction(
-    bitcoinAmount,
-    bitcoinNetwork,
-    multisigPayment.address!,
-    nativeSegwitPayment,
-    feeRate,
-    feeRecipientPublicKey,
-    feeAmount
-  );
+  try {
+    // ==> Create Funding Transaction
+    const fundingPSBT = await createFundingTransaction(
+      bitcoinAmount,
+      bitcoinNetwork,
+      multisigPayment.address!,
+      nativeSegwitPayment,
+      feeRate,
+      feeRecipientPublicKey,
+      feeAmount
+    );
 
-  // ==> Update Funding PSBT with Ledger related information
-  const signingConfiguration = createBitcoinInputSigningConfiguration(fundingPSBT, bitcoinNetwork);
+    // ==> Update Funding PSBT with Ledger related information
+    const signingConfiguration = createBitcoinInputSigningConfiguration(fundingPSBT, bitcoinNetwork);
 
-  const formattedFundingPSBT = Psbt.fromBuffer(Buffer.from(fundingPSBT), {
-    network: bitcoinNetwork,
-  });
+    const formattedFundingPSBT = Psbt.fromBuffer(Buffer.from(fundingPSBT), {
+      network: bitcoinNetwork,
+    });
 
-  const inputByPaymentTypeArray = getInputByPaymentTypeArray(
-    signingConfiguration,
-    formattedFundingPSBT.toBuffer(),
-    bitcoinNetwork
-  );
+    const inputByPaymentTypeArray = getInputByPaymentTypeArray(
+      signingConfiguration,
+      formattedFundingPSBT.toBuffer(),
+      bitcoinNetwork
+    );
 
-  const nativeSegwitInputsToSign = getNativeSegwitInputsToSign(inputByPaymentTypeArray);
+    const nativeSegwitInputsToSign = getNativeSegwitInputsToSign(inputByPaymentTypeArray);
 
-  await updateNativeSegwitInputs(nativeSegwitInputsToSign, nativeSegwitDerivedPublicKey, fpr, formattedFundingPSBT);
+    await updateNativeSegwitInputs(nativeSegwitInputsToSign, nativeSegwitDerivedPublicKey, fpr, formattedFundingPSBT);
 
-  // ==> Sign Funding PSBT with Ledger
-  const fundingTransactionSignatures = await ledgerApp.signPsbt(
-    formattedFundingPSBT.toBase64(),
-    nativeSegwitWalletPolicy,
-    null
-  );
+    // ==> Sign Funding PSBT with Ledger
+    const fundingTransactionSignatures = await ledgerApp.signPsbt(
+      formattedFundingPSBT.toBase64(),
+      nativeSegwitWalletPolicy,
+      null
+    );
 
-  console.log(`[Ledger][${bitcoinNetworkName}] Funding PSBT Ledger Signatures:`, fundingTransactionSignatures);
+    console.log(`[Ledger][${bitcoinNetworkName}] Funding PSBT Ledger Signatures:`, fundingTransactionSignatures);
 
-  addNativeSegwitSignaturesToPSBT(formattedFundingPSBT, fundingTransactionSignatures);
+    addNativeSegwitSignaturesToPSBT(formattedFundingPSBT, fundingTransactionSignatures);
 
-  // ==> Finalize Funding Transaction
-  const fundingTransaction = Transaction.fromPSBT(formattedFundingPSBT.toBuffer());
-  fundingTransaction.finalize();
+    // ==> Finalize Funding Transaction
+    const fundingTransaction = Transaction.fromPSBT(formattedFundingPSBT.toBuffer());
+    fundingTransaction.finalize();
 
-  console.log(`[Ledger][${bitcoinNetworkName}] Funding Transaction Signed By Ledger:`, fundingTransaction);
+    console.log(`[Ledger][${bitcoinNetworkName}] Funding Transaction Signed By Ledger:`, fundingTransaction);
 
-  return fundingTransaction;
+    return fundingTransaction;
+  } catch (error) {
+    throw new BitcoinError(`Error handling Funding Transaction: ${error}`);
+  }
 }
 
 export async function handleClosingTransaction(
   ledgerApp: AppClient,
   bitcoinNetwork: Network,
   bitcoinNetworkName: string,
-  bitcoinAmount: number,
+  bitcoinAmount: bigint,
   fpr: string,
   fundingTransaction: Transaction,
   multisigPayment: P2TROut,
@@ -92,53 +97,53 @@ export async function handleClosingTransaction(
   nativeSegwitPayment: P2Ret,
   feeRate: bigint,
   feeRecipientPublicKey: string,
-  feeAmount: number
-): Promise<Uint8Array> {
-  // ==> Create Closing PSBT
-  const closingPSBT = createClosingTransaction(
-    bitcoinAmount,
-    bitcoinNetwork,
-    fundingTransaction.id,
-    multisigPayment,
-    nativeSegwitPayment.address!,
-    feeRate,
-    feeRecipientPublicKey,
-    feeAmount
-  );
+  feeAmount: bigint
+): Promise<string> {
+  try {
+    // ==> Create Closing PSBT
+    const closingPSBT = createClosingTransaction(
+      bitcoinAmount,
+      bitcoinNetwork,
+      fundingTransaction.id,
+      multisigPayment,
+      nativeSegwitPayment.address!,
+      feeRate,
+      feeRecipientPublicKey,
+      feeAmount
+    );
 
-  // ==> Update Closing PSBT with Ledger related information
-  const closingTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(closingPSBT, bitcoinNetwork);
+    // ==> Update Closing PSBT with Ledger related information
+    const closingTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(closingPSBT, bitcoinNetwork);
 
-  const formattedClosingPSBT = Psbt.fromBuffer(Buffer.from(closingPSBT), {
-    network: bitcoinNetwork,
-  });
+    const formattedClosingPSBT = Psbt.fromBuffer(Buffer.from(closingPSBT), {
+      network: bitcoinNetwork,
+    });
 
-  const closingInputByPaymentTypeArray = getInputByPaymentTypeArray(
-    closingTransactionSigningConfiguration,
-    formattedClosingPSBT.toBuffer(),
-    bitcoinNetwork
-  );
+    const closingInputByPaymentTypeArray = getInputByPaymentTypeArray(
+      closingTransactionSigningConfiguration,
+      formattedClosingPSBT.toBuffer(),
+      bitcoinNetwork
+    );
 
-  const taprootInputsToSign = getTaprootInputsToSign(closingInputByPaymentTypeArray);
+    const taprootInputsToSign = getTaprootInputsToSign(closingInputByPaymentTypeArray);
 
-  updateTaprootInputs(taprootInputsToSign, multisigLedgerDerivedPublicKey, fpr, formattedClosingPSBT);
+    updateTaprootInputs(taprootInputsToSign, multisigLedgerDerivedPublicKey, fpr, formattedClosingPSBT);
 
-  // ==> Sign Closing PSBT with Ledger
-  const closingTransactionSignatures = await ledgerApp.signPsbt(
-    formattedClosingPSBT.toBase64(),
-    multisigPolicy,
-    multisigHMac
-  );
+    // ==> Sign Closing PSBT with Ledger
+    const closingTransactionSignatures = await ledgerApp.signPsbt(
+      formattedClosingPSBT.toBase64(),
+      multisigPolicy,
+      multisigHMac
+    );
 
-  console.log(`[Ledger][${bitcoinNetworkName}] Closing PSBT Ledger Signatures:`, closingTransactionSignatures);
+    console.log(`[Ledger][${bitcoinNetworkName}] Closing PSBT Ledger Signatures:`, closingTransactionSignatures);
 
-  addTaprootInputSignaturesToPSBT(formattedClosingPSBT, closingTransactionSignatures);
+    addTaprootInputSignaturesToPSBT(formattedClosingPSBT, closingTransactionSignatures);
 
-  const closingTransaction = Transaction.fromPSBT(formattedClosingPSBT.toBuffer());
-
-  console.log(`[Ledger][${bitcoinNetworkName}] Closing Transaction Partially Signed By Ledger:`, closingTransaction);
-
-  return closingTransaction.toPSBT();
+    return formattedClosingPSBT.toHex();
+  } catch (error) {
+    throw new BitcoinError(`Error handling Closing Transaction: ${error}`);
+  }
 }
 
 /**
@@ -154,23 +159,21 @@ export async function handleClosingTransaction(
  * @returns The Funding Transaction.
  */
 export async function createFundingTransaction(
-  bitcoinAmount: number,
+  bitcoinAmount: bigint,
   bitcoinNetwork: Network,
   multisigAddress: string,
   bitcoinNativeSegwitTransaction: P2Ret,
   feeRate: bigint,
   feePublicKey: string,
-  feeBasisPoints: number
+  feeBasisPoints: bigint
 ): Promise<Uint8Array> {
   const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
-  const feeRecipientOutputValue = BigInt(shiftValue(bitcoinAmount) * feeBasisPoints);
-
-  const outputValue = BigInt(shiftValue(bitcoinAmount));
+  const feeRecipientOutputValue = bitcoinAmount / feeBasisPoints;
 
   const userUTXOs = await getUTXOs(bitcoinNativeSegwitTransaction);
 
   const psbtOutputs = [
-    { address: multisigAddress, amount: outputValue },
+    { address: multisigAddress, amount: bitcoinAmount },
     {
       address: feeAddress,
       amount: feeRecipientOutputValue,
@@ -210,26 +213,28 @@ export async function createFundingTransaction(
  * @returns The Closing Transaction.
  */
 export function createClosingTransaction(
-  bitcoinAmount: number,
+  bitcoinAmount: bigint,
   bitcoinNetwork: Network,
   fundingTransactionID: string,
   multisigTransaction: P2TROut,
   userNativeSegwitAddress: string,
   feeRate: bigint,
   feePublicKey: string,
-  feeBasisPoints: number
+  feeBasisPoints: bigint
 ): Uint8Array {
   const feePublicKeyBuffer = Buffer.from(feePublicKey, 'hex');
   const { address: feeAddress } = p2wpkh(feePublicKeyBuffer, bitcoinNetwork);
 
   if (!feeAddress) throw new Error('Could not create Fee Address');
 
+  console.log('multisigTransaction:', multisigTransaction);
+
   const inputs = [
     {
       txid: hexToBytes(fundingTransactionID),
       index: 0,
       witnessUtxo: {
-        amount: BigInt(shiftValue(bitcoinAmount)),
+        amount: bitcoinAmount,
         script: multisigTransaction.script,
       },
       ...multisigTransaction,
@@ -239,7 +244,7 @@ export function createClosingTransaction(
   const outputs = [
     {
       address: feeAddress,
-      amount: BigInt(shiftValue(bitcoinAmount) * feeBasisPoints),
+      amount: bitcoinAmount / feeBasisPoints,
     },
   ];
 
@@ -414,5 +419,9 @@ export function addNativeSegwitSignaturesToPSBT(psbt: Psbt, signatures: [number,
  * @returns The updated PSBT.
  */
 export function addTaprootInputSignaturesToPSBT(psbt: Psbt, signatures: [number, PartialSignature][]) {
-  signatures.forEach(([index, signature]) => psbt.updateInput(index, { tapKeySig: signature.signature }));
+  signatures.forEach(([index, signature]) =>
+    psbt.updateInput(index, {
+      tapScriptSig: [{ signature: signature.signature, pubkey: signature.pubkey, leafHash: signature.tapleafHash! }],
+    })
+  );
 }

@@ -1,7 +1,6 @@
 /** @format */
 
 import { Decimal } from 'decimal.js';
-import { Vault } from './models/ethereum-models.js';
 
 export function shiftValue(value: number): number {
   const decimalPoweredShift = new Decimal(10 ** 8);

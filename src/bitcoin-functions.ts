@@ -6,13 +6,38 @@ import { taprootTweakPubkey } from '@scure/btc-signer/utils';
 import { Transaction } from '@scure/btc-signer';
 import { Address, OutScript, P2Ret, P2TROut, p2ms, p2pk, p2tr, p2tr_ns, p2wpkh } from '@scure/btc-signer/payment';
 import { TransactionInput } from '@scure/btc-signer/psbt';
-import { Network } from 'bitcoinjs-lib';
-import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
-import { BitcoinInputSigningConfig, PaymentTypes, UTXO } from './models/bitcoin-models.js';
+import { Network, initEccLib } from 'bitcoinjs-lib';
+import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
+import { BitcoinInputSigningConfig, BitcoinNetworkName, PaymentTypes, UTXO } from './models/bitcoin-models.js';
 import { createRangeFromLength, isDefined, isUndefined, unshiftValue } from './utilities.js';
+import { LEDGER_APPS_MAP } from './constants.js';
+import { BitcoinError } from './models/errors.js';
+import { BIP32Factory } from 'bip32';
+import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
-const TAPROOT_UNSPENDABLE_KEY_HEX = '50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
+const TAPROOT_UNSPENDABLE_KEY_HEX = '0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
 const ECDSA_PUBLIC_KEY_LENGTH = 33;
+
+initEccLib(ellipticCurveCryptography);
+const bip32 = BIP32Factory(ellipticCurveCryptography);
+
+/**
+ * Gets the Bitcoin Network to use.
+ * @returns The Bitcoin Network to use.
+ */
+export function getBitcoinNetwork(): [BitcoinNetworkName, Network, string, string] {
+  ``;
+  const { BITCOIN_NETWORK } = process.env;
+
+  switch (BITCOIN_NETWORK) {
+    case 'Mainnet':
+      return ['Mainnet', bitcoin, "0'", LEDGER_APPS_MAP.BITCOIN_MAINNET];
+    case 'Testnet':
+      return ['Testnet', testnet, "1'", LEDGER_APPS_MAP.BITCOIN_TESTNET];
+    default:
+      throw new BitcoinError('Invalid Bitcoin Network');
+  }
+}
 
 /**
  * Gets the UTXOs of the User's Native Segwit Address.
@@ -26,7 +51,7 @@ export async function getUTXOs(bitcoinNativeSegwitTransaction: P2Ret): Promise<a
   const utxoResponse = await fetch(`${bitcoinBlockchainAPIURL}/address/${bitcoinNativeSegwitTransaction.address}/utxo`);
 
   if (!utxoResponse.ok) {
-    throw new Error(`Error getting UTXOs: ${utxoResponse.statusText}`);
+    throw new BitcoinError(`Error getting UTXOs: ${utxoResponse.statusText}`);
   }
 
   const userUTXOs = await utxoResponse.json();
@@ -55,7 +80,7 @@ export async function getBalance(bitcoinAddress: string): Promise<number> {
   const utxoResponse = await fetch(`${bitcoinBlockchainAPIURL}/address/${bitcoinAddress}/utxo`);
 
   if (!utxoResponse.ok) {
-    throw new Error(`Error getting UTXOs: ${utxoResponse.statusText}`);
+    throw new BitcoinError(`Error getting UTXOs: ${utxoResponse.statusText}`);
   }
 
   const userUTXOs: UTXO[] = await utxoResponse.json();
@@ -74,7 +99,7 @@ export async function getBalance(bitcoinAddress: string): Promise<number> {
 export function getFeeRecipientAddressFromPublicKey(feePublicKey: string, bitcoinNetwork: Network): string {
   const feePublicKeyBuffer = Buffer.from(feePublicKey, 'hex');
   const { address } = p2wpkh(feePublicKeyBuffer, bitcoinNetwork);
-  if (!address) throw new Error('Could not create Fee Address');
+  if (!address) throw new BitcoinError('Could not create Fee Address from Public Key');
   return address;
 }
 
@@ -129,7 +154,7 @@ export async function broadcastTransaction(transaction: string): Promise<string>
     });
 
     if (!response.ok) {
-      throw new Error(`Error while broadcasting Bitcoin Transaction: ${await response.text()}`);
+      throw new BitcoinError(`Error while broadcasting Bitcoin Transaction: ${await response.text()}`);
     }
 
     const transactionID = await response.text();
@@ -138,6 +163,16 @@ export async function broadcastTransaction(transaction: string): Promise<string>
   } catch (error) {
     throw new Error(`Error broadcasting Transaction: ${error}`);
   }
+}
+
+// create extended public key from public key
+export function getUnspendableKeyCommittedToUUID(vaultUUID: string, bitcoinNetwork: Network) {
+  const publicKeyBuffer = Buffer.from(TAPROOT_UNSPENDABLE_KEY_HEX, 'hex');
+  const chainCodeBuffer = Buffer.from(vaultUUID.slice(2), 'hex');
+
+  const derivedPublicKey = bip32.fromPublicKey(publicKeyBuffer, chainCodeBuffer, bitcoinNetwork).toBase58();
+
+  return derivedPublicKey;
 }
 
 /**
@@ -149,7 +184,7 @@ export async function broadcastTransaction(transaction: string): Promise<string>
 export function getInputPaymentType(index: number, input: TransactionInput, bitcoinNetwork: Network): PaymentTypes {
   const bitcoinAddress = getBitcoinInputAddress(index, input, bitcoinNetwork);
 
-  if (bitcoinAddress === '') throw new Error('Bitcoin Address is empty');
+  if (bitcoinAddress === '') throw new BitcoinError('Bitcoin Address is empty');
   if (bitcoinAddress.startsWith('bc1p') || bitcoinAddress.startsWith('tb1p') || bitcoinAddress.startsWith('bcrt1p'))
     return 'p2tr';
   if (bitcoinAddress.startsWith('bc1q') || bitcoinAddress.startsWith('tb1q') || bitcoinAddress.startsWith('bcrt1q'))
@@ -198,11 +233,11 @@ export function getAddressFromOutScript(script: Uint8Array, bitcoinNetwork: Netw
       return p2pk(outputScript.pubkey, bitcoinNetwork).address ?? '';
     case 'tr_ms':
     case 'tr_ns':
-      throw new Error('Unsupported Script Type');
+      throw new BitcoinError('Unsupported Script Type');
     case 'unknown':
-      throw new Error('Unknown Script Type');
+      throw new BitcoinError('Unknown Script Type');
     default:
-      throw new Error('Unsupported Script Type');
+      throw new BitcoinError('Unsupported Script Type');
   }
 }
 
@@ -225,11 +260,12 @@ export function createBitcoinInputSigningConfiguration(
       taprootDerivationPath = "m/86'/0'/0'/0/0";
       break;
     case testnet:
+    case regtest:
       nativeSegwitDerivationPath = "m/84'/1'/0'/0/0";
-      taprootDerivationPath = "m/86'/1'/0'/0/0";
+      taprootDerivationPath = `0/0`;
       break;
     default:
-      throw new Error('Unsupported Bitcoin Network');
+      throw new BitcoinError('Unsupported Bitcoin Network');
   }
 
   const transaction = Transaction.fromPSBT(psbt);
@@ -252,7 +288,7 @@ export function createBitcoinInputSigningConfiguration(
           derivationPath: taprootDerivationPath,
         };
       default:
-        throw new Error('Unsupported Payment Type');
+        throw new BitcoinError('Unsupported Payment Type');
     }
   });
 }
