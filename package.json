@@ -3,7 +3,8 @@
   "name": "dlc-btc-bridge-app",
   "version": "1.0.0",
   "description": "",
-  "main": "index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "clean": "rm -rf dist && rm -rf node_modules",
     "build": "tsc",
