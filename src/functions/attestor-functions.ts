@@ -1,6 +1,6 @@
 /** @format */
 
-import { AttestorError } from './models/errors.js';
+import { AttestorError } from '../models/errors.js';
 
 export async function getExtendedAttestorGroupPublicKey(attestorURL: string): Promise<string> {
   const attestorExtendedPublicKeyEndpoint = `${attestorURL}/tss/get-extended-group-publickey`;

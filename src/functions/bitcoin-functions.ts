@@ -2,12 +2,12 @@
 import { Address, OutScript, Transaction, p2ms, p2pk, p2tr, p2tr_ns, p2wpkh } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { TransactionInput } from '@scure/btc-signer/psbt';
-import { BIP32Factory } from 'bip32';
+import { BIP32Factory, BIP32Interface } from 'bip32';
 import { Network } from 'bitcoinjs-lib';
-import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
+import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
-import { BitcoinInputSigningConfig, FeeRates, PaymentTypes, UTXO } from './models/bitcoin-models.js';
-import { createRangeFromLength, isDefined, isUndefined, unshiftValue } from './utilities.js';
+import { BitcoinInputSigningConfig, FeeRates, PaymentTypes, UTXO } from '../models/bitcoin-models.js';
+import { createRangeFromLength, isDefined, isUndefined, unshiftValue } from '../utilities.js';
 
 const TAPROOT_UNSPENDABLE_KEY_HEX = '0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
 const ECDSA_PUBLIC_KEY_LENGTH = 33;
@@ -15,16 +15,55 @@ const ECDSA_PUBLIC_KEY_LENGTH = 33;
 const bip32 = BIP32Factory(ellipticCurveCryptography);
 
 /**
- * Gets the derived public key from the extended public key.
- * @param extendedPublicKey - The Extended Public Key.
+ * Derives the Public Key at the Unhardened Path (0/0) from a given Extended Public Key.
+ * @param extendedPublicKey - The base58-encoded Extended Public Key.
  * @param bitcoinNetwork - The Bitcoin Network to use.
- * @returns The Derived Public Key.
+ * @returns The Public Key derived at the Unhardened Path.
  */
-export function getDerivedPublicKey(extendedPublicKey: string, bitcoinNetwork: Network): Buffer {
+export function deriveUnhardenedPublicKey(extendedPublicKey: string, bitcoinNetwork: Network): Buffer {
   return bip32.fromBase58(extendedPublicKey, bitcoinNetwork).derivePath('0/0').publicKey;
 }
 
-function getXOnlyPublicKey(publicKey: Buffer): Buffer {
+/**
+ * Derives the Account Key Pair from the Root Private Key.
+ * @param rootPrivateKey - The Root Private Key.
+ * @param bitcoinNetwork - The Bitcoin Network to use.
+ * @param paymentType - The Payment Type to use.
+ * @param accountIndex - The Account Index to use.
+ * @returns The Account Key Pair.
+ */
+export function deriveUnhardenedKeyPairFromRootPrivateKey(
+  rootPrivateKey: string,
+  bitcoinNetwork: Network,
+  paymentType: 'p2tr' | 'p2wpkh',
+  accountIndex: number
+): BIP32Interface {
+  switch (bitcoinNetwork) {
+    case bitcoin:
+      switch (paymentType) {
+        case 'p2wpkh':
+          return bip32.fromBase58(rootPrivateKey, bitcoinNetwork).derivePath(`m/84'/0'/${accountIndex}'/0/0`);
+        case 'p2tr':
+          return bip32.fromBase58(rootPrivateKey, bitcoinNetwork).derivePath(`m/86'/0'/${accountIndex}'/0/0`);
+        default:
+          throw new Error('Unsupported Payment Type');
+      }
+    case testnet:
+    case regtest:
+      switch (paymentType) {
+        case 'p2wpkh':
+          return bip32.fromBase58(rootPrivateKey, bitcoinNetwork).derivePath(`m/84'/1'/${accountIndex}'/0/0`);
+        case 'p2tr':
+          return bip32.fromBase58(rootPrivateKey, bitcoinNetwork).derivePath(`m/86'/1'/${accountIndex}'/0/0`);
+        default:
+          throw new Error('Unsupported Payment Type');
+      }
+    default:
+      throw new Error('Unsupported Bitcoin Network');
+  }
+}
+
+export function getXOnlyPublicKey(publicKey: Buffer): Buffer {
   return publicKey.length === 32 ? publicKey : publicKey.subarray(1);
 }
 
@@ -271,24 +310,13 @@ function getAddressFromOutScript(script: Uint8Array, bitcoinNetwork: Network): s
  */
 export function createBitcoinInputSigningConfiguration(
   psbt: Uint8Array,
-  derivationPath: string,
+  walletAccountIndex: number,
   bitcoinNetwork: Network
 ): BitcoinInputSigningConfig[] {
-  let nativeSegwitDerivationPath = '';
-  let taprootDerivationPath = '';
+  const networkIndex = bitcoinNetwork === bitcoin ? 0 : 1;
 
-  switch (bitcoinNetwork) {
-    case bitcoin:
-      nativeSegwitDerivationPath = `m/${derivationPath}/0/0`;
-      taprootDerivationPath = `m/${derivationPath}/0/0`;
-      break;
-    case testnet:
-      nativeSegwitDerivationPath = `m/${derivationPath}/0/0`;
-      taprootDerivationPath = `m/${derivationPath}/0/0`;
-      break;
-    default:
-      throw new Error('Unsupported Bitcoin Network');
-  }
+  const nativeSegwitDerivationPath = `m/84'/${networkIndex}'/${walletAccountIndex}'/0/0`;
+  const taprootDerivationPath = `m/86'/${networkIndex}'/${walletAccountIndex}'/0/0`;
 
   const transaction = Transaction.fromPSBT(psbt);
   const indexesToSign = createRangeFromLength(transaction.inputsLength);

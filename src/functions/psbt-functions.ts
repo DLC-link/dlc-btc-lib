@@ -4,10 +4,10 @@ import { p2wpkh, selectUTXO } from '@scure/btc-signer';
 import { Network, Psbt } from 'bitcoinjs-lib';
 import { PartialSignature } from 'ledger-bitcoin/build/main/lib/appClient.js';
 
-import { ecdsaPublicKeyToSchnorr, getFeeRecipientAddressFromPublicKey, getUTXOs } from './bitcoin-functions.js';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
-import { BitcoinInputSigningConfig, PaymentTypes } from './models/bitcoin-models.js';
-import { reverseBytes } from './utilities.js';
+import { BitcoinInputSigningConfig, PaymentTypes } from '../models/bitcoin-models.js';
+import { reverseBytes } from '../utilities.js';
+import { ecdsaPublicKeyToSchnorr, getFeeRecipientAddressFromPublicKey, getUTXOs } from './bitcoin-functions.js';
 
 /**
  * Creates a Funding Transaction to fund the Multisig Transaction.

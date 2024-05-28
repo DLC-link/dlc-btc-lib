@@ -1,17 +1,21 @@
 /** @format */
 
-import dotenv from 'dotenv';
-import { getAttestorGroupPublicKey, getRawVault, setupEthereum, setupVault } from './ethereum-functions.js';
 import { bytesToHex } from '@noble/hashes/utils';
-import { createPSBTEvent } from './attestor-functions.js';
-import { broadcastTransaction } from './bitcoin-functions.js';
-import { ethereumArbitrumSepolia } from './ethereum-network.js';
-import { PrivateKeyDLCHandler } from './handle-functions.js';
+import { regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
+import dotenv from 'dotenv';
+import { ethereumArbitrumSepolia } from './constants/ethereum-constants.js';
+import { LEDGER_APPS_MAP } from './constants/ledger-constants.js';
+import { LedgerDLCHandler } from './dlc-handlers/ledger-dlc-handler.js';
+import { PrivateKeyDLCHandler } from './dlc-handlers/private-key-dlc-handler.js';
+import { broadcastTransaction } from './functions/bitcoin-functions.js';
+import { getAttestorGroupPublicKey, getRawVault, setupEthereum, setupVault } from './functions/ethereum-functions.js';
+import { getLedgerApp } from './ledger-functions.js';
+import { createPSBTEvent } from './functions/attestor-functions.js';
 
 dotenv.config();
 
 async function runFlowWithPrivateKey() {
-  const exampleNetwork = 'Regtest';
+  const exampleNetwork = regtest;
   const exampleBitcoinBlockchainAPI = 'https://devnet.dlc.link/electrs';
   const exampleBitcoinBlockchainFeeRecommendationAPI = 'https://devnet.dlc.link/electrs/fee-estimates';
   const exampleAttestorURLs = [
@@ -41,6 +45,7 @@ async function runFlowWithPrivateKey() {
   // Setup DLC Handler (with Private Key)
   const dlcHandler = new PrivateKeyDLCHandler(
     examplePrivateKey,
+    0,
     exampleNetwork,
     exampleBitcoinBlockchainAPI,
     exampleBitcoinBlockchainFeeRecommendationAPI
@@ -52,36 +57,20 @@ async function runFlowWithPrivateKey() {
   // Fetch Attestor Group Public Key
   const attestorGroupPublicKey = await getAttestorGroupPublicKey(ethereumArbitrumSepolia);
 
-  // Setup Payment and Key Pair Information
-  const { nativeSegwitPayment, nativeSegwitDerivedKeyPair, taprootMultisigPayment, taprootDerivedKeyPair } =
-    dlcHandler.handlePayment(vault.uuid, 0, attestorGroupPublicKey);
-
   // Create Funding Transaction
-  const fundingPSBT = await dlcHandler.createFundingPSBT(vault, nativeSegwitPayment, taprootMultisigPayment, 2n);
-
-  if (!nativeSegwitDerivedKeyPair.privateKey) {
-    throw new Error('Could not get Private Key from Native Segwit Derived Key Pair');
-  }
+  const fundingPSBT = await dlcHandler.createFundingPSBT(vault, attestorGroupPublicKey, 2);
 
   // Sign Funding Transaction
-  const fundingTransaction = dlcHandler.signPSBT(fundingPSBT, nativeSegwitDerivedKeyPair.privateKey, true);
+  const fundingTransaction = dlcHandler.signPSBT(fundingPSBT, 'funding', true);
 
   // Create Closing Transaction
-  const closingTransaction = await dlcHandler.createClosingPSBT(
-    vault,
-    nativeSegwitPayment,
-    taprootMultisigPayment,
-    fundingTransaction.id,
-    2n
-  );
-
-  if (!taprootDerivedKeyPair.privateKey) {
-    throw new Error('Could not get Private Key from Taproot Derived Key Pair');
-  }
+  const closingTransaction = await dlcHandler.createClosingPSBT(vault, fundingTransaction.id, 2);
 
   // Sign Closing Transaction
-  const partiallySignedClosingTransaction = dlcHandler.signPSBT(closingTransaction, taprootDerivedKeyPair.privateKey);
+  const partiallySignedClosingTransaction = dlcHandler.signPSBT(closingTransaction, 'closing');
   const partiallySignedClosingTransactionHex = bytesToHex(partiallySignedClosingTransaction.toPSBT());
+
+  const nativeSegwitAddress = dlcHandler.getVaultRelatedAddress('p2wpkh');
 
   // Send Required Information to Attestors to Create PSBT Event
   await createPSBTEvent(
@@ -89,7 +78,7 @@ async function runFlowWithPrivateKey() {
     vaultUUID,
     fundingTransaction.hex,
     partiallySignedClosingTransactionHex,
-    nativeSegwitPayment.address!
+    nativeSegwitAddress
   );
 
   // Broadcast Funding Transaction
@@ -99,9 +88,85 @@ async function runFlowWithPrivateKey() {
   console.log('Success');
 }
 
+async function runFlowWithLedger() {
+  const exampleNetwork = testnet;
+  const exampleAttestorURLs = [
+    'https://testnet.dlc.link/attestor-1',
+    'https://testnet.dlc.link/attestor-2',
+    'https://testnet.dlc.link/attestor-3',
+  ];
+  const exampleBitcoinAmount = 0.01;
+
+  // Setup Ethereum
+  const { ethereumContracts, ethereumNetworkName } = await setupEthereum();
+  const { protocolContract } = ethereumContracts;
+
+  // Setup Vault
+  const setupVaultTransactionReceipt: any = await setupVault(
+    protocolContract,
+    ethereumNetworkName,
+    exampleBitcoinAmount
+  );
+  if (!setupVaultTransactionReceipt) {
+    throw new Error('Could not setup Vault');
+  }
+  const vaultUUID = setupVaultTransactionReceipt.events.find((event: any) => event.event === 'SetupVault').args[0];
+  // const vaultUUID = '0x1e0bf7ac4dc3886bcdb1d4bd1813a0b0d923f83d61ad1776e45677cec83e4a65';
+
+  const ledgerApp = await getLedgerApp(LEDGER_APPS_MAP.BITCOIN_TESTNET);
+
+  if (!ledgerApp) {
+    throw new Error('Could not get Ledger App');
+  }
+
+  const masterFingerprint = await ledgerApp.getMasterFingerprint();
+
+  // Setup DLC Handler (with Private Key)
+  const dlcHandler = new LedgerDLCHandler(ledgerApp, masterFingerprint, 1, testnet);
+
+  // Fetch Vault
+  const vault = await getRawVault(protocolContract, vaultUUID);
+
+  // Fetch Attestor Group Public Key
+  const attestorGroupPublicKey = await getAttestorGroupPublicKey(ethereumArbitrumSepolia);
+
+  await dlcHandler.createPayment(vaultUUID, attestorGroupPublicKey);
+
+  // Create Funding Transaction
+  const fundingPSBT = await dlcHandler.createFundingPSBT(vault, 2);
+
+  // Sign Funding Transaction
+  const fundingTransaction = await dlcHandler.signPSBT(fundingPSBT, 'funding');
+
+  // Create Closing Transaction
+  const closingTransaction = await dlcHandler.createClosingPSBT(vault, fundingTransaction.id, 2);
+
+  // Sign Closing Transaction
+  const partiallySignedClosingTransaction = await dlcHandler.signPSBT(closingTransaction, 'closing');
+  const partiallySignedClosingTransactionHex = bytesToHex(partiallySignedClosingTransaction.toPSBT());
+
+  const nativeSegwitAddress = dlcHandler.getVaultRelatedAddress('p2wpkh');
+
+  // Send Required Information to Attestors to Create PSBT Event
+  await createPSBTEvent(
+    exampleAttestorURLs,
+    vaultUUID,
+    fundingTransaction.hex,
+    partiallySignedClosingTransactionHex,
+    nativeSegwitAddress
+  );
+
+  // Broadcast Funding Transaction
+  const fundingTransactionID = await broadcastTransaction(fundingTransaction.hex, 'https://mempool.space/testnet/api');
+
+  console.log('Funding Transaction ID:', fundingTransactionID);
+  console.log('Success');
+}
+
 async function example() {
   try {
     await runFlowWithPrivateKey();
+    // await runFlowWithLedger();
   } catch (error) {
     throw new Error(`Error: ${error}`);
   }

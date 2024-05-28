@@ -1,10 +1,10 @@
 /** @format */
 import chalk from 'chalk';
 import { Contract, ethers } from 'ethers';
-import { EthereumNetwork, ethereumArbitrum, ethereumArbitrumSepolia } from './ethereum-network.js';
-import { EthereumError } from './models/errors.js';
-import { DisplayVault, ExtendedDisplayVault, RawVault, VaultState } from './models/ethereum-models.js';
-import { customShiftValue, shiftValue, truncateAddress, unshiftValue } from './utilities.js';
+import { EthereumNetwork, ethereumArbitrum, ethereumArbitrumSepolia } from '../constants/ethereum-constants.js';
+import { EthereumError } from '../models/errors.js';
+import { DisplayVault, ExtendedDisplayVault, RawVault, VaultState } from '../models/ethereum-models.js';
+import { customShiftValue, shiftValue, truncateAddress, unshiftValue } from '../utilities.js';
 const SOLIDITY_CONTRACT_URL = 'https://raw.githubusercontent.com/DLC-link/dlc-solidity';
 
 interface EthereumContracts {
