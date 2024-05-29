@@ -1,6 +1,6 @@
 /** @format */
-
 import { Event } from 'ethers';
+
 import { getProvider, getReadOnlyEthereumContracts } from '../functions/ethereum-functions.js';
 import { EthereumError } from '../models/errors.js';
 import {
@@ -14,12 +14,16 @@ export class ReadOnlyEthereumHandler {
   private ethereumContracts: DLCReadOnlyEthereumContracts;
 
   constructor(ethereumDeploymentPlans: EthereumDeploymentPlan[], rpcEndpoint: string) {
-    this.ethereumContracts = getReadOnlyEthereumContracts(ethereumDeploymentPlans, getProvider(rpcEndpoint));
+    this.ethereumContracts = getReadOnlyEthereumContracts(
+      ethereumDeploymentPlans,
+      getProvider(rpcEndpoint)
+    );
   }
 
   async getAttestorGroupPublicKey(): Promise<string> {
     try {
-      const attestorGroupPubKey = await this.ethereumContracts.dlcManagerContract.attestorGroupPubKey();
+      const attestorGroupPubKey =
+        await this.ethereumContracts.dlcManagerContract.attestorGroupPubKey();
       if (!attestorGroupPubKey) throw new Error('Could not get Attestor Group Public Key');
       return attestorGroupPubKey;
     } catch (error) {
@@ -50,11 +54,12 @@ export class ReadOnlyEthereumHandler {
       const fundedVaults: RawVault[] = [];
 
       while (true) {
-        const fetchedVaults: RawVault[] = await this.ethereumContracts.dlcManagerContract.getAllDLCs(
-          totalFetched,
-          totalFetched + amount
-        );
-        fundedVaults.push(...fetchedVaults.filter((vault) => vault.status === VaultState.Funded));
+        const fetchedVaults: RawVault[] =
+          await this.ethereumContracts.dlcManagerContract.getAllDLCs(
+            totalFetched,
+            totalFetched + amount
+          );
+        fundedVaults.push(...fetchedVaults.filter(vault => vault.status === VaultState.Funded));
         totalFetched += amount;
         if (fetchedVaults.length !== amount) break;
       }

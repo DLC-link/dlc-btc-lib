@@ -1,7 +1,8 @@
 /** @format */
-
 import { bytesToHex } from '@noble/hashes/utils';
 import { regtest } from 'bitcoinjs-lib/src/networks.js';
+import { Event } from 'ethers';
+
 import { ethereumArbitrumSepolia } from './constants/ethereum-constants.js';
 import { PrivateKeyDLCHandler } from './dlc-handlers/private-key-dlc-handler.js';
 import { broadcastTransaction } from './functions/bitcoin-functions.js';
@@ -13,18 +14,19 @@ import { shiftValue } from './utilities/index.js';
 async function runFlowWithPrivateKey() {
   const exampleNetwork = regtest;
   const exampleBitcoinBlockchainAPI = 'https://devnet.dlc.link/electrs';
-  const exampleBitcoinBlockchainFeeRecommendationAPI = 'https://devnet.dlc.link/electrs/fee-estimates';
+  const exampleBitcoinBlockchainFeeRecommendationAPI =
+    'https://devnet.dlc.link/electrs/fee-estimates';
   const exampleAttestorURLs = [
     'http://devnet.dlc.link/attestor-1',
     'http://devnet.dlc.link/attestor-2',
     'http://devnet.dlc.link/attestor-3',
   ];
   const examplePrivateKey =
-    'tprv8ZgxMBicQKsPeJ7iQfVEb34R3JoSyJ1J9z6wv1yXJkd1NMTRbmQiLkcZXgqQ277LMtszhnp2L2VmmHhFzoLD12fjyXcAvfnvs6qTJMMcKFq';
+    '';
   const exampleBitcoinAmount = 0.01;
   const ethereumPrivateKey = '';
 
-  const deploymentPlansPromises = ['TokenManager', 'DLCManager', 'DLCBTC'].map((contractName) => {
+  const deploymentPlansPromises = ['TokenManager', 'DLCManager', 'DLCBTC'].map(contractName => {
     return fetchEthereumDeploymentPlan(
       contractName,
       ethereumArbitrumSepolia,
@@ -46,13 +48,22 @@ async function runFlowWithPrivateKey() {
   if (!ethereumPrivateKey) {
     throw new Error('Ethereum Private Key not set');
   }
-  const ethereumHandler = new EthereumHandler(deploymentPlans, ethereumPrivateKey, rpcEndpoint, readOnlyRPCEndpoint);
+  const ethereumHandler = new EthereumHandler(
+    deploymentPlans,
+    ethereumPrivateKey,
+    rpcEndpoint,
+    readOnlyRPCEndpoint
+  );
 
-  const setupVaultTransactionReceipt = await ethereumHandler.setupVault(shiftValue(exampleBitcoinAmount));
+  const setupVaultTransactionReceipt = await ethereumHandler.setupVault(
+    shiftValue(exampleBitcoinAmount)
+  );
   if (!setupVaultTransactionReceipt) {
     throw new Error('Could not setup Vault');
   }
-  const vaultUUID = setupVaultTransactionReceipt.events.find((event: any) => event.event === 'SetupVault').args[0];
+  const vaultUUID = setupVaultTransactionReceipt.events.find(
+    (event: Event) => event.event === 'SetupVault'
+  ).args[0];
 
   // Setup DLC Handler (with Private Key)
   const dlcHandler = new PrivateKeyDLCHandler(
@@ -78,10 +89,11 @@ async function runFlowWithPrivateKey() {
   // Create Closing Transaction
   const closingTransaction = await dlcHandler.createClosingPSBT(vault, fundingTransaction.id, 2);
 
-  console.log('address', dlcHandler.payment?.nativeSegwitPayment.address);
   // Sign Closing Transaction
   const partiallySignedClosingTransaction = dlcHandler.signPSBT(closingTransaction, 'closing');
-  const partiallySignedClosingTransactionHex = bytesToHex(partiallySignedClosingTransaction.toPSBT());
+  const partiallySignedClosingTransactionHex = bytesToHex(
+    partiallySignedClosingTransaction.toPSBT()
+  );
 
   const nativeSegwitAddress = dlcHandler.getVaultRelatedAddress('p2wpkh');
 
@@ -96,7 +108,10 @@ async function runFlowWithPrivateKey() {
   );
 
   // Broadcast Funding Transaction
-  const fundingTransactionID = await broadcastTransaction(fundingTransaction.hex, exampleBitcoinBlockchainAPI);
+  const fundingTransactionID = await broadcastTransaction(
+    fundingTransaction.hex,
+    exampleBitcoinBlockchainAPI
+  );
 
   console.log('Funding Transaction ID:', fundingTransactionID);
   console.log('Success');

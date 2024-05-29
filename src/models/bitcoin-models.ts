@@ -1,5 +1,4 @@
 /** @format */
-
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 
 interface TransactionStatus {

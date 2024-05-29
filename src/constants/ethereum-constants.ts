@@ -1,5 +1,4 @@
 /** @format */
-
 import { EthereumNetwork, EthereumNetworkID } from '../models/ethereum-models.js';
 
 export const ethereumArbitrumSepolia: EthereumNetwork = {
@@ -16,7 +15,10 @@ export const ethereumArbitrum: EthereumNetwork = {
   defaultNodeURL: 'https://arb1.arbitrum.io/rpc',
 };
 
-export const supportedEthereumNetworks: EthereumNetwork[] = [ethereumArbitrumSepolia, ethereumArbitrum];
+export const supportedEthereumNetworks: EthereumNetwork[] = [
+  ethereumArbitrumSepolia,
+  ethereumArbitrum,
+];
 
 export const hexChainIDs: { [key in EthereumNetworkID]: string } = {
   [EthereumNetworkID.ArbitrumSepolia]: '0x66eee',

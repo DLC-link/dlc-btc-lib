@@ -1,9 +1,13 @@
 /** @format */
-
 import { Wallet, providers } from 'ethers';
+
 import { getEthereumContracts, getProvider } from '../functions/ethereum-functions.js';
 import { EthereumError } from '../models/errors.js';
-import { DLCEthereumContracts, EthereumDeploymentPlan, RawVault } from '../models/ethereum-models.js';
+import {
+  DLCEthereumContracts,
+  EthereumDeploymentPlan,
+  RawVault,
+} from '../models/ethereum-models.js';
 
 export class EthereumHandler {
   private ethereumContracts: DLCEthereumContracts;
@@ -23,7 +27,11 @@ export class EthereumHandler {
       signer = ethereumPrivateKeyOrProvider;
     }
 
-    this.ethereumContracts = getEthereumContracts(ethereumDeploymentPlans, signer, readOnlyProvider);
+    this.ethereumContracts = getEthereumContracts(
+      ethereumDeploymentPlans,
+      signer,
+      readOnlyProvider
+    );
   }
 
   async getAllVaults(): Promise<RawVault[]> {
@@ -36,7 +44,8 @@ export class EthereumHandler {
   }
 
   async getRawVault(vaultUUID: string): Promise<RawVault> {
-    const vault: RawVault = await this.ethereumContracts.readOnlyProtocolContract.getVault(vaultUUID);
+    const vault: RawVault =
+      await this.ethereumContracts.readOnlyProtocolContract.getVault(vaultUUID);
     if (!vault) throw new Error('Vault not found');
     return vault;
   }
@@ -44,7 +53,8 @@ export class EthereumHandler {
   async setupVault(bitcoinDepositAmount: number): Promise<any | undefined> {
     try {
       await this.ethereumContracts.protocolContract.callStatic.setupVault(bitcoinDepositAmount);
-      const transaction = await this.ethereumContracts.protocolContract.setupVault(bitcoinDepositAmount);
+      const transaction =
+        await this.ethereumContracts.protocolContract.setupVault(bitcoinDepositAmount);
       return await transaction.wait();
     } catch (error: any) {
       throw new EthereumError(`Could not setup Vault: ${error}`);
@@ -72,7 +82,8 @@ export class EthereumHandler {
 
   async getAttestorGroupPublicKey(): Promise<string> {
     try {
-      const attestorGroupPubKey = await this.ethereumContracts.dlcManagerContract.attestorGroupPubKey();
+      const attestorGroupPubKey =
+        await this.ethereumContracts.dlcManagerContract.attestorGroupPubKey();
       if (!attestorGroupPubKey) throw new Error('Could not get Attestor Group Public Key');
       return attestorGroupPubKey;
     } catch (error) {

@@ -1,10 +1,10 @@
 /** @format */
-
 import { Transaction } from '@scure/btc-signer';
 import { P2Ret, P2TROut, p2wpkh } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { AppClient, DefaultWalletPolicy, WalletPolicy } from 'ledger-bitcoin';
+
 import {
   createBitcoinInputSigningConfiguration,
   createTaprootMultisigPayment,
@@ -14,7 +14,6 @@ import {
   getInputByPaymentTypeArray,
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin-functions.js';
-import { RawVault } from '../models/ethereum-models.js';
 import {
   addNativeSegwitSignaturesToPSBT,
   addTaprootInputSignaturesToPSBT,
@@ -25,8 +24,9 @@ import {
   updateNativeSegwitInputs,
   updateTaprootInputs,
 } from '../functions/psbt-functions.js';
-import { truncateAddress } from '../utilities/index.js';
 import { PaymentInformation } from '../models/bitcoin-models.js';
+import { RawVault } from '../models/ethereum-models.js';
+import { truncateAddress } from '../utilities/index.js';
 
 interface LedgerPolicyInformation {
   nativeSegwitWalletPolicy: DefaultWalletPolicy;
@@ -55,15 +55,22 @@ export class LedgerDLCHandler {
     switch (bitcoinNetwork) {
       case bitcoin:
         this.bitcoinBlockchainAPI = 'https://mempool.space/api';
-        this.bitcoinBlockchainFeeRecommendationAPI = 'https://mempool.space/api/v1/fees/recommended';
+        this.bitcoinBlockchainFeeRecommendationAPI =
+          'https://mempool.space/api/v1/fees/recommended';
         break;
       case testnet:
         this.bitcoinBlockchainAPI = 'https://mempool.space/testnet/api';
-        this.bitcoinBlockchainFeeRecommendationAPI = 'https://mempool.space/testnet/api/v1/fees/recommended';
+        this.bitcoinBlockchainFeeRecommendationAPI =
+          'https://mempool.space/testnet/api/v1/fees/recommended';
         break;
       case regtest:
-        if (bitcoinBlockchainAPI === undefined || bitcoinBlockchainFeeRecommendationAPI === undefined) {
-          throw new Error('Regtest requires a Bitcoin Blockchain API and a Bitcoin Blockchain Fee Recommendation API');
+        if (
+          bitcoinBlockchainAPI === undefined ||
+          bitcoinBlockchainFeeRecommendationAPI === undefined
+        ) {
+          throw new Error(
+            'Regtest requires a Bitcoin Blockchain API and a Bitcoin Blockchain Fee Recommendation API'
+          );
         }
         this.bitcoinBlockchainAPI = bitcoinBlockchainAPI;
         this.bitcoinBlockchainFeeRecommendationAPI = bitcoinBlockchainFeeRecommendationAPI;
@@ -155,7 +162,13 @@ export class LedgerDLCHandler {
 
       const nativeSegwitWalletPolicy = new DefaultWalletPolicy('wpkh(@0/**)', nativeSegwitKeyinfo);
 
-      const nativeSegwitAddress = await this.ledgerApp.getWalletAddress(nativeSegwitWalletPolicy, null, 0, 0, false);
+      const nativeSegwitAddress = await this.ledgerApp.getWalletAddress(
+        nativeSegwitWalletPolicy,
+        null,
+        0,
+        0,
+        false
+      );
 
       const nativeSegwitDerivedPublicKey = deriveUnhardenedPublicKey(
         nativeSegwitExtendedPublicKey,
@@ -164,13 +177,21 @@ export class LedgerDLCHandler {
       const nativeSegwitPayment = p2wpkh(nativeSegwitDerivedPublicKey, this.bitcoinNetwork);
 
       if (nativeSegwitPayment.address !== nativeSegwitAddress) {
-        throw new Error(`[Ledger] Recreated Native Segwit Address does not match the Ledger Native Segwit Address`);
+        throw new Error(
+          `[Ledger] Recreated Native Segwit Address does not match the Ledger Native Segwit Address`
+        );
       }
 
       const unspendablePublicKey = getUnspendableKeyCommittedToUUID(vaultUUID, this.bitcoinNetwork);
-      const unspendableDerivedPublicKey = deriveUnhardenedPublicKey(unspendablePublicKey, this.bitcoinNetwork);
+      const unspendableDerivedPublicKey = deriveUnhardenedPublicKey(
+        unspendablePublicKey,
+        this.bitcoinNetwork
+      );
 
-      const attestorDerivedPublicKey = deriveUnhardenedPublicKey(attestorGroupPublicKey, this.bitcoinNetwork);
+      const attestorDerivedPublicKey = deriveUnhardenedPublicKey(
+        attestorGroupPublicKey,
+        this.bitcoinNetwork
+      );
 
       const taprootExtendedPublicKey = await this.ledgerApp.getExtendedPubkey(
         `m/86'/${networkIndex}'/${this.walletAccountIndex}'`
@@ -178,7 +199,10 @@ export class LedgerDLCHandler {
 
       const ledgerTaprootKeyInfo = `[${this.masterFingerprint}/86'/${networkIndex}'/${this.walletAccountIndex}']${taprootExtendedPublicKey}`;
 
-      const taprootDerivedPublicKey = deriveUnhardenedPublicKey(taprootExtendedPublicKey, this.bitcoinNetwork);
+      const taprootDerivedPublicKey = deriveUnhardenedPublicKey(
+        taprootExtendedPublicKey,
+        this.bitcoinNetwork
+      );
 
       const descriptors =
         taprootDerivedPublicKey.toString('hex') < attestorDerivedPublicKey.toString('hex')
@@ -191,7 +215,9 @@ export class LedgerDLCHandler {
         [unspendablePublicKey, ...descriptors]
       );
 
-      const [, taprootMultisigPolicyHMac] = await this.ledgerApp.registerWallet(taprootMultisigAccountPolicy);
+      const [, taprootMultisigPolicyHMac] = await this.ledgerApp.registerWallet(
+        taprootMultisigAccountPolicy
+      );
 
       const taprootMultisigAddress = await this.ledgerApp.getWalletAddress(
         taprootMultisigAccountPolicy,
@@ -212,7 +238,11 @@ export class LedgerDLCHandler {
         throw new Error(`Recreated Multisig Address does not match the Ledger Multisig Address`);
       }
 
-      this.setPolicyInformation(nativeSegwitWalletPolicy, taprootMultisigAccountPolicy, taprootMultisigPolicyHMac);
+      this.setPolicyInformation(
+        nativeSegwitWalletPolicy,
+        taprootMultisigAccountPolicy,
+        taprootMultisigPolicyHMac
+      );
       this.setPaymentInformation(
         nativeSegwitPayment,
         nativeSegwitDerivedPublicKey,
@@ -224,19 +254,30 @@ export class LedgerDLCHandler {
     }
   }
 
-  async createFundingPSBT(vault: RawVault, feeRateMultiplier?: number, customFeeRate?: bigint): Promise<Psbt> {
+  async createFundingPSBT(
+    vault: RawVault,
+    feeRateMultiplier?: number,
+    customFeeRate?: bigint
+  ): Promise<Psbt> {
     try {
       const { nativeSegwitPayment, nativeSegwitDerivedPublicKey, taprootMultisigPayment } =
         this.getPaymentInformation();
 
-      if (taprootMultisigPayment.address === undefined || nativeSegwitPayment.address === undefined) {
+      if (
+        taprootMultisigPayment.address === undefined ||
+        nativeSegwitPayment.address === undefined
+      ) {
         throw new Error('Payment Address is undefined');
       }
 
       const feeRate =
-        customFeeRate ?? BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+        customFeeRate ??
+        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const addressBalance = await getBalance(nativeSegwitPayment.address, this.bitcoinBlockchainAPI);
+      const addressBalance = await getBalance(
+        nativeSegwitPayment.address,
+        this.bitcoinBlockchainAPI
+      );
 
       if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
         throw new Error('Insufficient Funds');
@@ -292,14 +333,16 @@ export class LedgerDLCHandler {
     customFeeRate?: bigint
   ): Promise<Psbt> {
     try {
-      const { nativeSegwitPayment, taprootMultisigPayment, taprootDerivedPublicKey } = this.getPaymentInformation();
+      const { nativeSegwitPayment, taprootMultisigPayment, taprootDerivedPublicKey } =
+        this.getPaymentInformation();
 
       if (nativeSegwitPayment.address === undefined) {
         throw new Error('Could not get Addresses from Payments');
       }
 
       const feeRate =
-        customFeeRate ?? BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+        customFeeRate ??
+        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
       const closingPSBT = createClosingTransaction(
         vault.valueLocked.toBigInt(),
@@ -345,15 +388,22 @@ export class LedgerDLCHandler {
 
   async signPSBT(psbt: Psbt, transactionType: 'funding' | 'closing'): Promise<Transaction> {
     try {
-      const { nativeSegwitWalletPolicy, taprootMultisigWalletPolicy, taprootMultisigWalletPolicyHMac } =
-        this.getPolicyInformation();
+      const {
+        nativeSegwitWalletPolicy,
+        taprootMultisigWalletPolicy,
+        taprootMultisigWalletPolicyHMac,
+      } = this.getPolicyInformation();
 
       let signatures;
       let transaction: Transaction;
 
       switch (transactionType) {
         case 'funding':
-          signatures = await this.ledgerApp.signPsbt(psbt.toBase64(), nativeSegwitWalletPolicy, null);
+          signatures = await this.ledgerApp.signPsbt(
+            psbt.toBase64(),
+            nativeSegwitWalletPolicy,
+            null
+          );
           addNativeSegwitSignaturesToPSBT(psbt, signatures);
           transaction = Transaction.fromPSBT(psbt.toBuffer());
           transaction.finalize();

@@ -1,5 +1,4 @@
 /** @format */
-
 import { Decimal } from 'decimal.js';
 
 export function shiftValue(value: number): number {
@@ -48,7 +47,7 @@ export function isDefined<T>(argument: T | undefined): argument is T {
 }
 
 export async function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export function reverseBytes(bytes: Buffer): Buffer;

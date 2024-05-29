@@ -1,8 +1,9 @@
 /** @format */
-
 import { Transaction, p2wpkh } from '@scure/btc-signer';
+import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
+
 import {
   createTaprootMultisigPayment,
   deriveUnhardenedPublicKey,
@@ -10,10 +11,9 @@ import {
   getFeeRate,
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin-functions.js';
-import { RequiredPayment } from '../models/bitcoin-models.js';
-import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
-import { RawVault } from '../models/ethereum-models.js';
 import { createClosingTransaction, createFundingTransaction } from '../functions/psbt-functions.js';
+import { RequiredPayment } from '../models/bitcoin-models.js';
+import { RawVault } from '../models/ethereum-models.js';
 
 export class SoftwareWalletDLCHandler {
   private nativeSegwitDerivedPublicKey: string;
@@ -33,15 +33,22 @@ export class SoftwareWalletDLCHandler {
     switch (bitcoinNetwork) {
       case bitcoin:
         this.bitcoinBlockchainAPI = 'https://mempool.space/api';
-        this.bitcoinBlockchainFeeRecommendationAPI = 'https://mempool.space/api/v1/fees/recommended';
+        this.bitcoinBlockchainFeeRecommendationAPI =
+          'https://mempool.space/api/v1/fees/recommended';
         break;
       case testnet:
         this.bitcoinBlockchainAPI = 'https://mempool.space/testnet/api';
-        this.bitcoinBlockchainFeeRecommendationAPI = 'https://mempool.space/testnet/api/v1/fees/recommended';
+        this.bitcoinBlockchainFeeRecommendationAPI =
+          'https://mempool.space/testnet/api/v1/fees/recommended';
         break;
       case regtest:
-        if (bitcoinBlockchainAPI === undefined || bitcoinBlockchainFeeRecommendationAPI === undefined) {
-          throw new Error('Regtest requires a Bitcoin Blockchain API and a Bitcoin Blockchain Fee Recommendation API');
+        if (
+          bitcoinBlockchainAPI === undefined ||
+          bitcoinBlockchainFeeRecommendationAPI === undefined
+        ) {
+          throw new Error(
+            'Regtest requires a Bitcoin Blockchain API and a Bitcoin Blockchain Fee Recommendation API'
+          );
         }
         this.bitcoinBlockchainAPI = bitcoinBlockchainAPI;
         this.bitcoinBlockchainFeeRecommendationAPI = bitcoinBlockchainFeeRecommendationAPI;
@@ -97,12 +104,21 @@ export class SoftwareWalletDLCHandler {
 
   async createPayment(vaultUUID: string, attestorGroupPublicKey: string): Promise<void> {
     try {
-      const nativeSegwitPayment = p2wpkh(Buffer.from(this.nativeSegwitDerivedPublicKey, 'hex'), this.bitcoinNetwork);
+      const nativeSegwitPayment = p2wpkh(
+        Buffer.from(this.nativeSegwitDerivedPublicKey, 'hex'),
+        this.bitcoinNetwork
+      );
 
       const unspendablePublicKey = getUnspendableKeyCommittedToUUID(vaultUUID, this.bitcoinNetwork);
-      const unspendableDerivedPublicKey = deriveUnhardenedPublicKey(unspendablePublicKey, this.bitcoinNetwork);
+      const unspendableDerivedPublicKey = deriveUnhardenedPublicKey(
+        unspendablePublicKey,
+        this.bitcoinNetwork
+      );
 
-      const attestorDerivedPublicKey = deriveUnhardenedPublicKey(attestorGroupPublicKey, this.bitcoinNetwork);
+      const attestorDerivedPublicKey = deriveUnhardenedPublicKey(
+        attestorGroupPublicKey,
+        this.bitcoinNetwork
+      );
 
       const taprootMultisigPayment = createTaprootMultisigPayment(
         unspendableDerivedPublicKey,
@@ -117,18 +133,29 @@ export class SoftwareWalletDLCHandler {
     }
   }
 
-  async createFundingPSBT(vault: RawVault, feeRateMultiplier?: number, customFeeRate?: bigint): Promise<Transaction> {
+  async createFundingPSBT(
+    vault: RawVault,
+    feeRateMultiplier?: number,
+    customFeeRate?: bigint
+  ): Promise<Transaction> {
     try {
       const { nativeSegwitPayment, taprootMultisigPayment } = this.getPaymentInformation();
 
-      if (taprootMultisigPayment.address === undefined || nativeSegwitPayment.address === undefined) {
+      if (
+        taprootMultisigPayment.address === undefined ||
+        nativeSegwitPayment.address === undefined
+      ) {
         throw new Error('Payment Address is undefined');
       }
 
       const feeRate =
-        customFeeRate ?? BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+        customFeeRate ??
+        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const addressBalance = await getBalance(nativeSegwitPayment.address, this.bitcoinBlockchainAPI);
+      const addressBalance = await getBalance(
+        nativeSegwitPayment.address,
+        this.bitcoinBlockchainAPI
+      );
 
       if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
         throw new Error('Insufficient Funds');
@@ -159,12 +186,16 @@ export class SoftwareWalletDLCHandler {
     try {
       const { nativeSegwitPayment, taprootMultisigPayment } = this.getPaymentInformation();
 
-      if (taprootMultisigPayment.address === undefined || nativeSegwitPayment.address === undefined) {
+      if (
+        taprootMultisigPayment.address === undefined ||
+        nativeSegwitPayment.address === undefined
+      ) {
         throw new Error('Payment Address is undefined');
       }
 
       const feeRate =
-        customFeeRate ?? BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+        customFeeRate ??
+        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
       const closingTransaction = createClosingTransaction(
         vault.valueLocked.toBigInt(),

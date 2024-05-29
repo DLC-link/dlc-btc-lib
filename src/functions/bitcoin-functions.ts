@@ -1,15 +1,31 @@
 /** @format */
-import { Address, OutScript, Transaction, p2ms, p2pk, p2tr, p2tr_ns, p2wpkh } from '@scure/btc-signer';
+import {
+  Address,
+  OutScript,
+  Transaction,
+  p2ms,
+  p2pk,
+  p2tr,
+  p2tr_ns,
+  p2wpkh,
+} from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { TransactionInput } from '@scure/btc-signer/psbt';
 import { BIP32Factory, BIP32Interface } from 'bip32';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
-import { BitcoinInputSigningConfig, FeeRates, PaymentTypes, UTXO } from '../models/bitcoin-models.js';
+
+import {
+  BitcoinInputSigningConfig,
+  FeeRates,
+  PaymentTypes,
+  UTXO,
+} from '../models/bitcoin-models.js';
 import { createRangeFromLength, isDefined, isUndefined } from '../utilities/index.js';
 
-const TAPROOT_UNSPENDABLE_KEY_HEX = '0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
+const TAPROOT_UNSPENDABLE_KEY_HEX =
+  '0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
 const ECDSA_PUBLIC_KEY_LENGTH = 33;
 
 const bip32 = BIP32Factory(ellipticCurveCryptography);
@@ -20,7 +36,10 @@ const bip32 = BIP32Factory(ellipticCurveCryptography);
  * @param bitcoinNetwork - The Bitcoin Network to use.
  * @returns The Public Key derived at the Unhardened Path.
  */
-export function deriveUnhardenedPublicKey(extendedPublicKey: string, bitcoinNetwork: Network): Buffer {
+export function deriveUnhardenedPublicKey(
+  extendedPublicKey: string,
+  bitcoinNetwork: Network
+): Buffer {
   return bip32.fromBase58(extendedPublicKey, bitcoinNetwork).derivePath('0/0').publicKey;
 }
 
@@ -42,9 +61,13 @@ export function deriveUnhardenedKeyPairFromRootPrivateKey(
     case bitcoin:
       switch (paymentType) {
         case 'p2wpkh':
-          return bip32.fromBase58(rootPrivateKey, bitcoinNetwork).derivePath(`m/84'/0'/${accountIndex}'/0/0`);
+          return bip32
+            .fromBase58(rootPrivateKey, bitcoinNetwork)
+            .derivePath(`m/84'/0'/${accountIndex}'/0/0`);
         case 'p2tr':
-          return bip32.fromBase58(rootPrivateKey, bitcoinNetwork).derivePath(`m/86'/0'/${accountIndex}'/0/0`);
+          return bip32
+            .fromBase58(rootPrivateKey, bitcoinNetwork)
+            .derivePath(`m/86'/0'/${accountIndex}'/0/0`);
         default:
           throw new Error('Unsupported Payment Type');
       }
@@ -52,9 +75,13 @@ export function deriveUnhardenedKeyPairFromRootPrivateKey(
     case regtest:
       switch (paymentType) {
         case 'p2wpkh':
-          return bip32.fromBase58(rootPrivateKey, bitcoinNetwork).derivePath(`m/84'/1'/${accountIndex}'/0/0`);
+          return bip32
+            .fromBase58(rootPrivateKey, bitcoinNetwork)
+            .derivePath(`m/84'/1'/${accountIndex}'/0/0`);
         case 'p2tr':
-          return bip32.fromBase58(rootPrivateKey, bitcoinNetwork).derivePath(`m/86'/1'/${accountIndex}'/0/0`);
+          return bip32
+            .fromBase58(rootPrivateKey, bitcoinNetwork)
+            .derivePath(`m/86'/1'/${accountIndex}'/0/0`);
         default:
           throw new Error('Unsupported Payment Type');
       }
@@ -108,7 +135,10 @@ function checkFeeRate(feeRate: number | undefined): number {
  *
  * @returns A promise that resolves to the hour fee rate.
  */
-export async function getFeeRate(bitcoinBlockchainAPIFeeURL: string, feeRateMultiplier?: number): Promise<number> {
+export async function getFeeRate(
+  bitcoinBlockchainAPIFeeURL: string,
+  feeRateMultiplier?: number
+): Promise<number> {
   const response = await fetch(bitcoinBlockchainAPIFeeURL);
 
   if (!response.ok) {
@@ -135,7 +165,10 @@ export async function getFeeRate(bitcoinBlockchainAPIFeeURL: string, feeRateMult
  * @param bitcoinNativeSegwitTransaction - The User's Native Segwit Payment Transaction.
  * @returns A Promise that resolves to the UTXOs of the User's Native Segwit Address.
  */
-export async function getUTXOs(bitcoinNativeSegwitTransaction: P2Ret, bitcoinBlockchainAPIURL: string): Promise<any> {
+export async function getUTXOs(
+  bitcoinNativeSegwitTransaction: P2Ret,
+  bitcoinBlockchainAPIURL: string
+): Promise<any> {
   const utxoEndpoint = `${bitcoinBlockchainAPIURL}/address/${bitcoinNativeSegwitTransaction.address}/utxo`;
   const utxoResponse = await fetch(utxoEndpoint);
 
@@ -169,7 +202,10 @@ export async function getUTXOs(bitcoinNativeSegwitTransaction: P2Ret, bitcoinBlo
  * @param bitcoinAddress - The User's Bitcoin Address.
  * @returns A Promise that resolves to the Balance of the User's Bitcoin Address.
  */
-export async function getBalance(bitcoinAddress: string, bitcoinBlockchainAPIURL: string): Promise<number> {
+export async function getBalance(
+  bitcoinAddress: string,
+  bitcoinBlockchainAPIURL: string
+): Promise<number> {
   const utxoResponse = await fetch(`${bitcoinBlockchainAPIURL}/address/${bitcoinAddress}/utxo`);
 
   if (!utxoResponse.ok) {
@@ -189,7 +225,10 @@ export async function getBalance(bitcoinAddress: string, bitcoinBlockchainAPIURL
  * @param bitcoinNetwork - The Bitcoin Network to use.
  * @returns The Fee Recipient's Address.
  */
-export function getFeeRecipientAddressFromPublicKey(feePublicKey: string, bitcoinNetwork: Network): string {
+export function getFeeRecipientAddressFromPublicKey(
+  feePublicKey: string,
+  bitcoinNetwork: Network
+): string {
   const feePublicKeyBuffer = Buffer.from(feePublicKey, 'hex');
   const { address } = p2wpkh(feePublicKeyBuffer, bitcoinNetwork);
   if (!address) throw new Error('Could not create Fee Address from Public Key');
@@ -202,7 +241,10 @@ export function getFeeRecipientAddressFromPublicKey(feePublicKey: string, bitcoi
  * @param transaction - The Transaction to broadcast.
  * @returns A Promise that resolves to the Response from the Broadcast Request.
  */
-export async function broadcastTransaction(transaction: string, bitcoinBlockchainAPIURL: string): Promise<string> {
+export async function broadcastTransaction(
+  transaction: string,
+  bitcoinBlockchainAPIURL: string
+): Promise<string> {
   try {
     const response = await fetch(`${bitcoinBlockchainAPIURL}/tx`, {
       method: 'POST',
@@ -227,11 +269,16 @@ export async function broadcastTransaction(transaction: string, bitcoinBlockchai
  * @param bitcoinNetwork - The Bitcoin Network to use.
  * @returns The Unspendable Key Committed to the Vault UUID.
  */
-export function getUnspendableKeyCommittedToUUID(vaultUUID: string, bitcoinNetwork: Network): string {
+export function getUnspendableKeyCommittedToUUID(
+  vaultUUID: string,
+  bitcoinNetwork: Network
+): string {
   const publicKeyBuffer = Buffer.from(TAPROOT_UNSPENDABLE_KEY_HEX, 'hex');
   const chainCodeBuffer = Buffer.from(vaultUUID.slice(2), 'hex');
 
-  const unspendablePublicKey = bip32.fromPublicKey(publicKeyBuffer, chainCodeBuffer, bitcoinNetwork).toBase58();
+  const unspendablePublicKey = bip32
+    .fromPublicKey(publicKeyBuffer, chainCodeBuffer, bitcoinNetwork)
+    .toBase58();
 
   return unspendablePublicKey;
 }
@@ -242,13 +289,25 @@ export function getUnspendableKeyCommittedToUUID(vaultUUID: string, bitcoinNetwo
  * @param input - The Input.
  * @param bitcoinNetwork - The Bitcoin Network to use.
  */
-function getInputPaymentType(index: number, input: TransactionInput, bitcoinNetwork: Network): PaymentTypes {
+function getInputPaymentType(
+  index: number,
+  input: TransactionInput,
+  bitcoinNetwork: Network
+): PaymentTypes {
   const bitcoinAddress = getBitcoinInputAddress(index, input, bitcoinNetwork);
 
   if (bitcoinAddress === '') throw new Error('Bitcoin Address is empty');
-  if (bitcoinAddress.startsWith('bc1p') || bitcoinAddress.startsWith('tb1p') || bitcoinAddress.startsWith('bcrt1p'))
+  if (
+    bitcoinAddress.startsWith('bc1p') ||
+    bitcoinAddress.startsWith('tb1p') ||
+    bitcoinAddress.startsWith('bcrt1p')
+  )
     return 'p2tr';
-  if (bitcoinAddress.startsWith('bc1q') || bitcoinAddress.startsWith('tb1q') || bitcoinAddress.startsWith('bcrt1q'))
+  if (
+    bitcoinAddress.startsWith('bc1q') ||
+    bitcoinAddress.startsWith('tb1q') ||
+    bitcoinAddress.startsWith('bcrt1q')
+  )
     return 'p2wpkh';
   throw new Error('Unable to infer payment type from BitcoinAddress');
 }
@@ -259,8 +318,13 @@ function getInputPaymentType(index: number, input: TransactionInput, bitcoinNetw
  * @param input - The Input.
  * @param bitcoinNetwork - The Bitcoin Network to use.
  */
-function getBitcoinInputAddress(index: number, input: TransactionInput, bitcoinNetwork: Network): string {
-  if (isDefined(input.witnessUtxo)) return getAddressFromOutScript(input.witnessUtxo.script, bitcoinNetwork);
+function getBitcoinInputAddress(
+  index: number,
+  input: TransactionInput,
+  bitcoinNetwork: Network
+): string {
+  if (isDefined(input.witnessUtxo))
+    return getAddressFromOutScript(input.witnessUtxo.script, bitcoinNetwork);
   if (isDefined(input.nonWitnessUtxo))
     return getAddressFromOutScript(input.nonWitnessUtxo.outputs[index]?.script, bitcoinNetwork);
   return '';
@@ -320,7 +384,7 @@ export function createBitcoinInputSigningConfiguration(
 
   const transaction = Transaction.fromPSBT(psbt);
   const indexesToSign = createRangeFromLength(transaction.inputsLength);
-  return indexesToSign.map((inputIndex) => {
+  return indexesToSign.map(inputIndex => {
     const input = transaction.getInput(inputIndex);
 
     if (isUndefined(input.index)) throw new Error('Input must have an index for payment type');
@@ -356,10 +420,13 @@ export function getInputByPaymentTypeArray(
 ): [BitcoinInputSigningConfig, PaymentTypes][] {
   const transaction = Transaction.fromPSBT(psbt);
 
-  return signingConfiguration.map((config) => {
+  return signingConfiguration.map(config => {
     const inputIndex = transaction.getInput(config.index).index;
     if (isUndefined(inputIndex)) throw new Error('Input must have an index for payment type');
-    return [config, getInputPaymentType(inputIndex, transaction.getInput(config.index), bitcoinNetwork)];
+    return [
+      config,
+      getInputPaymentType(inputIndex, transaction.getInput(config.index), bitcoinNetwork),
+    ];
   });
 }
 
@@ -368,6 +435,7 @@ export function getInputByPaymentTypeArray(
  * @param publicKey - The ECDSA Public Key.
  */
 export function ecdsaPublicKeyToSchnorr(publicKey: Buffer): Buffer {
-  if (publicKey.byteLength !== ECDSA_PUBLIC_KEY_LENGTH) throw new Error('Invalid Public Key Length');
+  if (publicKey.byteLength !== ECDSA_PUBLIC_KEY_LENGTH)
+    throw new Error('Invalid Public Key Length');
   return publicKey.subarray(1);
 }

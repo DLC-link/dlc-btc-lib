@@ -1,5 +1,4 @@
 /** @format */
-
 import { BigNumber, Contract } from 'ethers';
 
 export interface EthereumNetwork {

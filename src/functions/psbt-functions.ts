@@ -1,13 +1,17 @@
 /** @format */
 import { hexToBytes } from '@noble/hashes/utils';
 import { p2wpkh, selectUTXO } from '@scure/btc-signer';
+import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
 import { PartialSignature } from 'ledger-bitcoin/build/main/lib/appClient.js';
 
-import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { BitcoinInputSigningConfig, PaymentTypes } from '../models/bitcoin-models.js';
 import { reverseBytes } from '../utilities/index.js';
-import { ecdsaPublicKeyToSchnorr, getFeeRecipientAddressFromPublicKey, getUTXOs } from './bitcoin-functions.js';
+import {
+  ecdsaPublicKeyToSchnorr,
+  getFeeRecipientAddressFromPublicKey,
+  getUTXOs,
+} from './bitcoin-functions.js';
 
 /**
  * Creates a Funding Transaction to fund the Multisig Transaction.
@@ -146,11 +150,15 @@ export async function updateNativeSegwitInputs(
   try {
     await addNativeSegwitUTXOLedgerProps(psbt, inputsToUpdate, bitcoinBlockchainAPIURL);
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('Error adding UTXO Ledger Props:', e);
+    // Intentionally Ignored
   }
 
-  await addNativeSegwitBip32Derivation(psbt, masterFingerprint, nativeSegwitPublicKey, inputsToUpdate);
+  await addNativeSegwitBip32Derivation(
+    psbt,
+    masterFingerprint,
+    nativeSegwitPublicKey,
+    inputsToUpdate
+  );
 
   return psbt;
 }
@@ -232,8 +240,10 @@ async function addNativeSegwitUTXOLedgerProps(
   bitcoinBlockchainAPIURL: string
 ): Promise<Psbt> {
   const inputTransactionHexes = await Promise.all(
-    psbt.txInputs.map(async (input) =>
-      (await fetch(`${bitcoinBlockchainAPIURL}/tx/${reverseBytes(input.hash).toString('hex')}/hex`)).text()
+    psbt.txInputs.map(async input =>
+      (
+        await fetch(`${bitcoinBlockchainAPIURL}/tx/${reverseBytes(input.hash).toString('hex')}/hex`)
+      ).text()
     )
   );
 
@@ -281,7 +291,10 @@ async function addNativeSegwitBip32Derivation(
  * @param signatures - An array of tuples containing the index of the input and the PartialSignature.
  * @returns The updated PSBT.
  */
-export function addNativeSegwitSignaturesToPSBT(psbt: Psbt, signatures: [number, PartialSignature][]): void {
+export function addNativeSegwitSignaturesToPSBT(
+  psbt: Psbt,
+  signatures: [number, PartialSignature][]
+): void {
   signatures.forEach(([index, signature]) => psbt.updateInput(index, { partialSig: [signature] }));
 }
 
@@ -291,7 +304,10 @@ export function addNativeSegwitSignaturesToPSBT(psbt: Psbt, signatures: [number,
  * @param signatures - An array of tuples containing the index of the input and the PartialSignature.
  * @returns The updated PSBT.
  */
-export function addTaprootInputSignaturesToPSBT(psbt: Psbt, signatures: [number, PartialSignature][]): void {
+export function addTaprootInputSignaturesToPSBT(
+  psbt: Psbt,
+  signatures: [number, PartialSignature][]
+): void {
   signatures.forEach(([index, signature]) =>
     psbt.updateInput(index, {
       tapScriptSig: [
