@@ -2,7 +2,6 @@
 
 import { bytesToHex } from '@noble/hashes/utils';
 import { regtest } from 'bitcoinjs-lib/src/networks.js';
-import dotenv from 'dotenv';
 import { ethereumArbitrumSepolia } from './constants/ethereum-constants.js';
 import { PrivateKeyDLCHandler } from './dlc-handlers/private-key-dlc-handler.js';
 import { broadcastTransaction } from './functions/bitcoin-functions.js';
@@ -10,8 +9,6 @@ import { fetchEthereumDeploymentPlan } from './functions/ethereum-functions.js';
 import { EthereumHandler } from './network-handlers/ethereum-handler.js';
 import { AttestorHandler } from './query-handlers/attestor-handler.js';
 import { shiftValue } from './utilities/index.js';
-
-dotenv.config();
 
 async function runFlowWithPrivateKey() {
   const exampleNetwork = regtest;
@@ -39,8 +36,8 @@ async function runFlowWithPrivateKey() {
   const deploymentPlans = await Promise.all(deploymentPlansPromises);
 
   // Setup Ethereum
-  const rpcEndpoint = '';
-  const readOnlyRPCEndpoint = '';
+  const rpcEndpoint = 'https://sepolia-rollup.arbitrum.io/rpc';
+  const readOnlyRPCEndpoint = 'https://sepolia-rollup.arbitrum.io/rpc';
 
   if (!rpcEndpoint) {
     throw new Error('Ethereum RPC Endpoint not set');
@@ -56,8 +53,6 @@ async function runFlowWithPrivateKey() {
     throw new Error('Could not setup Vault');
   }
   const vaultUUID = setupVaultTransactionReceipt.events.find((event: any) => event.event === 'SetupVault').args[0];
-
-  console.log('vaultUUID', vaultUUID);
 
   // Setup DLC Handler (with Private Key)
   const dlcHandler = new PrivateKeyDLCHandler(
@@ -91,7 +86,7 @@ async function runFlowWithPrivateKey() {
   const nativeSegwitAddress = dlcHandler.getVaultRelatedAddress('p2wpkh');
 
   // Send Required Information to Attestors to Create PSBT Event
-  const attestorHandler = new AttestorHandler(exampleAttestorURLs, ethereumArbitrumSepolia);
+  const attestorHandler = new AttestorHandler(exampleAttestorURLs, 'evm-arbsepolia');
 
   await attestorHandler.createPSBTEvent(
     vaultUUID,

@@ -14,7 +14,7 @@ export async function fetchEthereumDeploymentPlan(
   ethereumNetwork: EthereumNetwork,
   deploymentBranch: string,
   deploymentPlanRootURL: string
-) {
+): Promise<EthereumDeploymentPlan> {
   const deploymentPlanURL = `${deploymentPlanRootURL}/${deploymentBranch}/deploymentFiles/${ethereumNetwork.name.toLowerCase()}/${contractName}.json`;
 
   try {
@@ -24,7 +24,7 @@ export async function fetchEthereumDeploymentPlan(
         `Failed to fetch deployment. Received a non-OK response. Status: ${response.status} ${response.statusText}`
       );
     }
-    const contractData = await response.json();
+    const contractData: EthereumDeploymentPlan = await response.json();
     return contractData;
   } catch (error) {
     throw new EthereumError(`Could not fetch deployment info for ${contractName}`);
