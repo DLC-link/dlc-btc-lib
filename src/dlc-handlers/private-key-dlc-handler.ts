@@ -130,6 +130,7 @@ export class PrivateKeyDLCHandler {
       const attestorDerivedPublicKey = deriveUnhardenedPublicKey(attestorGroupPublicKey, this.bitcoinNetwork);
 
       const nativeSegwitPayment = p2wpkh(this.derivedKeyPair.nativeSegwitDerivedKeyPair.publicKey, this.bitcoinNetwork);
+      console.log(nativeSegwitPayment.address);
       const taprootMultisigPayment = createTaprootMultisigPayment(
         unspendableDerivedPublicKey,
         attestorDerivedPublicKey,
@@ -216,7 +217,7 @@ export class PrivateKeyDLCHandler {
     return Transaction.fromPSBT(closingPSBT);
   }
 
-  signPSBT(psbt: Transaction, transactionType: 'funding' | 'closing', finalize: boolean = false): Transaction {
+  signPSBT(psbt: Transaction, transactionType: 'funding' | 'closing'): Transaction {
     psbt.sign(this.getPrivateKey(transactionType === 'funding' ? 'p2wpkh' : 'p2tr'));
     if (transactionType === 'funding') psbt.finalize();
     return psbt;

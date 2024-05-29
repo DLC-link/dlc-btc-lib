@@ -3,7 +3,7 @@
 import Transport from '@ledgerhq/hw-transport-node-hid';
 import { AppClient } from 'ledger-bitcoin';
 import { LEDGER_APPS_MAP } from './constants/ledger-constants.js';
-import { delay } from './utilities.js';
+import { delay } from './utilities/index.js';
 
 type TransportInstance = Awaited<ReturnType<typeof Transport.default.create>>;
 

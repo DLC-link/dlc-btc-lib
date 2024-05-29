@@ -25,7 +25,7 @@ import {
   updateNativeSegwitInputs,
   updateTaprootInputs,
 } from '../functions/psbt-functions.js';
-import { truncateAddress } from '../utilities.js';
+import { truncateAddress } from '../utilities/index.js';
 import { PaymentInformation } from '../models/bitcoin-models.js';
 
 interface LedgerPolicyInformation {
@@ -226,7 +226,7 @@ export class LedgerDLCHandler {
 
   async createFundingPSBT(vault: RawVault, feeRateMultiplier?: number, customFeeRate?: bigint): Promise<Psbt> {
     try {
-      const { nativeSegwitPayment, nativeSegwitDerivedPublicKey, taprootMultisigPayment, taprootDerivedPublicKey } =
+      const { nativeSegwitPayment, nativeSegwitDerivedPublicKey, taprootMultisigPayment } =
         this.getPaymentInformation();
 
       if (taprootMultisigPayment.address === undefined || nativeSegwitPayment.address === undefined) {

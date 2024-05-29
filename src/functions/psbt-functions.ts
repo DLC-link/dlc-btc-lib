@@ -6,7 +6,7 @@ import { PartialSignature } from 'ledger-bitcoin/build/main/lib/appClient.js';
 
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { BitcoinInputSigningConfig, PaymentTypes } from '../models/bitcoin-models.js';
-import { reverseBytes } from '../utilities.js';
+import { reverseBytes } from '../utilities/index.js';
 import { ecdsaPublicKeyToSchnorr, getFeeRecipientAddressFromPublicKey, getUTXOs } from './bitcoin-functions.js';
 
 /**

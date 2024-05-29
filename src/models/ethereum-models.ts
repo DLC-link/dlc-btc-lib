@@ -1,6 +1,18 @@
 /** @format */
 
-import { BigNumber } from 'ethers';
+import { BigNumber, Contract } from 'ethers';
+
+export interface EthereumNetwork {
+  id: EthereumNetworkID;
+  name: string;
+  displayName: string;
+  defaultNodeURL: string;
+}
+
+export enum EthereumNetworkID {
+  ArbitrumSepolia = '421614',
+  Arbitrum = '42161',
+}
 
 export enum VaultState {
   'Ready',
@@ -25,25 +37,29 @@ export interface RawVault {
   taprootPubKey: string;
 }
 
-export interface DisplayVault {
-  uuid: string;
-  truncatedUUID: string;
-  state: string;
-  collateral: number;
-  createdAt: string;
+interface EthereumContract {
+  name: string;
+  address: string;
+  signerAddress: string;
+  abi: string[];
 }
 
-export interface ExtendedDisplayVault {
-  uuid: string;
-  protocolContract: string;
-  timestamp: number;
-  valueLocked: number;
-  creator: string;
-  status: number;
-  fundingTxId: string;
-  closingTxId: string;
-  btcFeeRecipient: string;
-  btcMintFeeBasisPoints: number;
-  btcRedeemFeeBasisPoints: number;
-  taprootPubKey: string;
+export interface EthereumDeploymentPlan {
+  network: string;
+  updatedAt: string;
+  gitSHA: string;
+  contract: EthereumContract;
+}
+
+export interface DLCEthereumContracts {
+  protocolContract: Contract;
+  dlcManagerContract: Contract;
+  dlcBTCContract: Contract;
+  readOnlyProtocolContract: Contract;
+}
+
+export interface DLCReadOnlyEthereumContracts {
+  protocolContract: Contract;
+  dlcManagerContract: Contract;
+  dlcBTCContract: Contract;
 }

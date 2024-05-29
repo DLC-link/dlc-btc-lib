@@ -7,7 +7,7 @@ import { Network } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 import { BitcoinInputSigningConfig, FeeRates, PaymentTypes, UTXO } from '../models/bitcoin-models.js';
-import { createRangeFromLength, isDefined, isUndefined, unshiftValue } from '../utilities.js';
+import { createRangeFromLength, isDefined, isUndefined } from '../utilities/index.js';
 
 const TAPROOT_UNSPENDABLE_KEY_HEX = '0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
 const ECDSA_PUBLIC_KEY_LENGTH = 33;
