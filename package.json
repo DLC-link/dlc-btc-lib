@@ -1,8 +1,8 @@
 {
   "type": "module",
-  "name": "dlc-btc-app",
-  "version": "1.0.5",
-  "description": "",
+  "name": "dlc-btc-lib",
+  "version": "1.0.1",
+  "description": "This library provides a comprehensive set of interfaces and functions for minting dlcBTC tokens on supported blockchains.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -13,8 +13,8 @@
     "./utilities": "./dist/utilities/index.js",
     "./constants": "./dist/constants/index.js",
     "./models": "./dist/models/index.js",
-    "./bitcoin-functions": "./dist/functions/bitcoin-functions/index.js",
-    "./ethereum-functions": "./dist/functions/ethereum-functions/index.js"
+    "./bitcoin-functions": "./dist/functions/bitcoin/index.js",
+    "./ethereum-functions": "./dist/functions/ethereum/index.js"
   },
   "scripts": {
     "clean": "rm -rf dist && rm -rf node_modules",
@@ -28,8 +28,15 @@
     "lint:prettier:fix": "prettier --write \"{src,tests}/**/*.ts\" *.js",
     "lint:typecheck": "tsc --noEmit"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "dlc",
+    "dlcbtc",
+    "dlclink",
+    "bitcoin",
+    "ethereum",
+    "token"
+  ],
+  "author": "DLC.Link",
   "license": "ISC",
   "devDependencies": {
     "@types/prompts": "^2.4.9",

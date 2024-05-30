@@ -1,12 +1,13 @@
-import { EthereumError } from '@models/errors.js';
+import { Contract, Wallet, providers } from 'ethers';
+
+import { EthereumError } from '../../models/errors.js';
 import {
   DLCEthereumContracts,
   EthereumDeploymentPlan,
   EthereumNetwork,
   RawVault,
   VaultState,
-} from '@models/ethereum-models.js';
-import { Contract, Wallet, providers } from 'ethers';
+} from '../../models/ethereum-models.js';
 
 export async function fetchEthereumDeploymentPlan(
   contractName: string,

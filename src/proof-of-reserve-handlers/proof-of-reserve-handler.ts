@@ -1,3 +1,6 @@
+import { hex } from '@scure/base';
+import { Network } from 'bitcoinjs-lib';
+
 import {
   createTaprootMultisigPayment,
   createTaprootMultisigPaymentLegacy,
@@ -5,15 +8,13 @@ import {
   findMatchingScript,
   getUnspendableKeyCommittedToUUID,
   getValueMatchingInputFromTransaction,
-} from '@bitcoin/bitcoin-functions.js';
+} from '../functions/bitcoin/bitcoin-functions.js';
 import {
   checkBitcoinTransactionConfirmations,
   fetchBitcoinBlockchainBlockHeight,
   fetchBitcoinTransaction,
-} from '@bitcoin/bitcoin-request-functions.js';
-import { RawVault } from '@models/ethereum-models.js';
-import { hex } from '@scure/base';
-import { Network } from 'bitcoinjs-lib';
+} from '../functions/bitcoin/bitcoin-request-functions.js';
+import { RawVault } from '../models/ethereum-models.js';
 
 export class ProofOfReserveHandler {
   private bitcoinBlockchainAPI: string;

@@ -1,4 +1,4 @@
-import { EthereumNetwork, EthereumNetworkID } from '@models/ethereum-models.js';
+import { EthereumNetwork, EthereumNetworkID } from '../models/ethereum-models.js';
 
 export const ethereumArbitrumSepolia: EthereumNetwork = {
   name: 'ArbSepolia',

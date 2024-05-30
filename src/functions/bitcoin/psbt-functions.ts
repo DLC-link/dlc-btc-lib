@@ -1,11 +1,11 @@
-import { BitcoinInputSigningConfig, PaymentTypes } from '@models/bitcoin-models.js';
 import { hexToBytes } from '@noble/hashes/utils';
 import { p2wpkh, selectUTXO } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
-import { reverseBytes } from '@utilities/index.js';
 import { Network, Psbt } from 'bitcoinjs-lib';
 import { PartialSignature } from 'ledger-bitcoin/build/main/lib/appClient.js';
 
+import { BitcoinInputSigningConfig, PaymentTypes } from '../../models/bitcoin-models.js';
+import { reverseBytes } from '../../utilities/index.js';
 import {
   ecdsaPublicKeyToSchnorr,
   getFeeRecipientAddressFromPublicKey,

@@ -1,6 +1,9 @@
-import { AttestorHandler } from '@attestor-handlers/attestor-handler.js';
-import { broadcastTransaction } from '@bitcoin/bitcoin-request-functions.js';
-import { ethereumArbitrumSepolia } from '@constants/ethereum-constants.js';
+import { bytesToHex } from '@noble/hashes/utils';
+import { regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
+import { Event } from 'ethers';
+
+import { AttestorHandler } from './attestor-handlers/attestor-handler.js';
+import { ethereumArbitrumSepolia } from './constants/ethereum-constants.js';
 import {
   EXAMPLE_BITCOIN_AMOUNT,
   EXAMPLE_BITCOIN_BLOCKCHAIN_FEE_RECOMMENDATION_API,
@@ -18,19 +21,17 @@ import {
   EXAMPLE_TESTNET_ATTESTOR_APIS,
   EXAMPLE_TESTNET_ATTESTOR_GROUP_PUBLIC_KEY_V1,
   EXAMPLE_TESTNET_BITCOIN_BLOCKCHAIN_API,
-} from '@constants/example-constants.js';
-import { LEDGER_APPS_MAP } from '@constants/ledger-constants.js';
-import { LedgerDLCHandler } from '@dlc-handlers/ledger-dlc-handler.js';
-import { PrivateKeyDLCHandler } from '@dlc-handlers/private-key-dlc-handler.js';
-import { fetchEthereumDeploymentPlan } from '@ethereum/ethereum-functions.js';
-import { getLedgerApp } from '@hardware-wallet/ledger-functions.js';
-import { EthereumHandler } from '@network-handlers/ethereum-handler.js';
-import { ReadOnlyEthereumHandler } from '@network-handlers/read-only-ethereum-handler.js';
-import { bytesToHex } from '@noble/hashes/utils';
-import { ProofOfReserveHandler } from '@proof-of-reserve-handlers/proof-of-reserve-handler.js';
-import { shiftValue } from '@utilities/index.js';
-import { regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
-import { Event } from 'ethers';
+} from './constants/example-constants.js';
+import { LEDGER_APPS_MAP } from './constants/ledger-constants.js';
+import { LedgerDLCHandler } from './dlc-handlers/ledger-dlc-handler.js';
+import { PrivateKeyDLCHandler } from './dlc-handlers/private-key-dlc-handler.js';
+import { broadcastTransaction } from './functions/bitcoin/bitcoin-request-functions.js';
+import { fetchEthereumDeploymentPlan } from './functions/ethereum/ethereum-functions.js';
+import { getLedgerApp } from './functions/hardware-wallet/ledger-functions.js';
+import { EthereumHandler } from './network-handlers/ethereum-handler.js';
+import { ReadOnlyEthereumHandler } from './network-handlers/read-only-ethereum-handler.js';
+import { ProofOfReserveHandler } from './proof-of-reserve-handlers/proof-of-reserve-handler.js';
+import { shiftValue } from './utilities/index.js';
 
 async function runFlowWithPrivateKey() {
   // Fetch Ethereum Contract Deployment Plans

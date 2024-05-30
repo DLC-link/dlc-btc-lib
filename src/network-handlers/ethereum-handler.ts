@@ -1,6 +1,6 @@
-import { getEthereumContracts, getProvider } from '@ethereum/ethereum-functions.js';
 import { Wallet, providers } from 'ethers';
 
+import { getEthereumContracts, getProvider } from '../functions/ethereum/ethereum-functions.js';
 import { EthereumError } from '../models/errors.js';
 import {
   DLCEthereumContracts,

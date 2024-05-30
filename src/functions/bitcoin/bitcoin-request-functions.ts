@@ -1,4 +1,4 @@
-import { BitcoinTransaction } from '@models/bitcoin-models.js';
+import { BitcoinTransaction } from '../../models/bitcoin-models.js';
 
 export async function fetchBitcoinTransaction(
   txID: string,
