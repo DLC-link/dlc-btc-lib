@@ -1,0 +1,66 @@
+# @format
+
+name: Code Checks
+
+on:
+  merge_group:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: ./.github/actions/provision
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: yarn install --ignore-optional
+
+      - name: Build
+        run: yarn build
+
+  lint-eslint:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/provision
+
+      - name: Lint
+        run: yarn lint:eslint
+
+  lint-prettier:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/provision
+
+      - name: Prettier
+        run: yarn lint:prettier
+
+  typecheck:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/provision
+
+      - name: Typecheck
+        run: yarn lint:typecheck
+
+  lint-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Commit Message
+        uses: wagoid/commitlint-github-action@v4
