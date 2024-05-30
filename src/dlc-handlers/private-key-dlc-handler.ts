@@ -1,4 +1,3 @@
-/** @format */
 import { Transaction, p2wpkh } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Signer } from '@scure/btc-signer/transaction';
@@ -13,8 +12,11 @@ import {
   getBalance,
   getFeeRate,
   getUnspendableKeyCommittedToUUID,
-} from '../functions/bitcoin-functions.js';
-import { createClosingTransaction, createFundingTransaction } from '../functions/psbt-functions.js';
+} from '../functions/bitcoin/bitcoin-functions.js';
+import {
+  createClosingTransaction,
+  createFundingTransaction,
+} from '../functions/bitcoin/psbt-functions.js';
 import { RequiredPayment } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
 
@@ -129,7 +131,8 @@ export class PrivateKeyDLCHandler {
 
     return privateKey;
   }
-  private handlePayment(vaultUUID: string, attestorGroupPublicKey: string): RequiredPayment {
+
+  handlePayment(vaultUUID: string, attestorGroupPublicKey: string): RequiredPayment {
     try {
       const unspendablePublicKey = getUnspendableKeyCommittedToUUID(vaultUUID, this.bitcoinNetwork);
       const unspendableDerivedPublicKey = deriveUnhardenedPublicKey(
@@ -146,7 +149,7 @@ export class PrivateKeyDLCHandler {
         this.derivedKeyPair.nativeSegwitDerivedKeyPair.publicKey,
         this.bitcoinNetwork
       );
-      console.log(nativeSegwitPayment.address);
+
       const taprootMultisigPayment = createTaprootMultisigPayment(
         unspendableDerivedPublicKey,
         attestorDerivedPublicKey,

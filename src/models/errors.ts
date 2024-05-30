@@ -1,5 +1,3 @@
-/** @format */
-
 export class EthereumError extends Error {
   constructor(message: string) {
     super(message);

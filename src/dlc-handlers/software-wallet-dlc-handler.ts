@@ -1,4 +1,3 @@
-/** @format */
 import { Transaction, p2wpkh } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Network } from 'bitcoinjs-lib';
@@ -10,8 +9,11 @@ import {
   getBalance,
   getFeeRate,
   getUnspendableKeyCommittedToUUID,
-} from '../functions/bitcoin-functions.js';
-import { createClosingTransaction, createFundingTransaction } from '../functions/psbt-functions.js';
+} from '../functions/bitcoin/bitcoin-functions.js';
+import {
+  createClosingTransaction,
+  createFundingTransaction,
+} from '../functions/bitcoin/psbt-functions.js';
 import { RequiredPayment } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
 

@@ -1,4 +1,4 @@
-/** @format */
+import { hex } from '@scure/base';
 import {
   Address,
   OutScript,
@@ -11,6 +11,7 @@ import {
 } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { TransactionInput } from '@scure/btc-signer/psbt';
+import { taprootTweakPubkey } from '@scure/btc-signer/utils';
 import { BIP32Factory, BIP32Interface } from 'bip32';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
@@ -18,11 +19,13 @@ import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
 import {
   BitcoinInputSigningConfig,
+  BitcoinTransaction,
+  BitcoinTransactionVectorOutput,
   FeeRates,
   PaymentTypes,
   UTXO,
-} from '../models/bitcoin-models.js';
-import { createRangeFromLength, isDefined, isUndefined } from '../utilities/index.js';
+} from '../../models/bitcoin-models.js';
+import { createRangeFromLength, isDefined, isUndefined } from '../../utilities/index.js';
 
 const TAPROOT_UNSPENDABLE_KEY_HEX =
   '0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
@@ -116,6 +119,29 @@ export function createTaprootMultisigPayment(
   const taprootMultiLeafWallet = p2tr_ns(2, sortedArray);
 
   return p2tr(unspendableDerivedPublicKeyFormatted, taprootMultiLeafWallet, bitcoinNetwork);
+}
+
+export function createTaprootMultisigPaymentLegacy(
+  publicKeyA: string,
+  publicKeyB: string,
+  vaultUUID: string,
+  bitcoinNetwork: Network
+): P2TROut {
+  const TAPROOT_UNSPENDABLE_KEY_STR =
+    '50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
+  const TAPROOT_UNSPENDABLE_KEY = hex.decode(TAPROOT_UNSPENDABLE_KEY_STR);
+
+  const tweakedUnspendableTaprootKey = taprootTweakPubkey(
+    TAPROOT_UNSPENDABLE_KEY,
+    Buffer.from(vaultUUID)
+  )[0];
+
+  const multisigPayment = p2tr_ns(2, [hex.decode(publicKeyA), hex.decode(publicKeyB)]);
+
+  const multisigTransaction = p2tr(tweakedUnspendableTaprootKey, multisigPayment, bitcoinNetwork);
+  multisigTransaction.tapInternalKey = tweakedUnspendableTaprootKey;
+
+  return multisigTransaction;
 }
 
 /**
@@ -233,34 +259,6 @@ export function getFeeRecipientAddressFromPublicKey(
   const { address } = p2wpkh(feePublicKeyBuffer, bitcoinNetwork);
   if (!address) throw new Error('Could not create Fee Address from Public Key');
   return address;
-}
-
-/**
- * Broadcasts the Transaction to the Bitcoin Network.
- *
- * @param transaction - The Transaction to broadcast.
- * @returns A Promise that resolves to the Response from the Broadcast Request.
- */
-export async function broadcastTransaction(
-  transaction: string,
-  bitcoinBlockchainAPIURL: string
-): Promise<string> {
-  try {
-    const response = await fetch(`${bitcoinBlockchainAPIURL}/tx`, {
-      method: 'POST',
-      body: transaction,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error while broadcasting Bitcoin Transaction: ${await response.text()}`);
-    }
-
-    const transactionID = await response.text();
-
-    return transactionID;
-  } catch (error) {
-    throw new Error(`Error broadcasting Transaction: ${error}`);
-  }
 }
 
 /**
@@ -428,6 +426,27 @@ export function getInputByPaymentTypeArray(
       getInputPaymentType(inputIndex, transaction.getInput(config.index), bitcoinNetwork),
     ];
   });
+}
+
+export function getValueMatchingInputFromTransaction(
+  bitcoinTransaction: BitcoinTransaction,
+  bitcoinValue: number
+): BitcoinTransactionVectorOutput {
+  const valueMatchingTransactionInput = bitcoinTransaction.vout.find(
+    output => output.value === bitcoinValue
+  );
+  if (!valueMatchingTransactionInput) {
+    throw new Error('Could not find Value matching Input in Transaction');
+  }
+  return valueMatchingTransactionInput;
+}
+
+export function findMatchingScript(scripts: Uint8Array[], outputScript: Uint8Array): boolean {
+  return scripts.some(
+    script =>
+      outputScript.length === script.length &&
+      outputScript.every((value, index) => value === script[index])
+  );
 }
 
 /**

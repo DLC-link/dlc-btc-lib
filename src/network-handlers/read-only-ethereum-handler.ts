@@ -1,14 +1,12 @@
-/** @format */
-import { Event } from 'ethers';
-
-import { getProvider, getReadOnlyEthereumContracts } from '../functions/ethereum-functions.js';
-import { EthereumError } from '../models/errors.js';
+import { getProvider, getReadOnlyEthereumContracts } from '@ethereum/ethereum-functions.js';
+import { EthereumError } from '@models/errors.js';
 import {
   DLCReadOnlyEthereumContracts,
   EthereumDeploymentPlan,
   RawVault,
   VaultState,
-} from '../models/ethereum-models.js';
+} from '@models/ethereum-models.js';
+import { Event } from 'ethers';
 
 export class ReadOnlyEthereumHandler {
   private ethereumContracts: DLCReadOnlyEthereumContracts;

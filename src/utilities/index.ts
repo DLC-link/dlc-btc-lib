@@ -1,4 +1,3 @@
-/** @format */
 import { Decimal } from 'decimal.js';
 
 export function shiftValue(value: number): number {

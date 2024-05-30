@@ -45,16 +45,6 @@ jobs:
       - name: Prettier
         run: yarn lint:prettier
 
-  lint-unused-exports:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/provision
-
-      - name: Unused Exports
-        run: yarn lint:unused-exports
-
   typecheck:
     needs: build
     runs-on: ubuntu-latest

@@ -1,21 +1,25 @@
 {
   "type": "module",
   "name": "dlc-btc-app",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": "./dist/index.js",
     "./utilities": "./dist/utilities/index.js",
     "./constants": "./dist/constants/index.js",
-    "./models": "./dist/models/index.js"
+    "./models": "./dist/models/index.js",
+    "./bitcoin-functions": "./dist/functions/bitcoin-functions/index.js",
+    "./ethereum-functions": "./dist/functions/ethereum-functions/index.js"
   },
   "scripts": {
     "clean": "rm -rf dist && rm -rf node_modules",
     "build": "tsc",
-    "start": "node dist/test.js",
+    "start": "node dist/example.js",
     "test": "ts-node index.ts",
     "lint": "concurrently -g 'yarn lint:eslint' 'yarn lint:prettier' 'yarn run lint:typecheck'",
     "lint:eslint": "eslint \"src/**/*.{js,ts}\"",
