@@ -172,13 +172,8 @@ async function runFlowWithLedger() {
   // Fetch Attestor Group Public Key from the Smart Contract
   const attestorGroupPublicKey = await ethereumHandler.getAttestorGroupPublicKey();
 
-  // Create Native Segwit Payment from the User's Native Segwit Extended Public Key,
-  // and Taproot Multisig Payment from the User's Taproot Extended Public Key, the Attestor Group Public Key, and the Unspendable Public Key committed to the Vault UUID,
-  // which will later be used for the Funding and Closing Transaction
-  await dlcHandler.createPayment(vaultUUID, attestorGroupPublicKey);
-
   // Create Funding Transaction
-  const fundingPSBT = await dlcHandler.createFundingPSBT(vault, 2);
+  const fundingPSBT = await dlcHandler.createFundingPSBT(vault, attestorGroupPublicKey, 2);
 
   // Sign Funding Transaction
   const fundingTransaction = await dlcHandler.signPSBT(fundingPSBT, 'funding');
@@ -244,8 +239,8 @@ async function runProofOfReserveCalculation() {
 
 async function example() {
   try {
-    // await runFlowWithPrivateKey();
-    // await runFlowWithLedger();
+    await runFlowWithPrivateKey();
+    await runFlowWithLedger();
     await runProofOfReserveCalculation();
   } catch (error) {
     throw new Error(`Error: ${error}`);

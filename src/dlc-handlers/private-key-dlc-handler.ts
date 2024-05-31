@@ -17,7 +17,7 @@ import {
   createClosingTransaction,
   createFundingTransaction,
 } from '../functions/bitcoin/psbt-functions.js';
-import { RequiredPayment } from '../models/bitcoin-models.js';
+import { PaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
 
 interface RequiredKeyPair {
@@ -27,7 +27,7 @@ interface RequiredKeyPair {
 
 export class PrivateKeyDLCHandler {
   private derivedKeyPair: RequiredKeyPair;
-  public payment: RequiredPayment | undefined;
+  public payment: PaymentInformation | undefined;
   private bitcoinNetwork: Network;
   private bitcoinBlockchainAPI: string;
   private bitcoinBlockchainFeeRecommendationAPI: string;
@@ -132,7 +132,7 @@ export class PrivateKeyDLCHandler {
     return privateKey;
   }
 
-  handlePayment(vaultUUID: string, attestorGroupPublicKey: string): RequiredPayment {
+  private createPayments(vaultUUID: string, attestorGroupPublicKey: string): PaymentInformation {
     try {
       const unspendablePublicKey = getUnspendableKeyCommittedToUUID(vaultUUID, this.bitcoinNetwork);
       const unspendableDerivedPublicKey = deriveUnhardenedPublicKey(
@@ -174,7 +174,7 @@ export class PrivateKeyDLCHandler {
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Transaction> {
-    const { nativeSegwitPayment, taprootMultisigPayment } = this.handlePayment(
+    const { nativeSegwitPayment, taprootMultisigPayment } = this.createPayments(
       vault.uuid,
       attestorGroupPublicKey
     );

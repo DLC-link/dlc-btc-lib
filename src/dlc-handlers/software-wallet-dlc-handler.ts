@@ -14,13 +14,13 @@ import {
   createClosingTransaction,
   createFundingTransaction,
 } from '../functions/bitcoin/psbt-functions.js';
-import { RequiredPayment } from '../models/bitcoin-models.js';
+import { PaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
 
 export class SoftwareWalletDLCHandler {
   private nativeSegwitDerivedPublicKey: string;
   private taprootDerivedPublicKey: string;
-  public paymentInformation: RequiredPayment | undefined;
+  public payment: PaymentInformation | undefined;
   private bitcoinNetwork: Network;
   private bitcoinBlockchainAPI: string;
   private bitcoinBlockchainFeeRecommendationAPI: string;
@@ -63,22 +63,22 @@ export class SoftwareWalletDLCHandler {
     this.taprootDerivedPublicKey = taprootDerivedPublicKey;
   }
 
-  private setPaymentInformation(nativeSegwitPayment: P2Ret, taprootMultisigPayment: P2TROut): void {
-    this.paymentInformation = {
+  private setPayment(nativeSegwitPayment: P2Ret, taprootMultisigPayment: P2TROut): void {
+    this.payment = {
       nativeSegwitPayment,
       taprootMultisigPayment,
     };
   }
 
-  private getPaymentInformation(): RequiredPayment {
-    if (!this.paymentInformation) {
+  private getPayment(): PaymentInformation {
+    if (!this.payment) {
       throw new Error('Payment Information not set');
     }
-    return this.paymentInformation;
+    return this.payment;
   }
 
-  etVaultRelatedAddress(paymentType: 'p2wpkh' | 'p2tr'): string {
-    const payment = this.getPaymentInformation();
+  getVaultRelatedAddress(paymentType: 'p2wpkh' | 'p2tr'): string {
+    const payment = this.getPayment();
 
     if (payment === undefined) {
       throw new Error('Payment objects have not been set');
@@ -104,7 +104,10 @@ export class SoftwareWalletDLCHandler {
     }
   }
 
-  async createPayment(vaultUUID: string, attestorGroupPublicKey: string): Promise<void> {
+  private async createPayments(
+    vaultUUID: string,
+    attestorGroupPublicKey: string
+  ): Promise<PaymentInformation> {
     try {
       const nativeSegwitPayment = p2wpkh(
         Buffer.from(this.nativeSegwitDerivedPublicKey, 'hex'),
@@ -129,7 +132,12 @@ export class SoftwareWalletDLCHandler {
         this.bitcoinNetwork
       );
 
-      this.setPaymentInformation(nativeSegwitPayment, taprootMultisigPayment);
+      this.setPayment(nativeSegwitPayment, taprootMultisigPayment);
+
+      return {
+        nativeSegwitPayment,
+        taprootMultisigPayment,
+      };
     } catch (error: any) {
       throw new Error(`Error creating required wallet information: ${error}`);
     }
@@ -137,11 +145,15 @@ export class SoftwareWalletDLCHandler {
 
   async createFundingPSBT(
     vault: RawVault,
+    attestorGroupPublicKey: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Transaction> {
     try {
-      const { nativeSegwitPayment, taprootMultisigPayment } = this.getPaymentInformation();
+      const { nativeSegwitPayment, taprootMultisigPayment } = await this.createPayments(
+        vault.uuid,
+        attestorGroupPublicKey
+      );
 
       if (
         taprootMultisigPayment.address === undefined ||
@@ -186,7 +198,7 @@ export class SoftwareWalletDLCHandler {
     customFeeRate?: bigint
   ): Promise<Transaction> {
     try {
-      const { nativeSegwitPayment, taprootMultisigPayment } = this.getPaymentInformation();
+      const { nativeSegwitPayment, taprootMultisigPayment } = this.getPayment();
 
       if (
         taprootMultisigPayment.address === undefined ||
