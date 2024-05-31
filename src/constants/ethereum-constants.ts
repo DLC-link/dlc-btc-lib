@@ -1,4 +1,8 @@
-import { EthereumNetwork, EthereumNetworkID } from '../models/ethereum-models.js';
+import {
+  DLCEthereumContractName,
+  EthereumNetwork,
+  EthereumNetworkID,
+} from '../models/ethereum-models.js';
 
 export const ethereumArbitrumSepolia: EthereumNetwork = {
   name: 'ArbSepolia',
@@ -52,3 +56,7 @@ export const addNetworkParams = {
     },
   ],
 };
+
+export const GITHUB_SOLIDITY_URL = 'https://raw.githubusercontent.com/DLC-link/dlc-solidity';
+
+export const dlcContractNames: DLCEthereumContractName[] = ['TokenManager', 'DLCManager', 'DLCBTC'];

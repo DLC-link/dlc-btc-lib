@@ -61,3 +61,7 @@ export interface DLCReadOnlyEthereumContracts {
   dlcManagerContract: Contract;
   dlcBTCContract: Contract;
 }
+
+export type SupportedNetworks = 'arbitrum' | 'arbitrum-sepolia-testnet' | 'arbitrum-sepolia-devnet';
+export type DLCEthereumContractName = 'TokenManager' | 'DLCManager' | 'DLCBTC';
+export type DLCSolidityBranchName = 'dev' | 'testnet-rolling';
