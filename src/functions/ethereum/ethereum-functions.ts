@@ -1,11 +1,19 @@
 import { Contract, Wallet, providers } from 'ethers';
 
+import {
+  GITHUB_SOLIDITY_URL,
+  dlcContractNames,
+  ethereumArbitrum,
+  ethereumArbitrumSepolia,
+} from '../../constants/ethereum-constants.js';
 import { EthereumError } from '../../models/errors.js';
 import {
   DLCEthereumContracts,
+  DLCSolidityBranchName,
   EthereumDeploymentPlan,
   EthereumNetwork,
   RawVault,
+  SupportedNetworks,
   VaultState,
 } from '../../models/ethereum-models.js';
 
@@ -28,6 +36,43 @@ export async function fetchEthereumDeploymentPlan(
     return contractData;
   } catch (error) {
     throw new EthereumError(`Could not fetch deployment info for ${contractName}`);
+  }
+}
+
+export async function fetchEthereumDeploymentPlansByNetwork(
+  network: SupportedNetworks
+): Promise<EthereumDeploymentPlan[]> {
+  try {
+    let ethereumNetwork: EthereumNetwork;
+    let deploymentBranch: DLCSolidityBranchName;
+    switch (network) {
+      case 'arbitrum':
+        ethereumNetwork = ethereumArbitrum;
+        deploymentBranch = 'dev';
+        break;
+      case 'arbitrum-sepolia-testnet':
+        ethereumNetwork = ethereumArbitrumSepolia;
+        deploymentBranch = 'testnet-rolling';
+        break;
+      case 'arbitrum-sepolia-devnet':
+        ethereumNetwork = ethereumArbitrumSepolia;
+        deploymentBranch = 'dev';
+        break;
+      default:
+        throw new Error('Unsupported Network');
+    }
+    return Promise.all(
+      dlcContractNames.map(async contractName => {
+        return await fetchEthereumDeploymentPlan(
+          contractName,
+          ethereumNetwork,
+          deploymentBranch,
+          GITHUB_SOLIDITY_URL
+        );
+      })
+    );
+  } catch (error) {
+    throw new EthereumError(`Could not fetch Ethereum Deployment Plans: ${error}`);
   }
 }
 

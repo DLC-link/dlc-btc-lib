@@ -26,7 +26,10 @@ import { LEDGER_APPS_MAP } from './constants/ledger-constants.js';
 import { LedgerDLCHandler } from './dlc-handlers/ledger-dlc-handler.js';
 import { PrivateKeyDLCHandler } from './dlc-handlers/private-key-dlc-handler.js';
 import { broadcastTransaction } from './functions/bitcoin/bitcoin-request-functions.js';
-import { fetchEthereumDeploymentPlan } from './functions/ethereum/ethereum-functions.js';
+import {
+  fetchEthereumDeploymentPlan,
+  fetchEthereumDeploymentPlansByNetwork,
+} from './functions/ethereum/ethereum-functions.js';
 import { getLedgerApp } from './functions/hardware-wallet/ledger-functions.js';
 import { EthereumHandler } from './network-handlers/ethereum-handler.js';
 import { ReadOnlyEthereumHandler } from './network-handlers/read-only-ethereum-handler.js';
@@ -215,16 +218,7 @@ async function runFlowWithLedger() {
 
 async function runProofOfReserveCalculation() {
   // Fetch Ethereum Contract Deployment Plans
-  const deploymentPlans = await Promise.all(
-    ['TokenManager', 'DLCManager', 'DLCBTC'].map(contractName => {
-      return fetchEthereumDeploymentPlan(
-        contractName,
-        ethereumArbitrumSepolia,
-        EXAMPLE_ETHEREUM_TESTNET_GITHUB_DEPLOYMENT_PLAN_BRANCH,
-        EXAMPLE_ETHEREUM_GITHUB_DEPLOYMENT_PLAN_ROOT_URL
-      );
-    })
-  );
+  const deploymentPlans = await fetchEthereumDeploymentPlansByNetwork('arbitrum-sepolia-testnet');
 
   // Setup Read-Only Ethereum Handler
   const ethereumHandler = new ReadOnlyEthereumHandler(deploymentPlans, EXAMPLE_ETHEREUM_NODE_API);
@@ -250,8 +244,8 @@ async function runProofOfReserveCalculation() {
 
 async function example() {
   try {
-    await runFlowWithPrivateKey();
-    await runFlowWithLedger();
+    // await runFlowWithPrivateKey();
+    // await runFlowWithLedger();
     await runProofOfReserveCalculation();
   } catch (error) {
     throw new Error(`Error: ${error}`);
