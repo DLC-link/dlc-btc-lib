@@ -23,7 +23,7 @@ import {
   updateNativeSegwitInputs,
   updateTaprootInputs,
 } from '../functions/bitcoin/psbt-functions.js';
-import { PaymentInformation } from '../models/bitcoin-models.js';
+import { ExtendedPaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
 import { truncateAddress } from '../utilities/index.js';
 
@@ -38,7 +38,7 @@ export class LedgerDLCHandler {
   private masterFingerprint: string;
   private walletAccountIndex: number;
   private policyInformation: LedgerPolicyInformation | undefined;
-  private paymentInformation: PaymentInformation | undefined;
+  public payment: ExtendedPaymentInformation | undefined;
   private bitcoinNetwork: Network;
   private bitcoinBlockchainAPI: string;
   private bitcoinBlockchainFeeRecommendationAPI: string;
@@ -94,13 +94,13 @@ export class LedgerDLCHandler {
       taprootMultisigWalletPolicyHMac,
     };
   }
-  private setPaymentInformation(
+  private setPayment(
     nativeSegwitPayment: P2Ret,
     nativeSegwitDerivedPublicKey: Buffer,
     taprootMultisigPayment: P2TROut,
     taprootDerivedPublicKey: Buffer
   ): void {
-    this.paymentInformation = {
+    this.payment = {
       nativeSegwitPayment,
       nativeSegwitDerivedPublicKey,
       taprootMultisigPayment,
@@ -115,15 +115,15 @@ export class LedgerDLCHandler {
     return this.policyInformation;
   }
 
-  private getPaymentInformation(): PaymentInformation {
-    if (!this.paymentInformation) {
+  private getPayment(): ExtendedPaymentInformation {
+    if (!this.payment) {
       throw new Error('Payment Information not set');
     }
-    return this.paymentInformation;
+    return this.payment;
   }
 
   getVaultRelatedAddress(paymentType: 'p2wpkh' | 'p2tr'): string {
-    const payment = this.getPaymentInformation();
+    const payment = this.getPayment();
 
     if (payment === undefined) {
       throw new Error('Payment objects have not been set');
@@ -149,7 +149,10 @@ export class LedgerDLCHandler {
     }
   }
 
-  async createPayment(vaultUUID: string, attestorGroupPublicKey: string): Promise<void> {
+  private async createPayment(
+    vaultUUID: string,
+    attestorGroupPublicKey: string
+  ): Promise<ExtendedPaymentInformation> {
     try {
       const networkIndex = this.bitcoinNetwork === bitcoin ? 0 : 1;
 
@@ -242,12 +245,19 @@ export class LedgerDLCHandler {
         taprootMultisigAccountPolicy,
         taprootMultisigPolicyHMac
       );
-      this.setPaymentInformation(
+      this.setPayment(
         nativeSegwitPayment,
         nativeSegwitDerivedPublicKey,
         taprootMultisigPayment,
         taprootDerivedPublicKey
       );
+
+      return {
+        nativeSegwitPayment,
+        nativeSegwitDerivedPublicKey,
+        taprootMultisigPayment,
+        taprootDerivedPublicKey,
+      };
     } catch (error: any) {
       throw new Error(`Error creating required wallet information: ${error}`);
     }
@@ -255,12 +265,13 @@ export class LedgerDLCHandler {
 
   async createFundingPSBT(
     vault: RawVault,
+    attestorGroupPublicKey: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Psbt> {
     try {
       const { nativeSegwitPayment, nativeSegwitDerivedPublicKey, taprootMultisigPayment } =
-        this.getPaymentInformation();
+        await this.createPayment(vault.uuid, attestorGroupPublicKey);
 
       if (
         taprootMultisigPayment.address === undefined ||
@@ -333,7 +344,7 @@ export class LedgerDLCHandler {
   ): Promise<Psbt> {
     try {
       const { nativeSegwitPayment, taprootMultisigPayment, taprootDerivedPublicKey } =
-        this.getPaymentInformation();
+        this.getPayment();
 
       if (nativeSegwitPayment.address === undefined) {
         throw new Error('Could not get Addresses from Payments');

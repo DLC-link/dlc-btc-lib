@@ -20,15 +20,13 @@ export interface FeeRates {
   minimumFee: number;
 }
 
-export interface RequiredPayment {
+export interface PaymentInformation {
   nativeSegwitPayment: P2Ret;
   taprootMultisigPayment: P2TROut;
 }
 
-export interface PaymentInformation {
-  nativeSegwitPayment: P2Ret;
+export interface ExtendedPaymentInformation extends PaymentInformation {
   nativeSegwitDerivedPublicKey: Buffer;
-  taprootMultisigPayment: P2TROut;
   taprootDerivedPublicKey: Buffer;
 }
 
