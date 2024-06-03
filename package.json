@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "dlc-btc-lib",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "This library provides a comprehensive set of interfaces and functions for minting dlcBTC tokens on supported blockchains.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,7 @@
   },
   "scripts": {
     "clean": "rm -rf dist && rm -rf node_modules",
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "test": "jest",
     "lint": "concurrently -g 'yarn lint:eslint' 'yarn lint:prettier' 'yarn run lint:typecheck'",
     "lint:eslint": "eslint \"src/**/*.{js,ts}\"",
