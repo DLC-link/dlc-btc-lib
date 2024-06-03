@@ -128,7 +128,7 @@ export class SoftwareWalletDLCHandler {
       const taprootMultisigPayment = createTaprootMultisigPayment(
         unspendableDerivedPublicKey,
         attestorDerivedPublicKey,
-        Buffer.from(this.taprootDerivedPublicKey),
+        Buffer.from(this.taprootDerivedPublicKey, 'hex'),
         this.bitcoinNetwork
       );
 

@@ -64,3 +64,13 @@ jobs:
 
       - name: Commit Message
         uses: wagoid/commitlint-github-action@v4
+
+  test-unit:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/provision
+
+      - name: Unit Test
+        run: yarn test
