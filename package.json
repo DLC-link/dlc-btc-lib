@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "dlc-btc-lib",
-  "version": "1.0.4",
+  "version": "1.0.7",
   "description": "This library provides a comprehensive set of interfaces and functions for minting dlcBTC tokens on supported blockchains.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,7 @@
   },
   "scripts": {
     "clean": "rm -rf dist && rm -rf node_modules",
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "test": "jest",
     "lint": "concurrently -g 'yarn lint:eslint' 'yarn lint:prettier' 'yarn run lint:typecheck'",
     "lint:eslint": "eslint \"src/**/*.{js,ts}\"",
@@ -38,8 +38,6 @@
   "author": "DLC.Link",
   "license": "ISC",
   "devDependencies": {
-    "@ledgerhq/hw-transport-node-hid": "^6.28.6",
-    "@ledgerhq/hw-transport-webusb": "^6.28.6",
     "@trivago/prettier-plugin-sort-imports": "^4.3.0",
     "@types/jest": "^29.5.12",
     "@types/prompts": "^2.4.9",
