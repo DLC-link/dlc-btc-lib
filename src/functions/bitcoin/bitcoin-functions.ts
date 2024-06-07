@@ -15,6 +15,7 @@ import { taprootTweakPubkey } from '@scure/btc-signer/utils';
 import { BIP32Factory, BIP32Interface } from 'bip32';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
+import { Decimal } from 'decimal.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
 import {
@@ -32,6 +33,11 @@ const TAPROOT_UNSPENDABLE_KEY_HEX =
 const ECDSA_PUBLIC_KEY_LENGTH = 33;
 
 const bip32 = BIP32Factory(ellipticCurveCryptography);
+
+export function getFeeAmount(bitcoinAmount: number, feeBasisPoints: number): number {
+  const feePercentage = new Decimal(feeBasisPoints).dividedBy(100);
+  return new Decimal(bitcoinAmount).times(feePercentage.dividedBy(100)).toNumber();
+}
 
 /**
  * Derives the Public Key at the Unhardened Path (0/0) from a given Extended Public Key.
