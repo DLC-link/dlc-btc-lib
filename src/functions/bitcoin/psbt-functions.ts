@@ -12,6 +12,7 @@ import {
   getFeeRecipientAddressFromPublicKey,
   getUTXOs,
 } from '../bitcoin/bitcoin-functions.js';
+import { fetchBitcoinTransaction } from './bitcoin-request-functions.js';
 
 /**
  * Creates a Funding Transaction to fund the Multisig Transaction.
@@ -118,6 +119,96 @@ export function createClosingTransaction(
 
   const selected = selectUTXO(inputs, outputs, 'default', {
     changeAddress: userNativeSegwitAddress,
+    feePerByte: feeRate,
+    bip69: false,
+    createTx: true,
+    network: bitcoinNetwork,
+  });
+
+  const closingTX = selected?.tx;
+
+  if (!closingTX) throw new Error('Could not create Closing Transaction');
+
+  closingTX.updateInput(0, {
+    sequence: 0xfffffff0,
+  });
+
+  const closingPSBT = closingTX.toPSBT();
+
+  return closingPSBT;
+}
+
+/**
+ * Creates the Closing Transaction.
+ * Uses the Funding Transaction's ID to create the Closing Transaction.
+ * The Closing Transaction is sent to the User's Native Segwit Address.
+ *
+ * @param bitcoinAmount - The Amount of Bitcoin to fund the Transaction with.
+ * @param bitcoinNetwork - The Bitcoin Network to use.
+ * @param fundingTransactionID - The ID of the Funding Transaction.
+ * @param multisigTransaction - The Multisig Transaction.
+ * @param userNativeSegwitAddress - The User's Native Segwit Address.
+ * @param feeRate - The Fee Rate to use for the Transaction.
+ * @param feePublicKey - The Fee Recipient's Public Key.
+ * @param feeBasisPoints - The Fee Basis Points.
+ * @returns The Closing Transaction.
+ */
+export async function createWithdrawalTransaction(
+  bitcoinBlockchainURL: string,
+  bitcoinAmount: bigint,
+  bitcoinNetwork: Network,
+  fundingTransactionID: string,
+  multisigTransaction: P2TROut,
+  userNativeSegwitAddress: string,
+  feeRate: bigint,
+  feePublicKey: string,
+  feeBasisPoints: bigint
+): Promise<Uint8Array> {
+  const multisigTransactionAddress = multisigTransaction.address;
+
+  if (!multisigTransactionAddress) {
+    throw new Error('Multisig Transaction is missing Address');
+  }
+  const fundingTransaction = await fetchBitcoinTransaction(
+    fundingTransactionID,
+    bitcoinBlockchainURL
+  );
+  const fundingTransactionOutputIndex = fundingTransaction.vout.findIndex(
+    output => output.scriptpubkey_address === multisigTransactionAddress
+  );
+
+  if (fundingTransactionOutputIndex === -1) {
+    throw new Error('Could not find Funding Transaction Output Index');
+  }
+
+  const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
+  const feeAmount = getFeeAmount(Number(bitcoinAmount), Number(feeBasisPoints));
+
+  const inputs = [
+    {
+      txid: hexToBytes(fundingTransactionID),
+      index: fundingTransactionOutputIndex,
+      witnessUtxo: {
+        amount: bitcoinAmount,
+        script: multisigTransaction.script,
+      },
+      ...multisigTransaction,
+    },
+  ];
+
+  const outputs = [
+    {
+      address: feeAddress,
+      amount: BigInt(feeAmount),
+    },
+    {
+      address: userNativeSegwitAddress,
+      amount: BigInt(bitcoinAmount),
+    },
+  ];
+
+  const selected = selectUTXO(inputs, outputs, 'default', {
+    changeAddress: multisigTransactionAddress,
     feePerByte: feeRate,
     bip69: false,
     createTx: true,
