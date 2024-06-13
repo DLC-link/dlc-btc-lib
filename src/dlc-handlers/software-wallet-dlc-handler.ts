@@ -230,12 +230,17 @@ export class SoftwareWalletDLCHandler {
 
   async createWithdrawalPSBT(
     vault: RawVault,
+    withdrawAmount: bigint,
+    attestorGroupPublicKey: string,
     fundingTransactionID: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Transaction> {
     try {
-      const { nativeSegwitPayment, taprootMultisigPayment } = this.getPayment();
+      const { nativeSegwitPayment, taprootMultisigPayment } = await this.createPayments(
+        vault.uuid,
+        attestorGroupPublicKey
+      );
 
       if (
         taprootMultisigPayment.address === undefined ||
@@ -250,7 +255,7 @@ export class SoftwareWalletDLCHandler {
 
       const withdrawalTransaction = await createWithdrawalTransaction(
         this.bitcoinBlockchainAPI,
-        vault.valueLocked.toBigInt(),
+        withdrawAmount,
         this.bitcoinNetwork,
         fundingTransactionID,
         taprootMultisigPayment,

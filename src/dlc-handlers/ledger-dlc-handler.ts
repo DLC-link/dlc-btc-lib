@@ -18,6 +18,7 @@ import {
   addTaprootInputSignaturesToPSBT,
   createClosingTransaction,
   createFundingTransaction,
+  createWithdrawalTransaction,
   getNativeSegwitInputsToSign,
   getTaprootInputsToSign,
   updateNativeSegwitInputs,
@@ -393,6 +394,72 @@ export class LedgerDLCHandler {
       return formattedClosingPSBT;
     } catch (error: any) {
       throw new Error(`Error creating Closing PSBT: ${error}`);
+    }
+  }
+
+  async createWithdrawalPSBT(
+    vault: RawVault,
+    withdrawAmount: bigint,
+    attestorGroupPublicKey: string,
+    fundingTransactionID: string,
+    feeRateMultiplier?: number,
+    customFeeRate?: bigint
+  ): Promise<Psbt> {
+    try {
+      const { nativeSegwitPayment, taprootDerivedPublicKey, taprootMultisigPayment } =
+        await this.createPayment(vault.uuid, attestorGroupPublicKey);
+
+      if (
+        taprootMultisigPayment.address === undefined ||
+        nativeSegwitPayment.address === undefined
+      ) {
+        throw new Error('Payment Address is undefined');
+      }
+
+      const feeRate =
+        customFeeRate ??
+        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+
+      const withdrawalPSBT = await createWithdrawalTransaction(
+        this.bitcoinBlockchainAPI,
+        withdrawAmount,
+        this.bitcoinNetwork,
+        fundingTransactionID,
+        taprootMultisigPayment,
+        nativeSegwitPayment.address,
+        feeRate,
+        vault.btcFeeRecipient,
+        vault.btcRedeemFeeBasisPoints.toBigInt()
+      );
+
+      const withdrawalTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(
+        withdrawalPSBT,
+        this.walletAccountIndex,
+        this.bitcoinNetwork
+      );
+
+      const formattedWithdrawalPSBT = Psbt.fromBuffer(Buffer.from(withdrawalPSBT), {
+        network: this.bitcoinNetwork,
+      });
+
+      const withdrawalInputByPaymentTypeArray = getInputByPaymentTypeArray(
+        withdrawalTransactionSigningConfiguration,
+        formattedWithdrawalPSBT.toBuffer(),
+        this.bitcoinNetwork
+      );
+
+      const taprootInputsToSign = getTaprootInputsToSign(withdrawalInputByPaymentTypeArray);
+
+      await updateTaprootInputs(
+        taprootInputsToSign,
+        taprootDerivedPublicKey,
+        this.masterFingerprint,
+        formattedWithdrawalPSBT
+      );
+
+      return formattedWithdrawalPSBT;
+    } catch (error: any) {
+      throw new Error(`Error creating Withdrawal PSBT: ${error}`);
     }
   }
 

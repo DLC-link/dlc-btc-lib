@@ -173,9 +173,14 @@ export async function createWithdrawalTransaction(
     fundingTransactionID,
     bitcoinBlockchainURL
   );
+
+  console.log('fundingTransaction', fundingTransaction);
+
   const fundingTransactionOutputIndex = fundingTransaction.vout.findIndex(
     output => output.scriptpubkey_address === multisigTransactionAddress
   );
+
+  console.log('fundingTransactionOutputIndex', fundingTransactionOutputIndex);
 
   if (fundingTransactionOutputIndex === -1) {
     throw new Error('Could not find Funding Transaction Output Index');
@@ -184,17 +189,20 @@ export async function createWithdrawalTransaction(
   const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(bitcoinAmount), Number(feeBasisPoints));
 
+  console.log('bitcoinAmount', bitcoinAmount);
   const inputs = [
     {
       txid: hexToBytes(fundingTransactionID),
       index: fundingTransactionOutputIndex,
       witnessUtxo: {
-        amount: bitcoinAmount,
+        amount: BigInt(fundingTransaction.vout[fundingTransactionOutputIndex].value),
         script: multisigTransaction.script,
       },
       ...multisigTransaction,
     },
   ];
+
+  console.log('inputs', inputs);
 
   const outputs = [
     {
@@ -202,18 +210,24 @@ export async function createWithdrawalTransaction(
       amount: BigInt(feeAmount),
     },
     {
-      address: userNativeSegwitAddress,
-      amount: BigInt(bitcoinAmount),
+      address: multisigTransactionAddress,
+      amount:
+        BigInt(fundingTransaction.vout[fundingTransactionOutputIndex].value) -
+        BigInt(bitcoinAmount),
     },
   ];
 
+  console.log('outputs', outputs);
+
   const selected = selectUTXO(inputs, outputs, 'default', {
-    changeAddress: multisigTransactionAddress,
+    changeAddress: userNativeSegwitAddress,
     feePerByte: feeRate,
     bip69: false,
     createTx: true,
     network: bitcoinNetwork,
   });
+
+  console.log('selected', selected);
 
   const closingTX = selected?.tx;
 
