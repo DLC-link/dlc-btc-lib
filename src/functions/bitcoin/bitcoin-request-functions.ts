@@ -1,5 +1,12 @@
-import { BitcoinTransaction } from '../../models/bitcoin-models.js';
+import { BitcoinTransaction, UTXO } from '../../models/bitcoin-models.js';
 
+/**
+ * Fetches the Bitcoin Transaction from the Bitcoin Network.
+ *
+ * @param txID - The Transaction ID of the Bitcoin Transaction.
+ * @param bitcoinBlockchainAPI - The URL of the Bitcoin Blockchain API.
+ * @returns A Promise that resolves to the Bitcoin Transaction.
+ */
 export async function fetchBitcoinTransaction(
   txID: string,
   bitcoinBlockchainAPI: string
@@ -22,6 +29,7 @@ export async function fetchBitcoinTransaction(
  * Broadcasts the Transaction to the Bitcoin Network.
  *
  * @param transaction - The Transaction to broadcast.
+ * @param bitcoinBlockchainAPI - The URL of the Bitcoin Blockchain API.
  * @returns A Promise that resolves to the Response from the Broadcast Request.
  */
 export async function broadcastTransaction(
@@ -46,6 +54,12 @@ export async function broadcastTransaction(
   }
 }
 
+/**
+ * Fetches the Current Block Height of the Bitcoin Network.
+ *
+ * @param bitcoinBlockchainAPI - The URL of the Bitcoin Blockchain API.
+ * @returns A Promise that resolves to the Current Block Height of the Bitcoin Network.
+ */
 export async function fetchBitcoinBlockchainBlockHeight(
   bitcoinBlockchainAPI: string
 ): Promise<number> {
@@ -65,6 +79,13 @@ export async function fetchBitcoinBlockchainBlockHeight(
   }
 }
 
+/**
+ * Checks if the Bitcoin Transaction has the required number of Confirmations.
+ *
+ * @param bitcoinTransaction - The Bitcoin Transaction to check.
+ * @param bitcoinBlockHeight - The Current Block Height of the Bitcoin Network.
+ * @returns A Promise that resolves to a Boolean indicating if the Transaction has the required number of Confirmations.
+ */
 export async function checkBitcoinTransactionConfirmations(
   bitcoinTransaction: BitcoinTransaction,
   bitcoinBlockHeight: number
@@ -82,4 +103,28 @@ export async function checkBitcoinTransactionConfirmations(
   } catch (error) {
     throw new Error(`Error checking Bitcoin Transaction Confirmations: ${error}`);
   }
+}
+
+/**
+ * Return the Balance of the User's Bitcoin Address in Satoshis.
+ *
+ * @param bitcoinAddress - The User's Bitcoin Address.
+ * @param bitcoinBlockchainAPIURL - The URL of the Bitcoin Blockchain API.
+ * @returns A Promise that resolves to the Balance of the User's Bitcoin Address.
+ */
+export async function getBalance(
+  bitcoinAddress: string,
+  bitcoinBlockchainAPIURL: string
+): Promise<number> {
+  const utxoResponse = await fetch(`${bitcoinBlockchainAPIURL}/address/${bitcoinAddress}/utxo`);
+
+  if (!utxoResponse.ok) {
+    throw new Error(`Error getting UTXOs: ${utxoResponse.statusText}`);
+  }
+
+  const userUTXOs: UTXO[] = await utxoResponse.json();
+
+  const balanceInSats = userUTXOs.reduce((total, utxo) => total + utxo.value, 0);
+
+  return balanceInSats;
 }

@@ -1,4 +1,3 @@
-import { hex } from '@scure/base';
 import {
   Address,
   OutScript,
