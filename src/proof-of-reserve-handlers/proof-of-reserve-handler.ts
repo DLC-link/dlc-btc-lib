@@ -3,11 +3,10 @@ import { Network } from 'bitcoinjs-lib';
 
 import {
   createTaprootMultisigPayment,
-  createTaprootMultisigPaymentLegacy,
   deriveUnhardenedPublicKey,
-  findMatchingScript,
   getUnspendableKeyCommittedToUUID,
   getValueMatchingInputFromTransaction,
+  validateScript,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import {
   checkBitcoinTransactionConfirmations,
@@ -19,25 +18,21 @@ import { RawVault } from '../models/ethereum-models.js';
 export class ProofOfReserveHandler {
   private bitcoinBlockchainAPI: string;
   private bitcoinNetwork: Network;
-  private attestorGroupPublicKeyV1: string;
-  private attestorGroupPublicKeyV2: string;
+  private attestorGroupPublicKey: string;
 
   constructor(
     bitcoinBlockchainAPI: string,
     bitcoinNetwork: Network,
-    attestorGroupPublicKeyV1: string,
-    attestorGroupPublicKeyV2: string
+    attestorGroupPublicKey: string
   ) {
     this.bitcoinBlockchainAPI = bitcoinBlockchainAPI;
     this.bitcoinNetwork = bitcoinNetwork;
-    this.attestorGroupPublicKeyV1 = attestorGroupPublicKeyV1;
-    this.attestorGroupPublicKeyV2 = attestorGroupPublicKeyV2;
+    this.attestorGroupPublicKey = attestorGroupPublicKey;
   }
 
   async verifyVaultDeposit(
     vault: RawVault,
-    attestorGroupPublicKeyV1: string,
-    attestorGroupPublicKeyV2: Buffer,
+    attestorGroupPublicKey: Buffer,
     bitcoinBlockchainBlockHeight: number
   ): Promise<boolean> {
     try {
@@ -59,36 +54,19 @@ export class ProofOfReserveHandler {
         vault.valueLocked.toNumber()
       );
 
-      const taprootMultisigPaymentLegacyA = createTaprootMultisigPaymentLegacy(
-        vault.taprootPubKey,
-        attestorGroupPublicKeyV1,
-        vault.uuid,
-        this.bitcoinNetwork
-      );
-      const taprootMultisigPaymentLegacyB = createTaprootMultisigPaymentLegacy(
-        attestorGroupPublicKeyV1,
-        vault.taprootPubKey,
-        vault.uuid,
-        this.bitcoinNetwork
-      );
-
       const unspendableKeyCommittedToUUID = deriveUnhardenedPublicKey(
         getUnspendableKeyCommittedToUUID(vault.uuid, this.bitcoinNetwork),
         this.bitcoinNetwork
       );
       const taprootMultisigPayment = createTaprootMultisigPayment(
         unspendableKeyCommittedToUUID,
-        attestorGroupPublicKeyV2,
+        attestorGroupPublicKey,
         Buffer.from(vault.taprootPubKey, 'hex'),
         this.bitcoinNetwork
       );
 
-      return findMatchingScript(
-        [
-          taprootMultisigPaymentLegacyA.script,
-          taprootMultisigPaymentLegacyB.script,
-          taprootMultisigPayment.script,
-        ],
+      return validateScript(
+        taprootMultisigPayment.script,
         hex.decode(closingTransactionInput.scriptpubkey)
       );
     } catch (error) {
@@ -103,14 +81,13 @@ export class ProofOfReserveHandler {
     );
 
     const derivedAttestorGroupPublicKey = deriveUnhardenedPublicKey(
-      this.attestorGroupPublicKeyV2,
+      this.attestorGroupPublicKey,
       this.bitcoinNetwork
     );
     const verifiedDeposits = await Promise.all(
       vaults.map(async vault => {
         return (await this.verifyVaultDeposit(
           vault,
-          this.attestorGroupPublicKeyV1,
           derivedAttestorGroupPublicKey,
           bitcoinBlockchainBlockHeight
         )) === true

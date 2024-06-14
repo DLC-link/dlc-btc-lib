@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "dlc-btc-lib",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "This library provides a comprehensive set of interfaces and functions for minting dlcBTC tokens on supported blockchains.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -67,7 +67,6 @@
     "decimal.js": "^10.4.3",
     "ethers": "5.7.2",
     "ledger-bitcoin": "^0.2.3",
-    "noble": "^1.9.1",
     "prompts": "^2.4.2",
     "scure": "^1.6.0",
     "tiny-secp256k1": "^2.2.3"
