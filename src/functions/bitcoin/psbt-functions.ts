@@ -229,17 +229,19 @@ export async function createWithdrawalTransaction(
 
   console.log('selected', selected);
 
-  const closingTX = selected?.tx;
+  const withdrawTX = selected?.tx;
 
-  if (!closingTX) throw new Error('Could not create Closing Transaction');
+  if (!withdrawTX) throw new Error('Could not create Withdrawal Transaction');
 
-  closingTX.updateInput(0, {
+  withdrawTX.updateInput(0, {
     sequence: 0xfffffff0,
   });
 
-  const closingPSBT = closingTX.toPSBT();
+  // bit odd that we go to a PSBT here, but in the calling function we
+  // immediately convert it back to a Transaction??
+  const withdrawPSBT = withdrawTX.toPSBT();
 
-  return closingPSBT;
+  return withdrawPSBT;
 }
 
 /**
