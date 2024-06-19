@@ -6,20 +6,31 @@ import {
 } from '../functions/ethereum/ethereum-functions.js';
 import { EthereumError } from '../models/errors.js';
 import {
-  DLCReadOnlyEthereumContracts,
+  DLCEthereumContractName,
+  DLCEthereumContracts,
   EthereumDeploymentPlan,
   RawVault,
   VaultState,
 } from '../models/ethereum-models.js';
 
 export class ReadOnlyEthereumHandler {
-  private ethereumContracts: DLCReadOnlyEthereumContracts;
+  private ethereumContracts: DLCEthereumContracts;
 
   constructor(ethereumDeploymentPlans: EthereumDeploymentPlan[], rpcEndpoint: string) {
     this.ethereumContracts = getReadOnlyEthereumContracts(
       ethereumDeploymentPlans,
       getProvider(rpcEndpoint)
     );
+  }
+
+  getContracts(): DLCEthereumContracts {
+    return this.ethereumContracts;
+  }
+
+  async getRawVault(vaultUUID: string): Promise<RawVault> {
+    const vault: RawVault = await this.ethereumContracts.protocolContract.getVault(vaultUUID);
+    if (!vault) throw new Error('Vault not found');
+    return vault;
   }
 
   async getAttestorGroupPublicKey(): Promise<string> {
@@ -33,10 +44,24 @@ export class ReadOnlyEthereumHandler {
     }
   }
 
-  async getContractTransferEvents(): Promise<Event[]> {
+  async getContractTransferEvents(contractName: DLCEthereumContractName): Promise<Event[]> {
     try {
-      const eventFilter = this.ethereumContracts.dlcBTCContract.filters.Transfer();
-      return await this.ethereumContracts.dlcBTCContract.queryFilter(eventFilter);
+      switch (contractName) {
+        case 'DLCBTC':
+          return await this.ethereumContracts.dlcBTCContract.queryFilter(
+            this.ethereumContracts.dlcBTCContract.filters.Transfer()
+          );
+        case 'DLCManager':
+          return await this.ethereumContracts.dlcManagerContract.queryFilter(
+            this.ethereumContracts.dlcManagerContract.filters.Transfer()
+          );
+        case 'TokenManager':
+          return await this.ethereumContracts.protocolContract.queryFilter(
+            this.ethereumContracts.protocolContract.filters.Transfer()
+          );
+        default:
+          throw new Error('Invalid Contract Name');
+      }
     } catch (error: any) {
       throw new EthereumError(`Could not fetch Transfer Events: ${error}`);
     }
@@ -44,7 +69,8 @@ export class ReadOnlyEthereumHandler {
 
   async getContractTotalSupply(): Promise<number> {
     try {
-      return await this.ethereumContracts.dlcBTCContract.totalSupply().toNumber();
+      const totalSupply = await this.ethereumContracts.dlcBTCContract.totalSupply();
+      return totalSupply.toNumber();
     } catch (error: any) {
       throw new EthereumError(`Could not fetch Total Supply: ${error}`);
     }
@@ -55,19 +81,25 @@ export class ReadOnlyEthereumHandler {
       let totalFetched = 0;
       const fundedVaults: RawVault[] = [];
 
-      while (true) {
+      let shouldContinue = true;
+      while (shouldContinue) {
         const fetchedVaults: RawVault[] =
           await this.ethereumContracts.dlcManagerContract.getAllDLCs(
             totalFetched,
             totalFetched + amount
           );
-        fundedVaults.push(...fetchedVaults.filter(vault => vault.status === VaultState.Funded));
+        const filteredVaults = fetchedVaults.filter(vault => vault.status === VaultState.Funded);
+        fundedVaults.push(...filteredVaults);
+
         totalFetched += amount;
-        if (fetchedVaults.length !== amount) break;
+        shouldContinue = fetchedVaults.length === amount;
       }
+
       return fundedVaults;
-    } catch (error: any) {
-      throw new EthereumError(`Could not fetch Funded Vaults: ${error}`);
+    } catch (error) {
+      throw new EthereumError(
+        `Could not fetch Funded Vaults: ${error instanceof Error ? error.message : error}`
+      );
     }
   }
 }
