@@ -16,7 +16,6 @@ import {
 import {
   addNativeSegwitSignaturesToPSBT,
   addTaprootInputSignaturesToPSBT,
-  createClosingTransaction,
   createFundingTransaction,
   createWithdrawalTransaction,
   getNativeSegwitInputsToSign,
@@ -334,66 +333,6 @@ export class LedgerDLCHandler {
       return formattedFundingPSBT;
     } catch (error: any) {
       throw new Error(`Error creating Funding PSBT: ${error}`);
-    }
-  }
-
-  async createClosingPSBT(
-    vault: RawVault,
-    fundingTransactionID: string,
-    feeRateMultiplier?: number,
-    customFeeRate?: bigint
-  ): Promise<Psbt> {
-    try {
-      const { nativeSegwitPayment, taprootMultisigPayment, taprootDerivedPublicKey } =
-        this.getPayment();
-
-      if (nativeSegwitPayment.address === undefined) {
-        throw new Error('Could not get Addresses from Payments');
-      }
-
-      const feeRate =
-        customFeeRate ??
-        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
-
-      const closingTransaction = createClosingTransaction(
-        vault.valueLocked.toBigInt(),
-        this.bitcoinNetwork,
-        fundingTransactionID,
-        taprootMultisigPayment,
-        nativeSegwitPayment.address,
-        feeRate,
-        vault.btcFeeRecipient,
-        vault.btcRedeemFeeBasisPoints.toBigInt()
-      );
-
-      const closingTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(
-        closingTransaction,
-        this.walletAccountIndex,
-        this.bitcoinNetwork
-      );
-
-      const formattedClosingPSBT = Psbt.fromBuffer(Buffer.from(closingTransaction.toPSBT()), {
-        network: this.bitcoinNetwork,
-      });
-
-      const closingInputByPaymentTypeArray = getInputByPaymentTypeArray(
-        closingTransactionSigningConfiguration,
-        formattedClosingPSBT.toBuffer(),
-        this.bitcoinNetwork
-      );
-
-      const taprootInputsToSign = getTaprootInputsToSign(closingInputByPaymentTypeArray);
-
-      await updateTaprootInputs(
-        taprootInputsToSign,
-        taprootDerivedPublicKey,
-        this.masterFingerprint,
-        formattedClosingPSBT
-      );
-
-      return formattedClosingPSBT;
-    } catch (error: any) {
-      throw new Error(`Error creating Closing PSBT: ${error}`);
     }
   }
 

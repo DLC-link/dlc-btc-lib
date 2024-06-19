@@ -14,7 +14,6 @@ import {
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import {
-  createClosingTransaction,
   createFundingTransaction,
   createWithdrawalTransaction,
 } from '../functions/bitcoin/psbt-functions.js';
@@ -206,40 +205,6 @@ export class PrivateKeyDLCHandler {
     );
 
     return fundingTransaction;
-  }
-
-  async createClosingPSBT(
-    vault: RawVault,
-    fundingTransactionID: string,
-    feeRateMultiplier?: number,
-    customFeeRate?: bigint
-  ): Promise<Transaction> {
-    if (this.payment === undefined) {
-      throw new Error('Payment objects have not been set');
-    }
-
-    const { nativeSegwitPayment, taprootMultisigPayment } = this.payment;
-
-    if (nativeSegwitPayment.address === undefined) {
-      throw new Error('Could not get Addresses from Payments');
-    }
-
-    const feeRate =
-      customFeeRate ??
-      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
-
-    const closingTransaction = createClosingTransaction(
-      vault.valueLocked.toBigInt(),
-      this.bitcoinNetwork,
-      fundingTransactionID,
-      taprootMultisigPayment,
-      nativeSegwitPayment.address,
-      feeRate,
-      vault.btcFeeRecipient,
-      vault.btcRedeemFeeBasisPoints.toBigInt()
-    );
-
-    return closingTransaction;
   }
 
   async createWithdrawalPSBT(
