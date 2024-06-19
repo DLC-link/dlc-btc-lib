@@ -193,7 +193,7 @@ export class PrivateKeyDLCHandler {
       customFeeRate ??
       BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-    const fundingPSBT = await createFundingTransaction(
+    const fundingTransaction = await createFundingTransaction(
       vault.valueLocked.toBigInt(),
       this.bitcoinNetwork,
       taprootMultisigPayment.address,
@@ -204,7 +204,7 @@ export class PrivateKeyDLCHandler {
       this.bitcoinBlockchainAPI
     );
 
-    return Transaction.fromPSBT(fundingPSBT);
+    return fundingTransaction;
   }
 
   async createClosingPSBT(
@@ -227,7 +227,7 @@ export class PrivateKeyDLCHandler {
       customFeeRate ??
       BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-    const closingPSBT = createClosingTransaction(
+    const closingTransaction = createClosingTransaction(
       vault.valueLocked.toBigInt(),
       this.bitcoinNetwork,
       fundingTransactionID,
@@ -238,7 +238,7 @@ export class PrivateKeyDLCHandler {
       vault.btcRedeemFeeBasisPoints.toBigInt()
     );
 
-    return Transaction.fromPSBT(closingPSBT);
+    return closingTransaction;
   }
 
   signPSBT(psbt: Transaction, transactionType: 'funding' | 'closing'): Transaction {

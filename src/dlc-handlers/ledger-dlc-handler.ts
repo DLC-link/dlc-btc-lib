@@ -294,7 +294,7 @@ export class LedgerDLCHandler {
         throw new Error('Insufficient Funds');
       }
 
-      const fundingPSBT = await createFundingTransaction(
+      const fundingTransaction = await createFundingTransaction(
         vault.valueLocked.toBigInt(),
         this.bitcoinNetwork,
         taprootMultisigPayment.address,
@@ -306,12 +306,12 @@ export class LedgerDLCHandler {
       );
 
       const signingConfiguration = createBitcoinInputSigningConfiguration(
-        fundingPSBT,
+        fundingTransaction,
         this.walletAccountIndex,
         this.bitcoinNetwork
       );
 
-      const formattedFundingPSBT = Psbt.fromBuffer(Buffer.from(fundingPSBT), {
+      const formattedFundingPSBT = Psbt.fromBuffer(Buffer.from(fundingTransaction.toPSBT()), {
         network: this.bitcoinNetwork,
       });
 
@@ -355,7 +355,7 @@ export class LedgerDLCHandler {
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const closingPSBT = createClosingTransaction(
+      const closingTransaction = createClosingTransaction(
         vault.valueLocked.toBigInt(),
         this.bitcoinNetwork,
         fundingTransactionID,
@@ -367,12 +367,12 @@ export class LedgerDLCHandler {
       );
 
       const closingTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(
-        closingPSBT,
+        closingTransaction,
         this.walletAccountIndex,
         this.bitcoinNetwork
       );
 
-      const formattedClosingPSBT = Psbt.fromBuffer(Buffer.from(closingPSBT), {
+      const formattedClosingPSBT = Psbt.fromBuffer(Buffer.from(closingTransaction.toPSBT()), {
         network: this.bitcoinNetwork,
       });
 
@@ -420,7 +420,7 @@ export class LedgerDLCHandler {
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const withdrawalPSBT = await createWithdrawalTransaction(
+      const withdrawalTransaction = await createWithdrawalTransaction(
         this.bitcoinBlockchainAPI,
         withdrawAmount,
         this.bitcoinNetwork,
@@ -433,12 +433,12 @@ export class LedgerDLCHandler {
       );
 
       const withdrawalTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(
-        withdrawalPSBT,
+        withdrawalTransaction,
         this.walletAccountIndex,
         this.bitcoinNetwork
       );
 
-      const formattedWithdrawalPSBT = Psbt.fromBuffer(Buffer.from(withdrawalPSBT), {
+      const formattedWithdrawalPSBT = Psbt.fromBuffer(Buffer.from(withdrawalTransaction.toPSBT()), {
         network: this.bitcoinNetwork,
       });
 

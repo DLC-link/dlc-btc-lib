@@ -377,7 +377,7 @@ function getAddressFromOutScript(script: Uint8Array, bitcoinNetwork: Network): s
  * @returns The Bitcoin Input Signing Configuration.
  */
 export function createBitcoinInputSigningConfiguration(
-  psbt: Uint8Array,
+  transaction: Transaction,
   walletAccountIndex: number,
   bitcoinNetwork: Network
 ): BitcoinInputSigningConfig[] {
@@ -386,7 +386,6 @@ export function createBitcoinInputSigningConfiguration(
   const nativeSegwitDerivationPath = `m/84'/${networkIndex}'/${walletAccountIndex}'/0/0`;
   const taprootDerivationPath = `m/86'/${networkIndex}'/${walletAccountIndex}'/0/0`;
 
-  const transaction = Transaction.fromPSBT(psbt);
   const indexesToSign = createRangeFromLength(transaction.inputsLength);
   return indexesToSign.map(inputIndex => {
     const input = transaction.getInput(inputIndex);

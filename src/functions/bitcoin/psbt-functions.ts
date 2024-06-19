@@ -1,5 +1,5 @@
 import { hexToBytes } from '@noble/hashes/utils';
-import { selectUTXO } from '@scure/btc-signer';
+import { Transaction, selectUTXO } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
 import { PartialSignature } from 'ledger-bitcoin/build/main/lib/appClient.js';
@@ -15,7 +15,7 @@ import {
 import { fetchBitcoinTransaction } from './bitcoin-request-functions.js';
 
 /**
- * Creates a Funding Transaction to fund the Multisig Transaction.
+ * Creates the initial Funding Transaction to fund the Multisig Transaction.
  *
  * @param bitcoinAmount - The amount of Bitcoin to fund the Transaction with.
  * @param bitcoinNetwork - The Bitcoin Network to use.
@@ -35,7 +35,7 @@ export async function createFundingTransaction(
   feePublicKey: string,
   feeBasisPoints: bigint,
   bitcoinBlockchainAPIURL: string
-): Promise<Uint8Array> {
+): Promise<Transaction> {
   const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(bitcoinAmount), Number(feeBasisPoints));
 
@@ -65,9 +65,7 @@ export async function createFundingTransaction(
     sequence: 0xfffffff0,
   });
 
-  const fundingPSBT = fundingTX.toPSBT();
-
-  return fundingPSBT;
+  return fundingTX;
 }
 
 /**
@@ -94,7 +92,7 @@ export function createClosingTransaction(
   feeRate: bigint,
   feePublicKey: string,
   feeBasisPoints: bigint
-): Uint8Array {
+): Transaction {
   const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(bitcoinAmount), Number(feeBasisPoints));
 
@@ -133,17 +131,17 @@ export function createClosingTransaction(
     sequence: 0xfffffff0,
   });
 
-  const closingPSBT = closingTX.toPSBT();
-
-  return closingPSBT;
+  return closingTX;
 }
 
 /**
- * Creates the Closing Transaction.
- * Uses the Funding Transaction's ID to create the Closing Transaction.
- * The Closing Transaction is sent to the User's Native Segwit Address.
+ * Creates a Withdrawal Transaction.
+ * Uses the Funding Transaction's ID to create the Withdrawal Transaction.
+ * The specified amount of Bitcoin is sent to the User's Native Segwit Address.
+ * The remaining amount is sent back to the Multisig Transaction.
  *
- * @param bitcoinAmount - The Amount of Bitcoin to fund the Transaction with.
+ * @param bitcoinBlockchainURL - The Bitcoin Blockchain URL.
+ * @param bitcoinAmount - The Amount of Bitcoin to withdraw.
  * @param bitcoinNetwork - The Bitcoin Network to use.
  * @param fundingTransactionID - The ID of the Funding Transaction.
  * @param multisigTransaction - The Multisig Transaction.
@@ -163,7 +161,7 @@ export async function createWithdrawalTransaction(
   feeRate: bigint,
   feePublicKey: string,
   feeBasisPoints: bigint
-): Promise<Uint8Array> {
+): Promise<Transaction> {
   const multisigTransactionAddress = multisigTransaction.address;
 
   if (!multisigTransactionAddress) {
@@ -174,22 +172,28 @@ export async function createWithdrawalTransaction(
     bitcoinBlockchainURL
   );
 
-  console.log('fundingTransaction', fundingTransaction);
-
   const fundingTransactionOutputIndex = fundingTransaction.vout.findIndex(
     output => output.scriptpubkey_address === multisigTransactionAddress
   );
-
-  console.log('fundingTransactionOutputIndex', fundingTransactionOutputIndex);
 
   if (fundingTransactionOutputIndex === -1) {
     throw new Error('Could not find Funding Transaction Output Index');
   }
 
+  const fundingTransactionOutputValue = BigInt(
+    fundingTransaction.vout[fundingTransactionOutputIndex].value
+  );
+
+  if (fundingTransactionOutputValue < bitcoinAmount) {
+    throw new Error('Insufficient Funds');
+  }
+
+  const remainingAmount =
+    BigInt(fundingTransaction.vout[fundingTransactionOutputIndex].value) - BigInt(bitcoinAmount);
+
   const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(bitcoinAmount), Number(feeBasisPoints));
 
-  console.log('bitcoinAmount', bitcoinAmount);
   const inputs = [
     {
       txid: hexToBytes(fundingTransactionID),
@@ -202,22 +206,19 @@ export async function createWithdrawalTransaction(
     },
   ];
 
-  console.log('inputs', inputs);
-
   const outputs = [
     {
       address: feeAddress,
       amount: BigInt(feeAmount),
     },
-    {
-      address: multisigTransactionAddress,
-      amount:
-        BigInt(fundingTransaction.vout[fundingTransactionOutputIndex].value) -
-        BigInt(bitcoinAmount),
-    },
   ];
 
-  console.log('outputs', outputs);
+  if (remainingAmount > 0) {
+    outputs.push({
+      address: multisigTransactionAddress,
+      amount: remainingAmount,
+    });
+  }
 
   const selected = selectUTXO(inputs, outputs, 'default', {
     changeAddress: userNativeSegwitAddress,
@@ -227,8 +228,6 @@ export async function createWithdrawalTransaction(
     network: bitcoinNetwork,
   });
 
-  console.log('selected', selected);
-
   const withdrawTX = selected?.tx;
 
   if (!withdrawTX) throw new Error('Could not create Withdrawal Transaction');
@@ -237,11 +236,7 @@ export async function createWithdrawalTransaction(
     sequence: 0xfffffff0,
   });
 
-  // bit odd that we go to a PSBT here, but in the calling function we
-  // immediately convert it back to a Transaction??
-  const withdrawPSBT = withdrawTX.toPSBT();
-
-  return withdrawPSBT;
+  return withdrawTX;
 }
 
 /**

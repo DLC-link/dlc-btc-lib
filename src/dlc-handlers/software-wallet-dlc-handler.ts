@@ -176,7 +176,7 @@ export class SoftwareWalletDLCHandler {
         throw new Error('Insufficient Funds');
       }
 
-      const fundingPSBT = await createFundingTransaction(
+      const fundingTransaction = await createFundingTransaction(
         vault.valueLocked.toBigInt(),
         this.bitcoinNetwork,
         taprootMultisigPayment.address,
@@ -186,7 +186,7 @@ export class SoftwareWalletDLCHandler {
         vault.btcMintFeeBasisPoints.toBigInt(),
         this.bitcoinBlockchainAPI
       );
-      return Transaction.fromPSBT(fundingPSBT);
+      return fundingTransaction;
     } catch (error: any) {
       throw new Error(`Error creating Funding PSBT: ${error}`);
     }
@@ -222,7 +222,7 @@ export class SoftwareWalletDLCHandler {
         vault.btcFeeRecipient,
         vault.btcRedeemFeeBasisPoints.toBigInt()
       );
-      return Transaction.fromPSBT(closingTransaction);
+      return closingTransaction;
     } catch (error: any) {
       throw new Error(`Error creating Closing PSBT: ${error}`);
     }
@@ -264,7 +264,7 @@ export class SoftwareWalletDLCHandler {
         vault.btcFeeRecipient,
         vault.btcRedeemFeeBasisPoints.toBigInt()
       );
-      return Transaction.fromPSBT(withdrawalTransaction);
+      return withdrawalTransaction;
     } catch (error: any) {
       throw new Error(`Error creating Withdrawal PSBT: ${error}`);
     }
