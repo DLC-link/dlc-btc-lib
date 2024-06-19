@@ -1,36 +1,43 @@
-import { Wallet, providers } from 'ethers';
+import { Event, Wallet, providers } from 'ethers';
 
 import { getEthereumContracts, getProvider } from '../functions/ethereum/ethereum-functions.js';
 import { EthereumError } from '../models/errors.js';
 import {
+  DLCEthereumContractName,
   DLCEthereumContracts,
   EthereumDeploymentPlan,
   RawVault,
+  VaultState,
 } from '../models/ethereum-models.js';
 
 export class EthereumHandler {
   private ethereumContracts: DLCEthereumContracts;
 
-  constructor(
-    ethereumDeploymentPlans: EthereumDeploymentPlan[],
-    ethereumPrivateKeyOrProvider: string | providers.JsonRpcSigner,
-    rpcEndpoint: string,
-    readOnlyRPCEndpoint?: string
-  ) {
-    let signer: Wallet | providers.JsonRpcSigner;
-    const readOnlyProvider = getProvider(readOnlyRPCEndpoint ?? rpcEndpoint);
-    if (typeof ethereumPrivateKeyOrProvider === 'string') {
-      const provider = getProvider(rpcEndpoint);
-      signer = new Wallet(ethereumPrivateKeyOrProvider, provider);
-    } else {
-      signer = ethereumPrivateKeyOrProvider;
-    }
+  private constructor(ethereumContracts: DLCEthereumContracts) {
+    this.ethereumContracts = ethereumContracts;
+  }
 
-    this.ethereumContracts = getEthereumContracts(
-      ethereumDeploymentPlans,
-      signer,
-      readOnlyProvider
-    );
+  static fromPrivateKey(
+    ethereumDeploymentPlans: EthereumDeploymentPlan[],
+    ethereumPrivateKey: string,
+    rpcEndpoint: string
+  ): EthereumHandler {
+    const provider = getProvider(rpcEndpoint);
+    const signer = new Wallet(ethereumPrivateKey, provider);
+    const ethereumContracts = getEthereumContracts(ethereumDeploymentPlans, signer);
+    return new EthereumHandler(ethereumContracts);
+  }
+
+  static fromSigner(
+    ethereumDeploymentPlans: EthereumDeploymentPlan[],
+    signer: providers.JsonRpcSigner
+  ): EthereumHandler {
+    const ethereumContracts = getEthereumContracts(ethereumDeploymentPlans, signer);
+    return new EthereumHandler(ethereumContracts);
+  }
+
+  getContracts(): DLCEthereumContracts {
+    return this.ethereumContracts;
   }
 
   async getAllVaults(): Promise<RawVault[]> {
@@ -43,8 +50,7 @@ export class EthereumHandler {
   }
 
   async getRawVault(vaultUUID: string): Promise<RawVault> {
-    const vault: RawVault =
-      await this.ethereumContracts.readOnlyProtocolContract.getVault(vaultUUID);
+    const vault: RawVault = await this.ethereumContracts.protocolContract.getVault(vaultUUID);
     if (!vault) throw new Error('Vault not found');
     return vault;
   }
@@ -73,7 +79,8 @@ export class EthereumHandler {
   async getDLCBTCBalance(): Promise<number | undefined> {
     try {
       const userAddress = await this.ethereumContracts.protocolContract.signer.getAddress();
-      return await this.ethereumContracts.dlcBTCContract.balanceOf(userAddress);
+      const balance = await this.ethereumContracts.dlcBTCContract.balanceOf(userAddress);
+      return balance.toNumber();
     } catch (error) {
       throw new EthereumError(`Could not fetch dlcBTC balance: ${error}`);
     }
@@ -87,6 +94,64 @@ export class EthereumHandler {
       return attestorGroupPubKey;
     } catch (error) {
       throw new EthereumError(`Could not fetch Attestor Public Key: ${error}`);
+    }
+  }
+
+  async getContractTransferEvents(contractName: DLCEthereumContractName): Promise<Event[]> {
+    try {
+      switch (contractName) {
+        case 'DLCBTC':
+          return await this.ethereumContracts.dlcBTCContract.queryFilter(
+            this.ethereumContracts.dlcBTCContract.filters.Transfer()
+          );
+        case 'DLCManager':
+          return await this.ethereumContracts.dlcManagerContract.queryFilter(
+            this.ethereumContracts.dlcManagerContract.filters.Transfer()
+          );
+        case 'TokenManager':
+          return await this.ethereumContracts.protocolContract.queryFilter(
+            this.ethereumContracts.protocolContract.filters.Transfer()
+          );
+        default:
+          throw new Error('Invalid Contract Name');
+      }
+    } catch (error: any) {
+      throw new EthereumError(`Could not fetch Transfer Events: ${error}`);
+    }
+  }
+
+  async getContractTotalSupply(): Promise<number> {
+    try {
+      return await this.ethereumContracts.dlcBTCContract.totalSupply().toNumber();
+    } catch (error: any) {
+      throw new EthereumError(`Could not fetch Total Supply: ${error}`);
+    }
+  }
+
+  async getContractFundedVaults(amount: number = 50): Promise<RawVault[]> {
+    try {
+      let totalFetched = 0;
+      const fundedVaults: RawVault[] = [];
+
+      let shouldContinue = true;
+      while (shouldContinue) {
+        const fetchedVaults: RawVault[] =
+          await this.ethereumContracts.dlcManagerContract.getAllDLCs(
+            totalFetched,
+            totalFetched + amount
+          );
+        const filteredVaults = fetchedVaults.filter(vault => vault.status === VaultState.Funded);
+        fundedVaults.push(...filteredVaults);
+
+        totalFetched += amount;
+        shouldContinue = fetchedVaults.length === amount;
+      }
+
+      return fundedVaults;
+    } catch (error) {
+      throw new EthereumError(
+        `Could not fetch Funded Vaults: ${error instanceof Error ? error.message : error}`
+      );
     }
   }
 }

@@ -53,15 +53,8 @@ export interface DLCEthereumContracts {
   protocolContract: Contract;
   dlcManagerContract: Contract;
   dlcBTCContract: Contract;
-  readOnlyProtocolContract: Contract;
 }
 
-export interface DLCReadOnlyEthereumContracts {
-  protocolContract: Contract;
-  dlcManagerContract: Contract;
-  dlcBTCContract: Contract;
-}
-
-export type SupportedNetworks = 'arbitrum' | 'arbitrum-sepolia-testnet' | 'arbitrum-sepolia-devnet';
+export type SupportedNetwork = 'arbitrum' | 'arbitrum-sepolia-testnet' | 'arbitrum-sepolia-devnet';
 export type DLCEthereumContractName = 'TokenManager' | 'DLCManager' | 'DLCBTC';
 export type DLCSolidityBranchName = 'dev' | 'testnet-rolling';

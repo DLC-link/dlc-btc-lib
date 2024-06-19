@@ -13,7 +13,7 @@ import {
   EthereumDeploymentPlan,
   EthereumNetwork,
   RawVault,
-  SupportedNetworks,
+  SupportedNetwork,
   VaultState,
 } from '../../models/ethereum-models.js';
 
@@ -40,7 +40,7 @@ export async function fetchEthereumDeploymentPlan(
 }
 
 export async function fetchEthereumDeploymentPlansByNetwork(
-  network: SupportedNetworks
+  network: SupportedNetwork
 ): Promise<EthereumDeploymentPlan[]> {
   try {
     let ethereumNetwork: EthereumNetwork;
@@ -116,19 +116,13 @@ export function getEthereumontract(
 
 export function getEthereumContracts(
   ethereumDeploymentPlans: EthereumDeploymentPlan[],
-  signer: Wallet | providers.JsonRpcSigner,
-  readOnlyProvider: providers.JsonRpcProvider
+  signer: Wallet | providers.JsonRpcSigner
 ): DLCEthereumContracts {
   const protocolContract = getEthereumontract(ethereumDeploymentPlans, 'TokenManager', signer);
-  const readOnlyProtocolContract = getEthereumontract(
-    ethereumDeploymentPlans,
-    'TokenManager',
-    readOnlyProvider
-  );
   const dlcManagerContract = getEthereumontract(ethereumDeploymentPlans, 'DLCManager', signer);
   const dlcBTCContract = getEthereumontract(ethereumDeploymentPlans, 'DLCBTC', signer);
 
-  return { protocolContract, readOnlyProtocolContract, dlcManagerContract, dlcBTCContract };
+  return { protocolContract, dlcManagerContract, dlcBTCContract };
 }
 
 export function getReadOnlyEthereumContracts(
