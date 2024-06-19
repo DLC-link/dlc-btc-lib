@@ -133,19 +133,25 @@ export class EthereumHandler {
       let totalFetched = 0;
       const fundedVaults: RawVault[] = [];
 
-      while (true) {
+      let shouldContinue = true;
+      while (shouldContinue) {
         const fetchedVaults: RawVault[] =
           await this.ethereumContracts.dlcManagerContract.getAllDLCs(
             totalFetched,
             totalFetched + amount
           );
-        fundedVaults.push(...fetchedVaults.filter(vault => vault.status === VaultState.Funded));
+        const filteredVaults = fetchedVaults.filter(vault => vault.status === VaultState.Funded);
+        fundedVaults.push(...filteredVaults);
+
         totalFetched += amount;
-        if (fetchedVaults.length !== amount) break;
+        shouldContinue = fetchedVaults.length === amount;
       }
+
       return fundedVaults;
-    } catch (error: any) {
-      throw new EthereumError(`Could not fetch Funded Vaults: ${error}`);
+    } catch (error) {
+      throw new EthereumError(
+        `Could not fetch Funded Vaults: ${error instanceof Error ? error.message : error}`
+      );
     }
   }
 }
