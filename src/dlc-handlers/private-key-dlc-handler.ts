@@ -16,6 +16,7 @@ import {
 import {
   createClosingTransaction,
   createFundingTransaction,
+  createWithdrawalTransaction,
 } from '../functions/bitcoin/psbt-functions.js';
 import { PaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
@@ -239,6 +240,48 @@ export class PrivateKeyDLCHandler {
     );
 
     return closingTransaction;
+  }
+
+  async createWithdrawalPSBT(
+    vault: RawVault,
+    withdrawAmount: bigint,
+    attestorGroupPublicKey: string,
+    fundingTransactionID: string,
+    feeRateMultiplier?: number,
+    customFeeRate?: bigint
+  ): Promise<Transaction> {
+    try {
+      const { nativeSegwitPayment, taprootMultisigPayment } = this.createPayments(
+        vault.uuid,
+        attestorGroupPublicKey
+      );
+
+      if (
+        taprootMultisigPayment.address === undefined ||
+        nativeSegwitPayment.address === undefined
+      ) {
+        throw new Error('Payment Address is undefined');
+      }
+
+      const feeRate =
+        customFeeRate ??
+        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+
+      const withdrawalTransaction = await createWithdrawalTransaction(
+        this.bitcoinBlockchainAPI,
+        withdrawAmount,
+        this.bitcoinNetwork,
+        fundingTransactionID,
+        taprootMultisigPayment,
+        nativeSegwitPayment.address!,
+        feeRate,
+        vault.btcFeeRecipient,
+        vault.btcRedeemFeeBasisPoints.toBigInt()
+      );
+      return withdrawalTransaction;
+    } catch (error: any) {
+      throw new Error(`Error creating Withdrawal PSBT: ${error}`);
+    }
   }
 
   signPSBT(psbt: Transaction, transactionType: 'funding' | 'closing'): Transaction {
