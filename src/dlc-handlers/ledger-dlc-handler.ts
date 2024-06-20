@@ -265,6 +265,7 @@ export class LedgerDLCHandler {
 
   async createFundingPSBT(
     vault: RawVault,
+    bitcoinAmount: bigint,
     attestorGroupPublicKey: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
@@ -294,7 +295,7 @@ export class LedgerDLCHandler {
       }
 
       const fundingTransaction = await createFundingTransaction(
-        vault.valueLocked.toBigInt(),
+        bitcoinAmount,
         this.bitcoinNetwork,
         taprootMultisigPayment.address,
         nativeSegwitPayment,

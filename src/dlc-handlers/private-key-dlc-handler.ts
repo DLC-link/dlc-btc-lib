@@ -170,6 +170,7 @@ export class PrivateKeyDLCHandler {
 
   async createFundingPSBT(
     vault: RawVault,
+    bitcoinAmount: bigint,
     attestorGroupPublicKey: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
@@ -194,7 +195,7 @@ export class PrivateKeyDLCHandler {
       BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
     const fundingTransaction = await createFundingTransaction(
-      vault.valueLocked.toBigInt(),
+      bitcoinAmount,
       this.bitcoinNetwork,
       taprootMultisigPayment.address,
       nativeSegwitPayment,
