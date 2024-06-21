@@ -1,4 +1,5 @@
 import { Transaction, p2wpkh } from '@scure/btc-signer';
+import { Buffer } from 'buffer';
 
 import { PrivateKeyDLCHandler } from '../../src/index.js';
 import {

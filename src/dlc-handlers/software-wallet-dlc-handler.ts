@@ -2,6 +2,7 @@ import { Transaction, p2wpkh } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
+import { Buffer } from 'buffer';
 
 import {
   createTaprootMultisigPayment,

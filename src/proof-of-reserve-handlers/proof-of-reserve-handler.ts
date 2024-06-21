@@ -1,5 +1,6 @@
 import { hex } from '@scure/base';
 import { Network } from 'bitcoinjs-lib';
+import { Buffer } from 'buffer';
 
 import {
   createTaprootMultisigPayment,

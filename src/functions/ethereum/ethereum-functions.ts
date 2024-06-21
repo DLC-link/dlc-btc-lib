@@ -6,7 +6,7 @@ import {
   ethereumArbitrum,
   ethereumArbitrumSepolia,
 } from '../../constants/ethereum-constants.js';
-import { EthereumError } from '../../models/errors.js';
+import { EthereumError } from '../../models/error-models.js';
 import {
   DLCEthereumContracts,
   DLCSolidityBranchName,

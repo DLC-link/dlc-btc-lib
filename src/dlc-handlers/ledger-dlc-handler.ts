@@ -2,6 +2,7 @@ import { Transaction } from '@scure/btc-signer';
 import { P2Ret, P2TROut, p2wpkh } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
+import { Buffer } from 'buffer';
 import { AppClient, DefaultWalletPolicy, WalletPolicy } from 'ledger-bitcoin';
 
 import {
@@ -25,7 +26,7 @@ import {
 } from '../functions/bitcoin/psbt-functions.js';
 import { ExtendedPaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
-import { truncateAddress } from '../utilities/index.js';
+import { truncateAddress } from '../utilities/utilities.js';
 
 interface LedgerPolicyInformation {
   nativeSegwitWalletPolicy: DefaultWalletPolicy;
