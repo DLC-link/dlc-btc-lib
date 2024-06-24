@@ -1,5 +1,5 @@
 import { Transaction, p2wpkh } from '@scure/btc-signer';
-import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
+import { P2Ret, P2TROut, p2tr } from '@scure/btc-signer/payment';
 import { Signer } from '@scure/btc-signer/transaction';
 import { BIP32Interface } from 'bip32';
 import { Network } from 'bitcoinjs-lib';
@@ -9,6 +9,7 @@ import {
   createTaprootMultisigPayment,
   deriveUnhardenedKeyPairFromRootPrivateKey,
   deriveUnhardenedPublicKey,
+  ecdsaPublicKeyToSchnorr,
   getBalance,
   getFeeRate,
   getUnspendableKeyCommittedToUUID,
@@ -21,13 +22,14 @@ import { PaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
 
 interface RequiredKeyPair {
-  nativeSegwitDerivedKeyPair: BIP32Interface;
+  fundingDerivedKeyPair: BIP32Interface;
   taprootDerivedKeyPair: BIP32Interface;
 }
 
 export class PrivateKeyDLCHandler {
   private derivedKeyPair: RequiredKeyPair;
   public payment: PaymentInformation | undefined;
+  private fundingPaymentType: 'wpkh' | 'tr';
   private bitcoinNetwork: Network;
   private bitcoinBlockchainAPI: string;
   private bitcoinBlockchainFeeRecommendationAPI: string;
@@ -35,6 +37,7 @@ export class PrivateKeyDLCHandler {
   constructor(
     bitcoinWalletPrivateKey: string,
     walletAccountIndex: number,
+    fundingPaymentType: 'wpkh' | 'tr',
     bitcoinNetwork: Network,
     bitcoinBlockchainAPI?: string,
     bitcoinBlockchainFeeRecommendationAPI?: string
@@ -65,11 +68,12 @@ export class PrivateKeyDLCHandler {
       default:
         throw new Error('Invalid Bitcoin Network');
     }
+    this.fundingPaymentType = fundingPaymentType;
     this.bitcoinNetwork = bitcoinNetwork;
-    const nativeSegwitDerivedKeyPair = deriveUnhardenedKeyPairFromRootPrivateKey(
+    const fundingDerivedKeyPair = deriveUnhardenedKeyPairFromRootPrivateKey(
       bitcoinWalletPrivateKey,
       bitcoinNetwork,
-      'p2wpkh',
+      fundingPaymentType === 'wpkh' ? 'p2wpkh' : 'p2tr',
       walletAccountIndex
     );
     const taprootDerivedKeyPair = deriveUnhardenedKeyPairFromRootPrivateKey(
@@ -81,13 +85,13 @@ export class PrivateKeyDLCHandler {
 
     this.derivedKeyPair = {
       taprootDerivedKeyPair,
-      nativeSegwitDerivedKeyPair,
+      fundingDerivedKeyPair,
     };
   }
 
-  private setPayment(nativeSegwitPayment: P2Ret, multisigPayment: P2TROut): void {
+  private setPayment(fundingPayment: P2Ret | P2TROut, multisigPayment: P2TROut): void {
     this.payment = {
-      fundingPayment: nativeSegwitPayment,
+      fundingPayment,
       multisigPayment,
     };
   }
@@ -119,10 +123,10 @@ export class PrivateKeyDLCHandler {
     }
   }
 
-  private getPrivateKey(paymentType: 'p2wpkh' | 'p2tr'): Signer {
+  private getPrivateKey(paymentType: 'funding' | 'taproot'): Signer {
     const privateKey =
-      paymentType === 'p2wpkh'
-        ? this.derivedKeyPair.nativeSegwitDerivedKeyPair.privateKey
+      paymentType === 'funding'
+        ? this.derivedKeyPair.fundingDerivedKeyPair.privateKey
         : this.derivedKeyPair.taprootDerivedKeyPair.privateKey;
 
     if (!privateKey) {
@@ -145,10 +149,25 @@ export class PrivateKeyDLCHandler {
         this.bitcoinNetwork
       );
 
-      const nativeSegwitPayment = p2wpkh(
-        this.derivedKeyPair.nativeSegwitDerivedKeyPair.publicKey,
-        this.bitcoinNetwork
-      );
+      let fundingPayment: P2Ret | P2TROut;
+
+      switch (this.fundingPaymentType) {
+        case 'wpkh':
+          fundingPayment = p2wpkh(
+            this.derivedKeyPair.fundingDerivedKeyPair.publicKey,
+            this.bitcoinNetwork
+          );
+          break;
+        case 'tr':
+          fundingPayment = p2tr(
+            ecdsaPublicKeyToSchnorr(this.derivedKeyPair.taprootDerivedKeyPair.publicKey),
+            undefined,
+            this.bitcoinNetwork
+          );
+          break;
+        default:
+          throw new Error('Invalid Funding Payment Type');
+      }
 
       const multisigPayment = createTaprootMultisigPayment(
         unspendableDerivedPublicKey,
@@ -157,10 +176,10 @@ export class PrivateKeyDLCHandler {
         this.bitcoinNetwork
       );
 
-      this.setPayment(nativeSegwitPayment, multisigPayment);
+      this.setPayment(fundingPayment, multisigPayment);
 
       return {
-        fundingPayment: nativeSegwitPayment,
+        fundingPayment,
         multisigPayment,
       };
     } catch (error: any) {
@@ -179,11 +198,14 @@ export class PrivateKeyDLCHandler {
       attestorGroupPublicKey
     );
 
-    if (fundingPayment.address === undefined || multisigPayment.address === undefined) {
-      throw new Error('Could not get Addresses from Payments');
+    if ([multisigPayment.address, fundingPayment.address].some(x => x === undefined)) {
+      throw new Error('Payment Address is undefined');
     }
 
-    const addressBalance = await getBalance(fundingPayment.address, this.bitcoinBlockchainAPI);
+    const addressBalance = await getBalance(
+      fundingPayment.address as string,
+      this.bitcoinBlockchainAPI
+    );
 
     if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
       throw new Error('Insufficient Funds');
@@ -196,7 +218,7 @@ export class PrivateKeyDLCHandler {
     const fundingPSBT = await createFundingTransaction(
       vault.valueLocked.toBigInt(),
       this.bitcoinNetwork,
-      multisigPayment.address,
+      multisigPayment.address as string,
       fundingPayment,
       feeRate,
       vault.btcFeeRecipient,
@@ -242,7 +264,7 @@ export class PrivateKeyDLCHandler {
   }
 
   signPSBT(psbt: Transaction, transactionType: 'funding' | 'closing'): Transaction {
-    psbt.sign(this.getPrivateKey(transactionType === 'funding' ? 'p2wpkh' : 'p2tr'));
+    psbt.sign(this.getPrivateKey(transactionType === 'funding' ? 'funding' : 'taproot'));
     if (transactionType === 'funding') psbt.finalize();
     return psbt;
   }

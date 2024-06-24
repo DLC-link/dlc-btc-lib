@@ -42,6 +42,7 @@ export class LedgerDLCHandler {
   private policyInformation: LedgerPolicyInformation | undefined;
   public payment: ExtendedPaymentInformation | undefined;
   private bitcoinNetwork: Network;
+  private bitcoinNetworkIndex: number;
   private bitcoinBlockchainAPI: string;
   private bitcoinBlockchainFeeRecommendationAPI: string;
 
@@ -59,11 +60,13 @@ export class LedgerDLCHandler {
         this.bitcoinBlockchainAPI = 'https://mempool.space/api';
         this.bitcoinBlockchainFeeRecommendationAPI =
           'https://mempool.space/api/v1/fees/recommended';
+        this.bitcoinNetworkIndex = 0;
         break;
       case testnet:
         this.bitcoinBlockchainAPI = 'https://mempool.space/testnet/api';
         this.bitcoinBlockchainFeeRecommendationAPI =
           'https://mempool.space/testnet/api/v1/fees/recommended';
+        this.bitcoinNetworkIndex = 1;
         break;
       case regtest:
         if (
@@ -76,6 +79,7 @@ export class LedgerDLCHandler {
         }
         this.bitcoinBlockchainAPI = bitcoinBlockchainAPI;
         this.bitcoinBlockchainFeeRecommendationAPI = bitcoinBlockchainFeeRecommendationAPI;
+        this.bitcoinNetworkIndex = 1;
         break;
       default:
         throw new Error('Invalid Bitcoin Network');
@@ -159,13 +163,12 @@ export class LedgerDLCHandler {
   ): Promise<ExtendedPaymentInformation> {
     try {
       const fundingPaymentTypeDerivationPath = this.fundingPaymentType === 'wpkh' ? '84' : '86';
-      const networkIndex = this.bitcoinNetwork === bitcoin ? 0 : 1;
 
       const fundingExtendedPublicKey = await this.ledgerApp.getExtendedPubkey(
-        `m/${fundingPaymentTypeDerivationPath}'/${networkIndex}'/${this.walletAccountIndex}'`
+        `m/${fundingPaymentTypeDerivationPath}'/${this.bitcoinNetworkIndex}'/${this.walletAccountIndex}'`
       );
 
-      const fundingKeyinfo = `[${this.masterFingerprint}/${fundingPaymentTypeDerivationPath}'/${networkIndex}'/${this.walletAccountIndex}']${fundingExtendedPublicKey}`;
+      const fundingKeyinfo = `[${this.masterFingerprint}/${fundingPaymentTypeDerivationPath}'/${this.bitcoinNetworkIndex}'/${this.walletAccountIndex}']${fundingExtendedPublicKey}`;
 
       const fundingWalletPolicy = new DefaultWalletPolicy(
         `${this.fundingPaymentType}(@0/**)`,
@@ -208,10 +211,10 @@ export class LedgerDLCHandler {
       );
 
       const taprootExtendedPublicKey = await this.ledgerApp.getExtendedPubkey(
-        `m/86'/${networkIndex}'/${this.walletAccountIndex}'`
+        `m/86'/${this.bitcoinNetworkIndex}'/${this.walletAccountIndex}'`
       );
 
-      const ledgerTaprootKeyInfo = `[${this.masterFingerprint}/86'/${networkIndex}'/${this.walletAccountIndex}']${taprootExtendedPublicKey}`;
+      const ledgerTaprootKeyInfo = `[${this.masterFingerprint}/86'/${this.bitcoinNetworkIndex}'/${this.walletAccountIndex}']${taprootExtendedPublicKey}`;
 
       const taprootDerivedPublicKey = deriveUnhardenedPublicKey(
         taprootExtendedPublicKey,
@@ -287,7 +290,7 @@ export class LedgerDLCHandler {
         attestorGroupPublicKey
       );
 
-      if (multisigPayment.address === undefined || fundingPayment.address === undefined) {
+      if ([multisigPayment.address, fundingPayment.address].some(x => x === undefined)) {
         throw new Error('Payment Address is undefined');
       }
 
@@ -295,7 +298,10 @@ export class LedgerDLCHandler {
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const addressBalance = await getBalance(fundingPayment.address, this.bitcoinBlockchainAPI);
+      const addressBalance = await getBalance(
+        fundingPayment.address as string,
+        this.bitcoinBlockchainAPI
+      );
 
       if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
         throw new Error('Insufficient Funds');
@@ -304,7 +310,7 @@ export class LedgerDLCHandler {
       const fundingPSBT = await createFundingTransaction(
         vault.valueLocked.toBigInt(),
         this.bitcoinNetwork,
-        multisigPayment.address,
+        multisigPayment.address as string,
         fundingPayment,
         feeRate,
         vault.btcFeeRecipient,
