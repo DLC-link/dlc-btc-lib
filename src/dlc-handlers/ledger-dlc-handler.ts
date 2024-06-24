@@ -24,7 +24,7 @@ import {
   updateNativeSegwitInputs,
   updateTaprootInputs,
 } from '../functions/bitcoin/psbt-functions.js';
-import { LedgerPaymentInformation } from '../models/bitcoin-models.js';
+import { ExtendedPaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
 import { truncateAddress } from '../utilities/index.js';
 
@@ -40,7 +40,7 @@ export class LedgerDLCHandler {
   private walletAccountIndex: number;
   private fundingPaymentType: 'wpkh' | 'tr';
   private policyInformation: LedgerPolicyInformation | undefined;
-  public payment: LedgerPaymentInformation | undefined;
+  public payment: ExtendedPaymentInformation | undefined;
   private bitcoinNetwork: Network;
   private bitcoinBlockchainAPI: string;
   private bitcoinBlockchainFeeRecommendationAPI: string;
@@ -119,7 +119,7 @@ export class LedgerDLCHandler {
     return this.policyInformation;
   }
 
-  private getPayment(): LedgerPaymentInformation {
+  private getPayment(): ExtendedPaymentInformation {
     if (!this.payment) {
       throw new Error('Payment Information not set');
     }
@@ -156,7 +156,7 @@ export class LedgerDLCHandler {
   private async createPayment(
     vaultUUID: string,
     attestorGroupPublicKey: string
-  ): Promise<LedgerPaymentInformation> {
+  ): Promise<ExtendedPaymentInformation> {
     try {
       const fundingPaymentTypeDerivationPath = this.fundingPaymentType === 'wpkh' ? '84' : '86';
       const networkIndex = this.bitcoinNetwork === bitcoin ? 0 : 1;
@@ -165,18 +165,12 @@ export class LedgerDLCHandler {
         `m/${fundingPaymentTypeDerivationPath}'/${networkIndex}'/${this.walletAccountIndex}'`
       );
 
-      console.log(`Funding Extended Public Key: ${fundingExtendedPublicKey}`);
-
       const fundingKeyinfo = `[${this.masterFingerprint}/${fundingPaymentTypeDerivationPath}'/${networkIndex}'/${this.walletAccountIndex}']${fundingExtendedPublicKey}`;
-
-      console.log(`Funding Key Info: ${fundingKeyinfo}`);
 
       const fundingWalletPolicy = new DefaultWalletPolicy(
         `${this.fundingPaymentType}(@0/**)`,
         fundingKeyinfo
       );
-
-      console.log(`Funding Wallet Policy: ${fundingWalletPolicy}`);
 
       const fundingAddress = await this.ledgerApp.getWalletAddress(
         fundingWalletPolicy,
@@ -186,20 +180,16 @@ export class LedgerDLCHandler {
         false
       );
 
-      console.log(`Funding Address: ${fundingAddress}`);
-
       const fundingDerivedPublicKey = deriveUnhardenedPublicKey(
         fundingExtendedPublicKey,
         this.bitcoinNetwork
       );
 
-      console.log(`Funding Derived Public Key: ${fundingDerivedPublicKey}`);
       const fundingPayment =
         this.fundingPaymentType === 'wpkh'
           ? p2wpkh(fundingDerivedPublicKey, this.bitcoinNetwork)
           : p2tr(ecdsaPublicKeyToSchnorr(fundingDerivedPublicKey), undefined, this.bitcoinNetwork);
 
-      console.log(`Funding Payment: ${fundingPayment}`);
       if (fundingPayment.address !== fundingAddress) {
         throw new Error(
           `[Ledger] Recreated Funding Address does not match the Ledger Funding Address`
@@ -262,8 +252,6 @@ export class LedgerDLCHandler {
         throw new Error(`Recreated Multisig Address does not match the Ledger Multisig Address`);
       }
 
-      console.log('payment done');
-
       this.setPolicyInformation(
         fundingWalletPolicy,
         taprootMultisigAccountPolicy,
@@ -313,8 +301,6 @@ export class LedgerDLCHandler {
         throw new Error('Insufficient Funds');
       }
 
-      console.log('Funding Address Balance:', addressBalance);
-
       const fundingPSBT = await createFundingTransaction(
         vault.valueLocked.toBigInt(),
         this.bitcoinNetwork,
@@ -325,8 +311,6 @@ export class LedgerDLCHandler {
         vault.btcMintFeeBasisPoints.toBigInt(),
         this.bitcoinBlockchainAPI
       );
-
-      console.log('Funding PSBT:', fundingPSBT.toString());
 
       const signingConfiguration = createBitcoinInputSigningConfiguration(
         fundingPSBT,
@@ -356,9 +340,6 @@ export class LedgerDLCHandler {
         );
       } else {
         const taprootInputsToSign = getTaprootInputsToSign(inputByPaymentTypeArray);
-
-        console.log('taprootInputsToSign', taprootInputsToSign);
-        console.log('fundingDerivedPublicKey', fundingDerivedPublicKey.toString('hex'));
 
         await updateTaprootInputs(
           taprootInputsToSign,
@@ -444,10 +425,15 @@ export class LedgerDLCHandler {
       switch (transactionType) {
         case 'funding':
           signatures = await this.ledgerApp.signPsbt(psbt.toBase64(), fundingWalletPolicy, null);
-          if (this.fundingPaymentType === 'wpkh') {
-            addNativeSegwitSignaturesToPSBT(psbt, signatures);
-          } else {
-            addTaprootInputSignaturesToPSBT('funding', psbt, signatures);
+          switch (this.fundingPaymentType) {
+            case 'wpkh':
+              addNativeSegwitSignaturesToPSBT(psbt, signatures);
+              break;
+            case 'tr':
+              addTaprootInputSignaturesToPSBT('funding', psbt, signatures);
+              break;
+            default:
+              throw new Error('Invalid Funding Payment Type');
           }
           transaction = Transaction.fromPSBT(psbt.toBuffer());
           transaction.finalize();

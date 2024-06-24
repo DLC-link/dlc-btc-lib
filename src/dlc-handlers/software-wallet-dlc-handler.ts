@@ -18,7 +18,7 @@ import { PaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
 
 export class SoftwareWalletDLCHandler {
-  private nativeSegwitDerivedPublicKey: string;
+  private fundingDerivedPublicKey: string;
   private taprootDerivedPublicKey: string;
   public payment: PaymentInformation | undefined;
   private bitcoinNetwork: Network;
@@ -59,14 +59,14 @@ export class SoftwareWalletDLCHandler {
         throw new Error('Invalid Bitcoin Network');
     }
     this.bitcoinNetwork = bitcoinNetwork;
-    this.nativeSegwitDerivedPublicKey = nativeSegwitDerivedPublicKey;
+    this.fundingDerivedPublicKey = nativeSegwitDerivedPublicKey;
     this.taprootDerivedPublicKey = taprootDerivedPublicKey;
   }
 
-  private setPayment(nativeSegwitPayment: P2Ret, taprootMultisigPayment: P2TROut): void {
+  private setPayment(fundingPayment: P2Ret, multisigPayment: P2TROut): void {
     this.payment = {
-      nativeSegwitPayment,
-      taprootMultisigPayment,
+      fundingPayment,
+      multisigPayment,
     };
   }
 
@@ -77,7 +77,7 @@ export class SoftwareWalletDLCHandler {
     return this.payment;
   }
 
-  getVaultRelatedAddress(paymentType: 'p2wpkh' | 'p2tr'): string {
+  getVaultRelatedAddress(paymentType: 'funding' | 'multisig'): string {
     const payment = this.getPayment();
 
     if (payment === undefined) {
@@ -87,17 +87,17 @@ export class SoftwareWalletDLCHandler {
     let address: string;
 
     switch (paymentType) {
-      case 'p2wpkh':
-        if (!payment.nativeSegwitPayment.address) {
-          throw new Error('Native Segwit Payment Address is undefined');
+      case 'funding':
+        if (!payment.fundingPayment.address) {
+          throw new Error('Funding Payment Address is undefined');
         }
-        address = payment.nativeSegwitPayment.address;
+        address = payment.fundingPayment.address;
         return address;
-      case 'p2tr':
-        if (!payment.taprootMultisigPayment.address) {
+      case 'multisig':
+        if (!payment.multisigPayment.address) {
           throw new Error('Taproot Multisig Payment Address is undefined');
         }
-        address = payment.taprootMultisigPayment.address;
+        address = payment.multisigPayment.address;
         return address;
       default:
         throw new Error('Invalid Payment Type');
@@ -109,8 +109,8 @@ export class SoftwareWalletDLCHandler {
     attestorGroupPublicKey: string
   ): Promise<PaymentInformation> {
     try {
-      const nativeSegwitPayment = p2wpkh(
-        Buffer.from(this.nativeSegwitDerivedPublicKey, 'hex'),
+      const fundingPayment = p2wpkh(
+        Buffer.from(this.fundingDerivedPublicKey, 'hex'),
         this.bitcoinNetwork
       );
 
@@ -125,18 +125,18 @@ export class SoftwareWalletDLCHandler {
         this.bitcoinNetwork
       );
 
-      const taprootMultisigPayment = createTaprootMultisigPayment(
+      const multisigPayment = createTaprootMultisigPayment(
         unspendableDerivedPublicKey,
         attestorDerivedPublicKey,
         Buffer.from(this.taprootDerivedPublicKey, 'hex'),
         this.bitcoinNetwork
       );
 
-      this.setPayment(nativeSegwitPayment, taprootMultisigPayment);
+      this.setPayment(fundingPayment, multisigPayment);
 
       return {
-        nativeSegwitPayment,
-        taprootMultisigPayment,
+        fundingPayment,
+        multisigPayment,
       };
     } catch (error: any) {
       throw new Error(`Error creating required wallet information: ${error}`);
@@ -150,15 +150,12 @@ export class SoftwareWalletDLCHandler {
     customFeeRate?: bigint
   ): Promise<Transaction> {
     try {
-      const { nativeSegwitPayment, taprootMultisigPayment } = await this.createPayments(
+      const { fundingPayment, multisigPayment } = await this.createPayments(
         vault.uuid,
         attestorGroupPublicKey
       );
 
-      if (
-        taprootMultisigPayment.address === undefined ||
-        nativeSegwitPayment.address === undefined
-      ) {
+      if (fundingPayment.address === undefined || multisigPayment.address === undefined) {
         throw new Error('Payment Address is undefined');
       }
 
@@ -166,10 +163,7 @@ export class SoftwareWalletDLCHandler {
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const addressBalance = await getBalance(
-        nativeSegwitPayment.address,
-        this.bitcoinBlockchainAPI
-      );
+      const addressBalance = await getBalance(fundingPayment.address, this.bitcoinBlockchainAPI);
 
       if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
         throw new Error('Insufficient Funds');
@@ -178,8 +172,8 @@ export class SoftwareWalletDLCHandler {
       const fundingPSBT = await createFundingTransaction(
         vault.valueLocked.toBigInt(),
         this.bitcoinNetwork,
-        taprootMultisigPayment.address,
-        nativeSegwitPayment,
+        multisigPayment.address,
+        fundingPayment,
         feeRate,
         vault.btcFeeRecipient,
         vault.btcMintFeeBasisPoints.toBigInt(),
@@ -198,12 +192,9 @@ export class SoftwareWalletDLCHandler {
     customFeeRate?: bigint
   ): Promise<Transaction> {
     try {
-      const { nativeSegwitPayment, taprootMultisigPayment } = this.getPayment();
+      const { fundingPayment, multisigPayment } = this.getPayment();
 
-      if (
-        taprootMultisigPayment.address === undefined ||
-        nativeSegwitPayment.address === undefined
-      ) {
+      if (multisigPayment.address === undefined || fundingPayment.address === undefined) {
         throw new Error('Payment Address is undefined');
       }
 
@@ -215,8 +206,8 @@ export class SoftwareWalletDLCHandler {
         vault.valueLocked.toBigInt(),
         this.bitcoinNetwork,
         fundingTransactionID,
-        taprootMultisigPayment,
-        nativeSegwitPayment.address!,
+        multisigPayment,
+        fundingPayment.address!,
         feeRate,
         vault.btcFeeRecipient,
         vault.btcRedeemFeeBasisPoints.toBigInt()
