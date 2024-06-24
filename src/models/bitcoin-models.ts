@@ -30,6 +30,13 @@ export interface ExtendedPaymentInformation extends PaymentInformation {
   taprootDerivedPublicKey: Buffer;
 }
 
+export interface LedgerPaymentInformation {
+  fundingPayment: P2Ret | P2TROut;
+  fundingDerivedPublicKey: Buffer;
+  multisigPayment: P2TROut;
+  taprootDerivedPublicKey: Buffer;
+}
+
 interface BitcoinTransactionIssuance {
   asset_id: string;
   is_reissuance: boolean;
