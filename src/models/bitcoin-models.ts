@@ -21,12 +21,12 @@ export interface FeeRates {
 }
 
 export interface PaymentInformation {
-  nativeSegwitPayment: P2Ret;
-  taprootMultisigPayment: P2TROut;
+  fundingPayment: P2Ret | P2TROut;
+  multisigPayment: P2TROut;
 }
 
 export interface ExtendedPaymentInformation extends PaymentInformation {
-  nativeSegwitDerivedPublicKey: Buffer;
+  fundingDerivedPublicKey: Buffer;
   taprootDerivedPublicKey: Buffer;
 }
 

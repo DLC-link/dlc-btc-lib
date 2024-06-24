@@ -13,6 +13,7 @@ export const TEST_BITCOIN_BLOCKCHAIN_API = 'https://devnet.dlc.link/electrs';
 export const TEST_BITCOIN_BLOCKCHAIN_FEE_RECOMMENDATION_API =
   'https://devnet.dlc.link/electrs/fee-estimates';
 export const TEST_BITCOIN_AMOUNT = 0.01;
+export const TEST_FUNDING_PAYMENT_TYPE = 'tr';
 
 // Ethereum
 export const TEST_ETHEREUM_PRIVATE_KEY = '';

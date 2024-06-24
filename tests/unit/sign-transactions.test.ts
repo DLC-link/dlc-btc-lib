@@ -7,6 +7,7 @@ import {
   TEST_BITCOIN_EXTENDED_PRIVATE_KEY,
   TEST_BITCOIN_NETWORK,
   TEST_BITCOIN_WALLET_ACCOUNT_INDEX,
+  TEST_FUNDING_PAYMENT_TYPE,
   TEST_REGTEST_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY,
   TEST_VAULT,
 } from '../mocks/constants.js';
@@ -22,6 +23,7 @@ describe('Create and Sign Vault related Transactions', () => {
     dlcHandler = new PrivateKeyDLCHandler(
       TEST_BITCOIN_EXTENDED_PRIVATE_KEY,
       TEST_BITCOIN_WALLET_ACCOUNT_INDEX,
+      TEST_FUNDING_PAYMENT_TYPE,
       TEST_BITCOIN_NETWORK,
       TEST_BITCOIN_BLOCKCHAIN_API,
       TEST_BITCOIN_BLOCKCHAIN_FEE_RECOMMENDATION_API
@@ -41,7 +43,7 @@ describe('Create and Sign Vault related Transactions', () => {
       Buffer.from(TEST_VAULT.btcFeeRecipient, 'hex'),
       TEST_BITCOIN_NETWORK
     ).script;
-    const multisigScript = dlcHandler.payment?.taprootMultisigPayment.script;
+    const multisigScript = dlcHandler.payment?.multisigPayment.script;
 
     const outputs = Array.from({ length: fundingTransaction.outputsLength }, (_, index) =>
       fundingTransaction.getOutput(index)
@@ -78,7 +80,7 @@ describe('Create and Sign Vault related Transactions', () => {
       Buffer.from(TEST_VAULT.btcFeeRecipient, 'hex'),
       TEST_BITCOIN_NETWORK
     ).script;
-    const userScript = dlcHandler.payment?.nativeSegwitPayment.script;
+    const userScript = dlcHandler.payment?.fundingPayment.script;
 
     const outputs = Array.from({ length: fundingTransaction.outputsLength }, (_, index) =>
       fundingTransaction.getOutput(index)
@@ -94,7 +96,7 @@ describe('Create and Sign Vault related Transactions', () => {
     expect(feeOutput?.amount === feeAmount).toBeTruthy();
     expect(
       closingTransaction.getInput(0).witnessUtxo?.script.toString() ==
-        dlcHandler.payment?.taprootMultisigPayment.script.toString()
+        dlcHandler.payment?.multisigPayment.script.toString()
     ).toBeTruthy();
   });
 
