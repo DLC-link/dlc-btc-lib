@@ -4,7 +4,7 @@ import {
   getProvider,
   getReadOnlyEthereumContracts,
 } from '../functions/ethereum/ethereum-functions.js';
-import { EthereumError } from '../models/errors.js';
+import { EthereumError } from '../models/error-models.js';
 import {
   DLCEthereumContractName,
   DLCEthereumContracts,

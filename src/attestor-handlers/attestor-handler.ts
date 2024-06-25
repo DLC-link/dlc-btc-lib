@@ -1,4 +1,4 @@
-import { AttestorError } from '../models/errors.js';
+import { AttestorError } from '../models/error-models.js';
 
 export class AttestorHandler {
   private attestorRootURLs: string[];

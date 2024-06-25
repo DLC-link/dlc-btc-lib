@@ -1,4 +1,5 @@
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
+import { Buffer } from 'buffer';
 
 export interface UTXO {
   txid: string;
