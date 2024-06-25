@@ -77,6 +77,10 @@ export class SoftwareWalletDLCHandler {
     return this.payment;
   }
 
+  getTaprootDerivedPublicKey(): string {
+    return this.taprootDerivedPublicKey;
+  }
+
   getVaultRelatedAddress(paymentType: 'p2wpkh' | 'p2tr'): string {
     const payment = this.getPayment();
 

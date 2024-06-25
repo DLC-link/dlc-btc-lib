@@ -1,3 +1,5 @@
+import { Transaction } from '@scure/btc-signer';
+
 import { AttestorError } from '../models/errors.js';
 
 export class AttestorHandler {
@@ -14,18 +16,18 @@ export class AttestorHandler {
 
   async createPSBTEvent(
     vaultUUID: string,
-    fundingTransaction: string,
-    closingPSBT: string,
-    userNativeSegwitAddress: string
+    fundingTransactionPsbt: string,
+    mintAddress: string,
+    alicePubkey: string
   ): Promise<void> {
     const createPSBTEndpoints = this.attestorRootURLs.map(url => `${url}/app/create-psbt-event`);
 
     const body = JSON.stringify({
       uuid: vaultUUID,
-      funding_transaction: fundingTransaction,
-      closing_psbt: closingPSBT,
-      mint_address: userNativeSegwitAddress,
+      funding_transaction_psbt: fundingTransactionPsbt,
+      mint_address: mintAddress,
       chain: this.ethereumChainID,
+      alice_pubkey: alicePubkey,
     });
 
     const requests = createPSBTEndpoints.map(async url =>

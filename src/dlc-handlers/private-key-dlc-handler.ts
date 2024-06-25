@@ -26,7 +26,7 @@ interface RequiredKeyPair {
 }
 
 export class PrivateKeyDLCHandler {
-  private derivedKeyPair: RequiredKeyPair;
+  public derivedKeyPair: RequiredKeyPair;
   public payment: PaymentInformation | undefined;
   private bitcoinNetwork: Network;
   private bitcoinBlockchainAPI: string;

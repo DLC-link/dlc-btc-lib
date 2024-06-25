@@ -55,11 +55,10 @@ export class EthereumHandler {
     return vault;
   }
 
-  async setupVault(bitcoinDepositAmount: number): Promise<any | undefined> {
+  async setupVault(): Promise<any | undefined> {
     try {
-      await this.ethereumContracts.protocolContract.callStatic.setupVault(bitcoinDepositAmount);
-      const transaction =
-        await this.ethereumContracts.protocolContract.setupVault(bitcoinDepositAmount);
+      await this.ethereumContracts.protocolContract.callStatic.setupVault();
+      const transaction = await this.ethereumContracts.protocolContract.setupVault();
       return await transaction.wait();
     } catch (error: any) {
       throw new EthereumError(`Could not setup Vault: ${error}`);
