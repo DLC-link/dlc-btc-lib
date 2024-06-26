@@ -1,4 +1,4 @@
-import { hexToBytes } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { Transaction, selectUTXO } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
@@ -66,6 +66,155 @@ export async function createFundingTransaction(
   });
 
   return fundingTX;
+}
+
+/**
+ * Creates a Deposit Transaction.
+ * Uses the Funding Transaction's ID to create the Withdrawal Transaction.
+ * The specified amount of Bitcoin is sent to the User's Native Segwit Address.
+ * The remaining amount is sent back to the Multisig Transaction.
+ *
+ * @param bitcoinBlockchainURL - The Bitcoin Blockchain URL.
+ * @param bitcoinAmount - The Amount of Bitcoin to withdraw.
+ * @param bitcoinNetwork - The Bitcoin Network to use.
+ * @param fundingTransactionID - The ID of the Funding Transaction.
+ * @param multisigTransaction - The Multisig Transaction.
+ * @param userNativeSegwitAddress - The User's Native Segwit Address.
+ * @param feeRate - The Fee Rate to use for the Transaction.
+ * @param feePublicKey - The Fee Recipient's Public Key.
+ * @param feeBasisPoints - The Fee Basis Points.
+ * @returns The Closing Transaction.
+ */
+export async function createDepositTransaction(
+  bitcoinBlockchainURL: string,
+  bitcoinAmount: bigint,
+  bitcoinNetwork: Network,
+  fundingTransactionID: string,
+  multisigPayment: P2TROut,
+  depositPayment: P2TROut | P2Ret,
+  feeRate: bigint,
+  feePublicKey: string,
+  feeBasisPoints: bigint
+): Promise<Transaction> {
+  const multisigPaymentAddress = multisigPayment.address;
+
+  if (!multisigPaymentAddress) {
+    throw new Error('Multisig Payment is missing Address');
+  }
+
+  const fundingPaymentAddress = depositPayment.address;
+
+  if (!fundingPaymentAddress) {
+    throw new Error('Deposit Payment is missing Address');
+  }
+
+  const fundingTransaction = await fetchBitcoinTransaction(
+    fundingTransactionID,
+    bitcoinBlockchainURL
+  );
+
+  const fundingTransactionOutputIndex = fundingTransaction.vout.findIndex(
+    output => output.scriptpubkey_address === multisigPaymentAddress
+  );
+
+  if (fundingTransactionOutputIndex === -1) {
+    throw new Error('Could not find Funding Transaction Output Index');
+  }
+
+  const fundingTransactionOutputValue = BigInt(
+    fundingTransaction.vout[fundingTransactionOutputIndex].value
+  );
+
+  const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
+  const feeAmount = getFeeAmount(Number(bitcoinAmount), Number(feeBasisPoints));
+
+  const userUTXOs = await getUTXOs(depositPayment, bitcoinBlockchainURL);
+
+  const additionalDepositOutput = [
+    {
+      address: feeAddress,
+      amount: BigInt(feeAmount),
+    },
+    {
+      address: multisigPaymentAddress,
+      amount: BigInt(bitcoinAmount) - BigInt(feeAmount),
+    },
+  ];
+
+  const additionalDepositSelected = selectUTXO(userUTXOs, additionalDepositOutput, 'default', {
+    changeAddress: fundingPaymentAddress,
+    feePerByte: feeRate,
+    bip69: false,
+    createTx: false,
+    network: bitcoinNetwork,
+  });
+
+  if (!additionalDepositSelected) {
+    throw new Error('Could not create Multisig Transaction');
+  }
+
+  const multisigInput = {
+    txid: hexToBytes(fundingTransactionID),
+    index: fundingTransactionOutputIndex,
+    witnessUtxo: {
+      amount: BigInt(fundingTransaction.vout[fundingTransactionOutputIndex].value),
+      script: multisigPayment.script,
+    },
+    ...multisigPayment,
+  };
+
+  const depositInputs: any[] = [];
+
+  additionalDepositSelected.inputs.forEach(async input => {
+    const txID = input.txid;
+    if (!txID) {
+      throw new Error('Could not get Transaction ID');
+    }
+
+    const utxo = await fetchBitcoinTransaction(
+      txID instanceof Uint8Array ? bytesToHex(txID) : txID,
+      bitcoinBlockchainURL
+    );
+    depositInputs.push({
+      txid: txID instanceof Uint8Array ? txID : hexToBytes(txID),
+      index: input.index!,
+      witnessUtxo: {
+        amount: BigInt(utxo.vout[input.index!].value),
+        script: depositPayment.script,
+      },
+    });
+  });
+
+  const depositOutputs = [
+    {
+      address: feeAddress,
+      amount: BigInt(feeAmount),
+    },
+    {
+      address: multisigPaymentAddress,
+      amount: BigInt(bitcoinAmount) - BigInt(feeAmount) + BigInt(fundingTransactionOutputValue),
+    },
+  ];
+
+  const depositSelected = selectUTXO(depositInputs, depositOutputs, 'default', {
+    changeAddress: fundingPaymentAddress,
+    feePerByte: feeRate,
+    bip69: false,
+    createTx: true,
+    network: bitcoinNetwork,
+  });
+
+  const withdrawTX = depositSelected?.tx;
+
+  if (!withdrawTX) throw new Error('Could not create Deposit Transaction');
+
+  withdrawTX.addInput(multisigInput);
+
+  withdrawTX.updateInput(0, {
+    sequence: 0xfffffff0,
+  });
+
+  return withdrawTX;
 }
 
 /**

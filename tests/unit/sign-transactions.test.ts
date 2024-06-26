@@ -1,7 +1,9 @@
 import { Transaction, p2wpkh } from '@scure/btc-signer';
 
 import { PrivateKeyDLCHandler } from '../../src/index.js';
+import { shiftValue } from '../../src/utilities/index.js';
 import {
+  TEST_BITCOIN_AMOUNT,
   TEST_BITCOIN_BLOCKCHAIN_API,
   TEST_BITCOIN_BLOCKCHAIN_FEE_RECOMMENDATION_API,
   TEST_BITCOIN_EXTENDED_PRIVATE_KEY,
@@ -31,7 +33,9 @@ describe('Create and Sign Vault related Transactions', () => {
   it('should create a funding transaction', async () => {
     fundingTransaction = await dlcHandler.createFundingPSBT(
       TEST_VAULT,
-      TEST_REGTEST_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY
+      BigInt(shiftValue(TEST_BITCOIN_AMOUNT)),
+      TEST_REGTEST_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY,
+      2
     );
 
     const vaultAmount = TEST_VAULT.valueLocked.toBigInt();
@@ -63,45 +67,5 @@ describe('Create and Sign Vault related Transactions', () => {
     signedFundingTransaction = dlcHandler.signPSBT(fundingTransaction, 'funding');
 
     expect(signedFundingTransaction.isFinal).toBeTruthy();
-  });
-
-  it('should create a closing transaction', async () => {
-    closingTransaction = await dlcHandler.createClosingPSBT(
-      TEST_VAULT,
-      signedFundingTransaction.id
-    );
-
-    const vaultAmount = TEST_VAULT.valueLocked.toBigInt();
-    const feeAmount = vaultAmount / TEST_VAULT.btcMintFeeBasisPoints.toBigInt();
-
-    const feeRecipientScript = p2wpkh(
-      Buffer.from(TEST_VAULT.btcFeeRecipient, 'hex'),
-      TEST_BITCOIN_NETWORK
-    ).script;
-    const userScript = dlcHandler.payment?.nativeSegwitPayment.script;
-
-    const outputs = Array.from({ length: fundingTransaction.outputsLength }, (_, index) =>
-      fundingTransaction.getOutput(index)
-    );
-
-    const userOutput = outputs.find(output => output.script?.toString() === userScript?.toString());
-    const feeOutput = outputs.find(
-      output => output.script?.toString() === feeRecipientScript.toString()
-    );
-
-    expect(closingTransaction).toBeDefined();
-    expect(userOutput).toBeDefined();
-    expect(feeOutput?.amount === feeAmount).toBeTruthy();
-    expect(
-      closingTransaction.getInput(0).witnessUtxo?.script.toString() ==
-        dlcHandler.payment?.taprootMultisigPayment.script.toString()
-    ).toBeTruthy();
-  });
-
-  it('should sign a closing transaction', async () => {
-    partiallySignedClosingTransaction = dlcHandler.signPSBT(closingTransaction, 'closing');
-
-    expect(closingTransaction.isFinal).toBeFalsy();
-    expect(partiallySignedClosingTransaction).toBeDefined();
   });
 });

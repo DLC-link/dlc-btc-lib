@@ -1,3 +1,4 @@
+import { bytesToHex } from '@noble/hashes/utils';
 import { Transaction, p2wpkh } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Signer } from '@scure/btc-signer/transaction';
@@ -14,6 +15,7 @@ import {
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import {
+  createDepositTransaction,
   createFundingTransaction,
   createWithdrawalTransaction,
 } from '../functions/bitcoin/psbt-functions.js';
@@ -26,7 +28,7 @@ interface RequiredKeyPair {
 }
 
 export class PrivateKeyDLCHandler {
-  public derivedKeyPair: RequiredKeyPair;
+  private derivedKeyPair: RequiredKeyPair;
   public payment: PaymentInformation | undefined;
   private bitcoinNetwork: Network;
   private bitcoinBlockchainAPI: string;
@@ -90,6 +92,17 @@ export class PrivateKeyDLCHandler {
       nativeSegwitPayment,
       taprootMultisigPayment,
     };
+  }
+
+  private getPayment(): PaymentInformation {
+    if (!this.payment) {
+      throw new Error('Payment Information not set');
+    }
+    return this.payment;
+  }
+
+  getTaprootDerivedPublicKey(): string {
+    return bytesToHex(this.derivedKeyPair.taprootDerivedKeyPair.publicKey);
   }
 
   getVaultRelatedAddress(paymentType: 'p2wpkh' | 'p2tr'): string {
@@ -250,9 +263,59 @@ export class PrivateKeyDLCHandler {
     }
   }
 
-  signPSBT(psbt: Transaction, transactionType: 'funding' | 'closing'): Transaction {
-    psbt.sign(this.getPrivateKey(transactionType === 'funding' ? 'p2wpkh' : 'p2tr'));
-    if (transactionType === 'funding') psbt.finalize();
+  signPSBT(psbt: Transaction, transactionType: 'funding' | 'deposit' | 'closing'): Transaction {
+    switch (transactionType) {
+      case 'funding':
+        psbt.sign(this.getPrivateKey('p2wpkh'));
+        psbt.finalize();
+        break;
+      case 'deposit':
+        psbt.sign(this.getPrivateKey('p2tr'));
+        psbt.sign(this.getPrivateKey('p2wpkh'));
+        break;
+      case 'closing':
+        psbt.sign(this.getPrivateKey('p2tr'));
+        break;
+      default:
+        throw new Error('Invalid Transaction Type');
+    }
+
     return psbt;
+  }
+
+  async createDepositPSBT(
+    depositAmount: bigint,
+    vault: RawVault,
+    attestorGroupPublicKey: string,
+    fundingTransactionID: string,
+    feeRateMultiplier?: number,
+    customFeeRate?: bigint
+  ) {
+    const { nativeSegwitPayment, taprootMultisigPayment } = this.createPayments(
+      vault.uuid,
+      attestorGroupPublicKey
+    );
+
+    if (taprootMultisigPayment.address === undefined || nativeSegwitPayment.address === undefined) {
+      throw new Error('Payment Address is undefined');
+    }
+
+    const feeRate =
+      customFeeRate ??
+      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+
+    const depositTransaction = await createDepositTransaction(
+      this.bitcoinBlockchainAPI,
+      depositAmount,
+      this.bitcoinNetwork,
+      fundingTransactionID,
+      taprootMultisigPayment,
+      nativeSegwitPayment,
+      feeRate,
+      vault.btcFeeRecipient,
+      vault.btcMintFeeBasisPoints.toBigInt()
+    );
+
+    return depositTransaction;
   }
 }

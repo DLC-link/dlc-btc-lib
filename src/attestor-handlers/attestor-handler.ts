@@ -1,5 +1,3 @@
-import { Transaction } from '@scure/btc-signer';
-
 import { AttestorError } from '../models/errors.js';
 
 export class AttestorHandler {

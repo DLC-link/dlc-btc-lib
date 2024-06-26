@@ -173,7 +173,7 @@ export async function getFeeRate(
  * @returns A Promise that resolves to the UTXOs of the User's Native Segwit Address.
  */
 export async function getUTXOs(
-  bitcoinNativeSegwitTransaction: P2Ret,
+  bitcoinNativeSegwitTransaction: P2Ret | P2TROut,
   bitcoinBlockchainAPIURL: string
 ): Promise<any> {
   const utxoEndpoint = `${bitcoinBlockchainAPIURL}/address/${bitcoinNativeSegwitTransaction.address}/utxo`;

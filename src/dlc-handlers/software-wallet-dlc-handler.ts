@@ -11,6 +11,7 @@ import {
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import {
+  createDepositTransaction,
   createFundingTransaction,
   createWithdrawalTransaction,
 } from '../functions/bitcoin/psbt-functions.js';
@@ -236,5 +237,41 @@ export class SoftwareWalletDLCHandler {
     } catch (error: any) {
       throw new Error(`Error creating Withdrawal PSBT: ${error}`);
     }
+  }
+
+  async createDepositPSBT(
+    depositAmount: bigint,
+    vault: RawVault,
+    attestorGroupPublicKey: string,
+    fundingTransactionID: string,
+    feeRateMultiplier?: number,
+    customFeeRate?: bigint
+  ) {
+    const { nativeSegwitPayment, taprootMultisigPayment } = await this.createPayments(
+      vault.uuid,
+      attestorGroupPublicKey
+    );
+
+    if (taprootMultisigPayment.address === undefined || nativeSegwitPayment.address === undefined) {
+      throw new Error('Payment Address is undefined');
+    }
+
+    const feeRate =
+      customFeeRate ??
+      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+
+    const depositTransaction = await createDepositTransaction(
+      this.bitcoinBlockchainAPI,
+      depositAmount,
+      this.bitcoinNetwork,
+      fundingTransactionID,
+      taprootMultisigPayment,
+      nativeSegwitPayment,
+      feeRate,
+      vault.btcFeeRecipient,
+      vault.btcMintFeeBasisPoints.toBigInt()
+    );
+
+    return depositTransaction;
   }
 }

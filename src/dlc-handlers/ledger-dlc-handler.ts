@@ -1,3 +1,4 @@
+import { bytesToHex } from '@noble/hashes/utils';
 import { Transaction } from '@scure/btc-signer';
 import { P2Ret, P2TROut, p2wpkh } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
@@ -16,6 +17,7 @@ import {
 import {
   addNativeSegwitSignaturesToPSBT,
   addTaprootInputSignaturesToPSBT,
+  createDepositTransaction,
   createFundingTransaction,
   createWithdrawalTransaction,
   getNativeSegwitInputsToSign,
@@ -120,6 +122,10 @@ export class LedgerDLCHandler {
       throw new Error('Payment Information not set');
     }
     return this.payment;
+  }
+
+  getTaprootDerivedPublicKey(): string {
+    return bytesToHex(this.getPayment().taprootDerivedPublicKey);
   }
 
   getVaultRelatedAddress(paymentType: 'p2wpkh' | 'p2tr'): string {
@@ -403,7 +409,82 @@ export class LedgerDLCHandler {
     }
   }
 
-  async signPSBT(psbt: Psbt, transactionType: 'funding' | 'closing'): Promise<Transaction> {
+  async createDepositPSBT(
+    depositAmount: bigint,
+    vault: RawVault,
+    attestorGroupPublicKey: string,
+    fundingTransactionID: string,
+    feeRateMultiplier?: number,
+    customFeeRate?: bigint
+  ) {
+    const {
+      nativeSegwitPayment,
+      taprootDerivedPublicKey,
+      nativeSegwitDerivedPublicKey,
+      taprootMultisigPayment,
+    } = await this.createPayment(vault.uuid, attestorGroupPublicKey);
+
+    if (taprootMultisigPayment.address === undefined || nativeSegwitPayment.address === undefined) {
+      throw new Error('Payment Address is undefined');
+    }
+
+    const feeRate =
+      customFeeRate ??
+      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+
+    const depositTransaction = await createDepositTransaction(
+      this.bitcoinBlockchainAPI,
+      depositAmount,
+      this.bitcoinNetwork,
+      fundingTransactionID,
+      taprootMultisigPayment,
+      nativeSegwitPayment,
+      feeRate,
+      vault.btcFeeRecipient,
+      vault.btcMintFeeBasisPoints.toBigInt()
+    );
+
+    const depositTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(
+      depositTransaction,
+      this.walletAccountIndex,
+      this.bitcoinNetwork
+    );
+
+    const formattedDepositPSBT = Psbt.fromBuffer(Buffer.from(depositTransaction.toPSBT()), {
+      network: this.bitcoinNetwork,
+    });
+
+    const withdrawalInputByPaymentTypeArray = getInputByPaymentTypeArray(
+      depositTransactionSigningConfiguration,
+      formattedDepositPSBT.toBuffer(),
+      this.bitcoinNetwork
+    );
+
+    const taprootInputsToSign = getTaprootInputsToSign(withdrawalInputByPaymentTypeArray);
+    const nativeSegwitInputsToSign = getNativeSegwitInputsToSign(withdrawalInputByPaymentTypeArray);
+
+    await updateTaprootInputs(
+      taprootInputsToSign,
+      taprootDerivedPublicKey,
+      this.masterFingerprint,
+      formattedDepositPSBT
+    );
+
+    await updateNativeSegwitInputs(
+      nativeSegwitInputsToSign,
+      nativeSegwitDerivedPublicKey,
+      this.masterFingerprint,
+      formattedDepositPSBT,
+      this.bitcoinBlockchainAPI
+    );
+
+    return depositTransaction;
+  }
+
+  async signPSBT(
+    psbt: Psbt,
+    transactionType: 'funding' | 'deposit' | 'closing'
+  ): Promise<Transaction> {
     try {
       const {
         nativeSegwitWalletPolicy,
@@ -424,6 +505,24 @@ export class LedgerDLCHandler {
           addNativeSegwitSignaturesToPSBT(psbt, signatures);
           transaction = Transaction.fromPSBT(psbt.toBuffer());
           transaction.finalize();
+          return transaction;
+        case 'deposit':
+          signatures = await this.ledgerApp.signPsbt(
+            psbt.toBase64(),
+            taprootMultisigWalletPolicy,
+            taprootMultisigWalletPolicyHMac
+          );
+          addTaprootInputSignaturesToPSBT(psbt, signatures);
+
+          signatures = await this.ledgerApp.signPsbt(
+            psbt.toBase64(),
+            nativeSegwitWalletPolicy,
+            null
+          );
+
+          addNativeSegwitSignaturesToPSBT(psbt, signatures);
+
+          transaction = Transaction.fromPSBT(psbt.toBuffer());
           return transaction;
         case 'closing':
           signatures = await this.ledgerApp.signPsbt(
