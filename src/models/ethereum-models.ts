@@ -17,6 +17,7 @@ export enum VaultState {
   'Funded',
   'Closing',
   'Closed',
+  'RedeemPending',
   'Funding',
 }
 
@@ -25,10 +26,12 @@ export interface RawVault {
   protocolContract: string;
   timestamp: BigNumber;
   valueLocked: BigNumber;
+  valueMinted: BigNumber;
   creator: string;
   status: number;
   fundingTxId: string;
   closingTxId: string;
+  withdrawTxId: string;
   btcFeeRecipient: string;
   btcMintFeeBasisPoints: BigNumber;
   btcRedeemFeeBasisPoints: BigNumber;

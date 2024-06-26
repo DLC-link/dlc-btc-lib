@@ -65,6 +65,16 @@ export class EthereumHandler {
     }
   }
 
+  async withdraw(vaultUUID: string, amount: bigint) {
+    try {
+      await this.ethereumContracts.protocolContract.callStatic.withdraw(vaultUUID, amount);
+      const transaction = await this.ethereumContracts.protocolContract.withdraw(vaultUUID, amount);
+      return await transaction.wait();
+    } catch (error: any) {
+      throw new EthereumError(`Unable to perform withdraw: ${error}`);
+    }
+  }
+
   async closeVault(vaultUUID: string) {
     try {
       await this.ethereumContracts.protocolContract.callStatic.closeVault(vaultUUID);

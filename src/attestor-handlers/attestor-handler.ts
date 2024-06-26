@@ -48,4 +48,33 @@ export class AttestorHandler {
       );
     }
   }
+
+  async submitWithdrawRequest(vaultUUID: string, withdrawPSBT: string): Promise<void> {
+    const withdrawEndpoints = this.attestorRootURLs.map(url => `${url}/app/withdraw`);
+
+    const body = JSON.stringify({
+      uuid: vaultUUID,
+      withdraw_psbt: withdrawPSBT,
+    });
+
+    const requests = withdrawEndpoints.map(async url =>
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        body,
+      })
+        .then(response => (response.ok ? true : response.statusText))
+        .catch(error => error.message)
+    );
+
+    const responses = await Promise.all(requests);
+
+    const failedResponses = responses.filter(response => response !== true);
+
+    if (failedResponses.length === withdrawEndpoints.length) {
+      throw new AttestorError(
+        `Error sending Withdraw Transaction to Attestors: ${failedResponses.join(', ')}`
+      );
+    }
+  }
 }
