@@ -271,8 +271,16 @@ export class PrivateKeyDLCHandler {
         psbt.finalize();
         break;
       case 'deposit':
-        psbt.sign(this.getPrivateKey('p2tr'));
-        psbt.sign(this.getPrivateKey('p2wpkh'));
+        try {
+          psbt.sign(this.getPrivateKey('p2tr'));
+        } catch (error: any) {
+          // this can happen if there are no tr inputs to sign
+        }
+        try {
+          psbt.sign(this.getPrivateKey('p2wpkh'));
+        } catch (error: any) {
+          // this can happen if there are no p2wpkh inputs to sign
+        }
         finalizeUserInputs(psbt, this.getPayment().nativeSegwitPayment);
         break;
       case 'withdraw':
