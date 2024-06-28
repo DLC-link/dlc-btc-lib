@@ -434,8 +434,8 @@ export class LedgerDLCHandler {
 
     const depositTransaction = await createDepositTransaction(
       this.bitcoinBlockchainAPI,
-      depositAmount,
       this.bitcoinNetwork,
+      depositAmount,
       fundingTransactionID,
       taprootMultisigPayment,
       nativeSegwitPayment,
@@ -478,7 +478,7 @@ export class LedgerDLCHandler {
       this.bitcoinBlockchainAPI
     );
 
-    return depositTransaction;
+    return formattedDepositPSBT;
   }
 
   async signPSBT(

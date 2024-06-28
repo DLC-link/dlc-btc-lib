@@ -13,12 +13,12 @@ export enum EthereumNetworkID {
 }
 
 export enum VaultState {
-  'Ready',
-  'Funded',
-  'Closing',
-  'Closed',
-  'RedeemPending',
-  'Funding',
+  READY = 0,
+  FUNDED = 1,
+  CLOSING = 2,
+  CLOSED = 3,
+  PENDING = 4,
+  FUNDING = 5,
 }
 
 export interface RawVault {

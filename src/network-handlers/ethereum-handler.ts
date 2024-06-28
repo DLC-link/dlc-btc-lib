@@ -149,7 +149,7 @@ export class EthereumHandler {
             totalFetched,
             totalFetched + amount
           );
-        const filteredVaults = fetchedVaults.filter(vault => vault.status === VaultState.Funded);
+        const filteredVaults = fetchedVaults.filter(vault => vault.status === VaultState.FUNDED);
         fundedVaults.push(...filteredVaults);
 
         totalFetched += amount;

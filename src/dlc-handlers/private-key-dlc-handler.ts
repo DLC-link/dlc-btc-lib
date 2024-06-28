@@ -306,8 +306,8 @@ export class PrivateKeyDLCHandler {
 
     const depositTransaction = await createDepositTransaction(
       this.bitcoinBlockchainAPI,
-      depositAmount,
       this.bitcoinNetwork,
+      depositAmount,
       fundingTransactionID,
       taprootMultisigPayment,
       nativeSegwitPayment,

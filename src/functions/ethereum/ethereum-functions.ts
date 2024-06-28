@@ -146,7 +146,7 @@ export function getReadOnlyEthereumContracts(
 
 export async function getLockedBTCBalance(userVaults: RawVault[]): Promise<number> {
   try {
-    const fundedVaults = userVaults.filter(vault => vault.status === VaultState.Funded);
+    const fundedVaults = userVaults.filter(vault => vault.status === VaultState.FUNDED);
     const totalCollateral = fundedVaults.reduce(
       (sum: number, vault: RawVault) => sum + vault.valueLocked.toNumber(),
       0

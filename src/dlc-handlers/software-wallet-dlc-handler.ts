@@ -222,6 +222,8 @@ export class SoftwareWalletDLCHandler {
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
+      console.log('vault', vault);
+
       const withdrawalTransaction = await createWithdrawalTransaction(
         this.bitcoinBlockchainAPI,
         withdrawAmount,
@@ -262,8 +264,8 @@ export class SoftwareWalletDLCHandler {
 
     const depositTransaction = await createDepositTransaction(
       this.bitcoinBlockchainAPI,
-      depositAmount,
       this.bitcoinNetwork,
+      depositAmount,
       fundingTransactionID,
       taprootMultisigPayment,
       nativeSegwitPayment,
