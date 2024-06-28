@@ -10,6 +10,7 @@ import {
   createTaprootMultisigPayment,
   deriveUnhardenedKeyPairFromRootPrivateKey,
   deriveUnhardenedPublicKey,
+  finalizeUserInputs,
   getBalance,
   getFeeRate,
   getUnspendableKeyCommittedToUUID,
@@ -263,7 +264,7 @@ export class PrivateKeyDLCHandler {
     }
   }
 
-  signPSBT(psbt: Transaction, transactionType: 'funding' | 'deposit' | 'closing'): Transaction {
+  signPSBT(psbt: Transaction, transactionType: 'funding' | 'deposit' | 'withdraw'): Transaction {
     switch (transactionType) {
       case 'funding':
         psbt.sign(this.getPrivateKey('p2wpkh'));
@@ -272,8 +273,9 @@ export class PrivateKeyDLCHandler {
       case 'deposit':
         psbt.sign(this.getPrivateKey('p2tr'));
         psbt.sign(this.getPrivateKey('p2wpkh'));
+        finalizeUserInputs(psbt, this.getPayment().nativeSegwitPayment);
         break;
-      case 'closing':
+      case 'withdraw':
         psbt.sign(this.getPrivateKey('p2tr'));
         break;
       default:

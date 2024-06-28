@@ -57,7 +57,13 @@ export async function createFundingTransaction(
     network: bitcoinNetwork,
   });
 
-  const fundingTX = selected?.tx;
+  if (!selected) {
+    throw new Error(
+      'Failed to select Inputs for the Funding Transaction. Ensure sufficient funds are available.'
+    );
+  }
+
+  const fundingTX = selected.tx;
 
   if (!fundingTX) throw new Error('Could not create Funding Transaction');
 
@@ -127,8 +133,6 @@ export async function createDepositTransaction(
 
   const userUTXOs = await getUTXOs(depositPayment, bitcoinBlockchainURL);
 
-  console.log('userUTXOs', userUTXOs);
-
   const additionalDepositOutputs = [
     {
       address: feeAddress,
@@ -140,8 +144,6 @@ export async function createDepositTransaction(
     },
   ];
 
-  console.log('additionalDepositOutputs', additionalDepositOutputs);
-
   const additionalDepositSelected = selectUTXO(userUTXOs, additionalDepositOutputs, 'default', {
     changeAddress: depositPaymentAddress,
     feePerByte: feeRate,
@@ -149,8 +151,6 @@ export async function createDepositTransaction(
     createTx: false,
     network: bitcoinNetwork,
   });
-
-  console.log('additionalDepositSelected', additionalDepositSelected);
 
   if (!additionalDepositSelected) {
     throw new Error(
@@ -168,20 +168,17 @@ export async function createDepositTransaction(
     ...multisigPayment,
   };
 
-  const depositInputPromises = additionalDepositSelected.inputs.map(async input => {
-    const txID = input.txid;
-    if (!txID) {
-      throw new Error('Could not get Transaction ID from Input');
-    }
-    const utxo = userUTXOs.find((utxo: any) => utxo.txid === txID && utxo.index === input.index);
-    console.log('utxo', utxo);
-    if (utxo) {
-      return utxo;
-    }
-  });
+  const depositInputPromises = additionalDepositSelected.inputs
+    .map(async input => {
+      const txID = input.txid;
+      if (!txID) {
+        throw new Error('Could not get Transaction ID from Input');
+      }
+      return userUTXOs.find((utxo: any) => utxo.txid === txID && utxo.index === input.index);
+    })
+    .filter(utxo => utxo !== undefined);
 
   const depositInputs = await Promise.all(depositInputPromises);
-  console.log('depositInputs', depositInputs);
   depositInputs.push(vaultInput);
 
   const depositOutputs = [
@@ -202,8 +199,6 @@ export async function createDepositTransaction(
     createTx: true,
     network: bitcoinNetwork,
   });
-
-  console.log('depositSelected', depositSelected);
 
   if (!depositSelected) {
     throw new Error(
@@ -316,7 +311,13 @@ export async function createWithdrawalTransaction(
     network: bitcoinNetwork,
   });
 
-  const withdrawTX = selected?.tx;
+  if (!selected) {
+    throw new Error(
+      'Failed to select Inputs for the Withdrawal Transaction. Ensure sufficient funds are available.'
+    );
+  }
+
+  const withdrawTX = selected.tx;
 
   if (!withdrawTX) throw new Error('Could not create Withdrawal Transaction');
 

@@ -17,8 +17,6 @@ describe('Create and Sign Vault related Transactions', () => {
   let dlcHandler: PrivateKeyDLCHandler;
   let fundingTransaction: Transaction;
   let signedFundingTransaction: Transaction;
-  let closingTransaction: Transaction;
-  let partiallySignedClosingTransaction: Transaction;
 
   it('should initialize a Private Key DLC Handler', async () => {
     dlcHandler = new PrivateKeyDLCHandler(

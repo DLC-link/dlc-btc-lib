@@ -428,6 +428,29 @@ export function validateScript(script: Uint8Array, outputScript: Uint8Array): bo
   );
 }
 
+export function finalizeUserInputs(
+  transaction: Transaction,
+  userPayment: P2TROut | P2Ret
+): Transaction {
+  const userPaymentScript = userPayment.script;
+  createRangeFromLength(transaction.inputsLength).forEach(index => {
+    const inputScript = transaction.getInput(index).witnessUtxo?.script;
+
+    if (!inputScript) {
+      throw new Error('Could not get Input Script');
+    }
+
+    if (
+      inputScript.length === userPaymentScript.length &&
+      inputScript.every((value, index) => value === userPaymentScript[index])
+    ) {
+      transaction.finalizeIdx(index);
+    }
+  });
+
+  return transaction;
+}
+
 /**
  * Converts an ECDSA Public Key to a Schnorr Public Key.
  * @param publicKey - The ECDSA Public Key.
