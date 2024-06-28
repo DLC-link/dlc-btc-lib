@@ -118,11 +118,10 @@ export function getEthereumContracts(
   ethereumDeploymentPlans: EthereumDeploymentPlan[],
   signer: Wallet | providers.JsonRpcSigner
 ): DLCEthereumContracts {
-  const protocolContract = getEthereumontract(ethereumDeploymentPlans, 'TokenManager', signer);
   const dlcManagerContract = getEthereumontract(ethereumDeploymentPlans, 'DLCManager', signer);
   const dlcBTCContract = getEthereumontract(ethereumDeploymentPlans, 'DLCBTC', signer);
 
-  return { protocolContract, dlcManagerContract, dlcBTCContract };
+  return { dlcManagerContract, dlcBTCContract };
 }
 
 export function getReadOnlyEthereumContracts(

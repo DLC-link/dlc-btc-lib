@@ -28,7 +28,7 @@ export class ReadOnlyEthereumHandler {
   }
 
   async getRawVault(vaultUUID: string): Promise<RawVault> {
-    const vault: RawVault = await this.ethereumContracts.protocolContract.getVault(vaultUUID);
+    const vault: RawVault = await this.ethereumContracts.dlcManagerContract.getVault(vaultUUID);
     if (!vault) throw new Error('Vault not found');
     return vault;
   }
@@ -54,10 +54,6 @@ export class ReadOnlyEthereumHandler {
         case 'DLCManager':
           return await this.ethereumContracts.dlcManagerContract.queryFilter(
             this.ethereumContracts.dlcManagerContract.filters.Transfer()
-          );
-        case 'TokenManager':
-          return await this.ethereumContracts.protocolContract.queryFilter(
-            this.ethereumContracts.protocolContract.filters.Transfer()
           );
         default:
           throw new Error('Invalid Contract Name');

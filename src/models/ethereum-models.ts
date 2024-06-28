@@ -53,11 +53,10 @@ export interface EthereumDeploymentPlan {
 }
 
 export interface DLCEthereumContracts {
-  protocolContract: Contract;
   dlcManagerContract: Contract;
   dlcBTCContract: Contract;
 }
 
 export type SupportedNetwork = 'arbitrum' | 'arbitrum-sepolia-testnet' | 'arbitrum-sepolia-devnet';
-export type DLCEthereumContractName = 'TokenManager' | 'DLCManager' | 'DLCBTC';
+export type DLCEthereumContractName = 'DLCManager' | 'DLCBTC';
 export type DLCSolidityBranchName = 'dev' | 'testnet-rolling';
