@@ -32,7 +32,7 @@ export const TEST_VAULT: RawVault = {
   status: 0,
   fundingTxId: '',
   closingTxId: '',
-  withdrawTxId: '',
+  wdTxId: '',
   btcFeeRecipient: '031131cd88bcea8c1d84da8e034bb24c2f6e748c571922dc363e7e088f5df0436c',
   btcMintFeeBasisPoints: BigNumber.from('0x64'),
   btcRedeemFeeBasisPoints: BigNumber.from('0x64'),

@@ -31,7 +31,7 @@ export interface RawVault {
   status: number;
   fundingTxId: string;
   closingTxId: string;
-  withdrawTxId: string;
+  wdTxId: string;
   btcFeeRecipient: string;
   btcMintFeeBasisPoints: BigNumber;
   btcRedeemFeeBasisPoints: BigNumber;

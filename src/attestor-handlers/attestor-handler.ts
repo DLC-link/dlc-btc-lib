@@ -54,7 +54,7 @@ export class AttestorHandler {
 
     const body = JSON.stringify({
       uuid: vaultUUID,
-      withdraw_psbt: withdrawPSBT,
+      wd_psbt: withdrawPSBT,
     });
 
     const requests = withdrawEndpoints.map(async url =>
