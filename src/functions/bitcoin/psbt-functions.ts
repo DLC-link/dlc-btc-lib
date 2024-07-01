@@ -240,7 +240,7 @@ export async function createWithdrawalTransaction(
   bitcoinNetwork: Network,
   fundingTransactionID: string,
   multisigTransaction: P2TROut,
-  userNativeSegwitAddress: string,
+  withdrawAddress: string,
   feeRate: bigint,
   feePublicKey: string,
   feeBasisPoints: bigint
@@ -304,7 +304,7 @@ export async function createWithdrawalTransaction(
   }
 
   const selected = selectUTXO(inputs, outputs, 'default', {
-    changeAddress: userNativeSegwitAddress,
+    changeAddress: withdrawAddress,
     feePerByte: feeRate,
     bip69: false,
     createTx: true,
