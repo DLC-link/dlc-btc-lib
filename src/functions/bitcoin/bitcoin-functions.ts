@@ -169,14 +169,14 @@ export async function getFeeRate(
 /**
  * Gets the UTXOs of the User's Native Segwit Address.
  *
- * @param bitcoinNativeSegwitTransaction - The User's Native Segwit Payment Transaction.
+ * @param fundingPayment - The User's Funding Payment Transaction.
  * @returns A Promise that resolves to the UTXOs of the User's Native Segwit Address.
  */
 export async function getUTXOs(
-  bitcoinNativeSegwitTransaction: P2Ret | P2TROut,
+  fundingPayment: P2Ret | P2TROut,
   bitcoinBlockchainAPIURL: string
 ): Promise<any> {
-  const utxoEndpoint = `${bitcoinBlockchainAPIURL}/address/${bitcoinNativeSegwitTransaction.address}/utxo`;
+  const utxoEndpoint = `${bitcoinBlockchainAPIURL}/address/${fundingPayment.address}/utxo`;
   const utxoResponse = await fetch(utxoEndpoint);
 
   if (!utxoResponse.ok) {
@@ -188,15 +188,15 @@ export async function getUTXOs(
   const modifiedUTXOs = await Promise.all(
     userUTXOs.map(async (utxo: UTXO) => {
       return {
-        ...bitcoinNativeSegwitTransaction,
+        ...fundingPayment,
         txid: utxo.txid,
         index: utxo.vout,
         value: utxo.value,
         witnessUtxo: {
-          script: bitcoinNativeSegwitTransaction.script,
+          script: fundingPayment.script,
           amount: BigInt(utxo.value),
         },
-        redeemScript: bitcoinNativeSegwitTransaction.redeemScript,
+        redeemScript: fundingPayment.redeemScript,
       };
     })
   );

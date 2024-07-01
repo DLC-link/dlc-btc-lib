@@ -30,7 +30,7 @@ export async function createFundingTransaction(
   bitcoinAmount: bigint,
   bitcoinNetwork: Network,
   multisigAddress: string,
-  bitcoinNativeSegwitTransaction: P2Ret,
+  fundingPayment: P2Ret | P2TROut,
   feeRate: bigint,
   feePublicKey: string,
   feeBasisPoints: bigint,
@@ -39,7 +39,7 @@ export async function createFundingTransaction(
   const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(bitcoinAmount), Number(feeBasisPoints));
 
-  const userUTXOs = await getUTXOs(bitcoinNativeSegwitTransaction, bitcoinBlockchainAPIURL);
+  const userUTXOs = await getUTXOs(fundingPayment, bitcoinBlockchainAPIURL);
 
   const psbtOutputs = [
     { address: multisigAddress, amount: bitcoinAmount },
@@ -50,7 +50,7 @@ export async function createFundingTransaction(
   ];
 
   const selected = selectUTXO(userUTXOs, psbtOutputs, 'default', {
-    changeAddress: bitcoinNativeSegwitTransaction.address!,
+    changeAddress: fundingPayment.address!,
     feePerByte: feeRate,
     bip69: false,
     createTx: true,
@@ -493,7 +493,7 @@ async function addNativeSegwitBip32Derivation(
 export function addNativeSegwitSignaturesToPSBT(
   psbt: Psbt,
   signatures: [number, PartialSignature][]
-): void {
+) {
   signatures.forEach(([index, signature]) => psbt.updateInput(index, { partialSig: [signature] }));
 }
 
@@ -504,18 +504,25 @@ export function addNativeSegwitSignaturesToPSBT(
  * @returns The updated PSBT.
  */
 export function addTaprootInputSignaturesToPSBT(
+  psbtType: 'funding' | 'withdraw',
   psbt: Psbt,
   signatures: [number, PartialSignature][]
 ): void {
-  signatures.forEach(([index, signature]) =>
-    psbt.updateInput(index, {
-      tapScriptSig: [
-        {
-          signature: signature.signature,
-          pubkey: signature.pubkey,
-          leafHash: signature.tapleafHash!,
-        },
-      ],
-    })
-  );
+  if (psbtType === 'funding') {
+    signatures.forEach(([index, signature]) =>
+      psbt.updateInput(index, { tapKeySig: signature.signature })
+    );
+  } else {
+    signatures.forEach(([index, signature]) =>
+      psbt.updateInput(index, {
+        tapScriptSig: [
+          {
+            signature: signature.signature,
+            pubkey: signature.pubkey,
+            leafHash: signature.tapleafHash!,
+          },
+        ],
+      })
+    );
+  }
 }

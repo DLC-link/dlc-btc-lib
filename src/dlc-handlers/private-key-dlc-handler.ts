@@ -1,6 +1,6 @@
 import { bytesToHex } from '@noble/hashes/utils';
 import { Transaction, p2wpkh } from '@scure/btc-signer';
-import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
+import { P2Ret, P2TROut, p2tr } from '@scure/btc-signer/payment';
 import { Signer } from '@scure/btc-signer/transaction';
 import { BIP32Interface } from 'bip32';
 import { Network } from 'bitcoinjs-lib';
@@ -10,6 +10,7 @@ import {
   createTaprootMultisigPayment,
   deriveUnhardenedKeyPairFromRootPrivateKey,
   deriveUnhardenedPublicKey,
+  ecdsaPublicKeyToSchnorr,
   finalizeUserInputs,
   getBalance,
   getFeeRate,
@@ -24,13 +25,14 @@ import { PaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
 
 interface RequiredKeyPair {
-  nativeSegwitDerivedKeyPair: BIP32Interface;
+  fundingDerivedKeyPair: BIP32Interface;
   taprootDerivedKeyPair: BIP32Interface;
 }
 
 export class PrivateKeyDLCHandler {
   private derivedKeyPair: RequiredKeyPair;
   public payment: PaymentInformation | undefined;
+  private fundingPaymentType: 'wpkh' | 'tr';
   private bitcoinNetwork: Network;
   private bitcoinBlockchainAPI: string;
   private bitcoinBlockchainFeeRecommendationAPI: string;
@@ -38,6 +40,7 @@ export class PrivateKeyDLCHandler {
   constructor(
     bitcoinWalletPrivateKey: string,
     walletAccountIndex: number,
+    fundingPaymentType: 'wpkh' | 'tr',
     bitcoinNetwork: Network,
     bitcoinBlockchainAPI?: string,
     bitcoinBlockchainFeeRecommendationAPI?: string
@@ -68,11 +71,12 @@ export class PrivateKeyDLCHandler {
       default:
         throw new Error('Invalid Bitcoin Network');
     }
+    this.fundingPaymentType = fundingPaymentType;
     this.bitcoinNetwork = bitcoinNetwork;
-    const nativeSegwitDerivedKeyPair = deriveUnhardenedKeyPairFromRootPrivateKey(
+    const fundingDerivedKeyPair = deriveUnhardenedKeyPairFromRootPrivateKey(
       bitcoinWalletPrivateKey,
       bitcoinNetwork,
-      'p2wpkh',
+      fundingPaymentType === 'wpkh' ? 'p2wpkh' : 'p2tr',
       walletAccountIndex
     );
     const taprootDerivedKeyPair = deriveUnhardenedKeyPairFromRootPrivateKey(
@@ -84,14 +88,14 @@ export class PrivateKeyDLCHandler {
 
     this.derivedKeyPair = {
       taprootDerivedKeyPair,
-      nativeSegwitDerivedKeyPair,
+      fundingDerivedKeyPair,
     };
   }
 
-  private setPayment(nativeSegwitPayment: P2Ret, taprootMultisigPayment: P2TROut): void {
+  private setPayment(fundingPayment: P2Ret | P2TROut, multisigPayment: P2TROut): void {
     this.payment = {
-      nativeSegwitPayment,
-      taprootMultisigPayment,
+      fundingPayment,
+      multisigPayment,
     };
   }
 
@@ -106,7 +110,7 @@ export class PrivateKeyDLCHandler {
     return bytesToHex(this.derivedKeyPair.taprootDerivedKeyPair.publicKey);
   }
 
-  getVaultRelatedAddress(paymentType: 'p2wpkh' | 'p2tr'): string {
+  getVaultRelatedAddress(paymentType: 'funding' | 'multisig'): string {
     const payment = this.payment;
 
     if (payment === undefined) {
@@ -116,27 +120,27 @@ export class PrivateKeyDLCHandler {
     let address: string;
 
     switch (paymentType) {
-      case 'p2wpkh':
-        if (!payment.nativeSegwitPayment.address) {
-          throw new Error('Native Segwit Payment Address is undefined');
+      case 'funding':
+        if (!payment.fundingPayment.address) {
+          throw new Error('Funding Address is undefined');
         }
-        address = payment.nativeSegwitPayment.address;
+        address = payment.fundingPayment.address;
         return address;
-      case 'p2tr':
-        if (!payment.taprootMultisigPayment.address) {
+      case 'multisig':
+        if (!payment.multisigPayment.address) {
           throw new Error('Taproot Multisig Payment Address is undefined');
         }
-        address = payment.taprootMultisigPayment.address;
+        address = payment.multisigPayment.address;
         return address;
       default:
         throw new Error('Invalid Payment Type');
     }
   }
 
-  private getPrivateKey(paymentType: 'p2wpkh' | 'p2tr'): Signer {
+  private getPrivateKey(paymentType: 'funding' | 'taproot'): Signer {
     const privateKey =
-      paymentType === 'p2wpkh'
-        ? this.derivedKeyPair.nativeSegwitDerivedKeyPair.privateKey
+      paymentType === 'funding'
+        ? this.derivedKeyPair.fundingDerivedKeyPair.privateKey
         : this.derivedKeyPair.taprootDerivedKeyPair.privateKey;
 
     if (!privateKey) {
@@ -159,23 +163,38 @@ export class PrivateKeyDLCHandler {
         this.bitcoinNetwork
       );
 
-      const nativeSegwitPayment = p2wpkh(
-        this.derivedKeyPair.nativeSegwitDerivedKeyPair.publicKey,
-        this.bitcoinNetwork
-      );
+      let fundingPayment: P2Ret | P2TROut;
 
-      const taprootMultisigPayment = createTaprootMultisigPayment(
+      switch (this.fundingPaymentType) {
+        case 'wpkh':
+          fundingPayment = p2wpkh(
+            this.derivedKeyPair.fundingDerivedKeyPair.publicKey,
+            this.bitcoinNetwork
+          );
+          break;
+        case 'tr':
+          fundingPayment = p2tr(
+            ecdsaPublicKeyToSchnorr(this.derivedKeyPair.taprootDerivedKeyPair.publicKey),
+            undefined,
+            this.bitcoinNetwork
+          );
+          break;
+        default:
+          throw new Error('Invalid Funding Payment Type');
+      }
+
+      const multisigPayment = createTaprootMultisigPayment(
         unspendableDerivedPublicKey,
         attestorDerivedPublicKey,
         this.derivedKeyPair.taprootDerivedKeyPair.publicKey,
         this.bitcoinNetwork
       );
 
-      this.setPayment(nativeSegwitPayment, taprootMultisigPayment);
+      this.setPayment(fundingPayment, multisigPayment);
 
       return {
-        nativeSegwitPayment,
-        taprootMultisigPayment,
+        fundingPayment,
+        multisigPayment,
       };
     } catch (error: any) {
       throw new Error(`Error creating required Payment objects: ${error}`);
@@ -189,16 +208,19 @@ export class PrivateKeyDLCHandler {
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Transaction> {
-    const { nativeSegwitPayment, taprootMultisigPayment } = this.createPayments(
+    const { fundingPayment, multisigPayment } = this.createPayments(
       vault.uuid,
       attestorGroupPublicKey
     );
 
-    if (nativeSegwitPayment.address === undefined || taprootMultisigPayment.address === undefined) {
-      throw new Error('Could not get Addresses from Payments');
+    if ([multisigPayment.address, fundingPayment.address].some(x => x === undefined)) {
+      throw new Error('Payment Address is undefined');
     }
 
-    const addressBalance = await getBalance(nativeSegwitPayment.address, this.bitcoinBlockchainAPI);
+    const addressBalance = await getBalance(
+      fundingPayment.address as string,
+      this.bitcoinBlockchainAPI
+    );
 
     if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
       throw new Error('Insufficient Funds');
@@ -211,8 +233,8 @@ export class PrivateKeyDLCHandler {
     const fundingTransaction = await createFundingTransaction(
       bitcoinAmount,
       this.bitcoinNetwork,
-      taprootMultisigPayment.address,
-      nativeSegwitPayment,
+      multisigPayment.address as string,
+      fundingPayment,
       feeRate,
       vault.btcFeeRecipient,
       vault.btcMintFeeBasisPoints.toBigInt(),
@@ -231,15 +253,12 @@ export class PrivateKeyDLCHandler {
     customFeeRate?: bigint
   ): Promise<Transaction> {
     try {
-      const { nativeSegwitPayment, taprootMultisigPayment } = this.createPayments(
+      const { fundingPayment, multisigPayment } = this.createPayments(
         vault.uuid,
         attestorGroupPublicKey
       );
 
-      if (
-        taprootMultisigPayment.address === undefined ||
-        nativeSegwitPayment.address === undefined
-      ) {
+      if (multisigPayment.address === undefined || fundingPayment.address === undefined) {
         throw new Error('Payment Address is undefined');
       }
 
@@ -252,8 +271,8 @@ export class PrivateKeyDLCHandler {
         withdrawAmount,
         this.bitcoinNetwork,
         fundingTransactionID,
-        taprootMultisigPayment,
-        nativeSegwitPayment.address!,
+        multisigPayment,
+        fundingPayment.address!,
         feeRate,
         vault.btcFeeRecipient,
         vault.btcRedeemFeeBasisPoints.toBigInt()
@@ -267,24 +286,24 @@ export class PrivateKeyDLCHandler {
   signPSBT(psbt: Transaction, transactionType: 'funding' | 'deposit' | 'withdraw'): Transaction {
     switch (transactionType) {
       case 'funding':
-        psbt.sign(this.getPrivateKey('p2wpkh'));
+        psbt.sign(this.getPrivateKey('funding'));
         psbt.finalize();
         break;
       case 'deposit':
         try {
-          psbt.sign(this.getPrivateKey('p2tr'));
+          psbt.sign(this.getPrivateKey('funding'));
         } catch (error: any) {
           // this can happen if there are no tr inputs to sign
         }
         try {
-          psbt.sign(this.getPrivateKey('p2wpkh'));
+          psbt.sign(this.getPrivateKey('taproot'));
         } catch (error: any) {
           // this can happen if there are no p2wpkh inputs to sign
         }
-        finalizeUserInputs(psbt, this.getPayment().nativeSegwitPayment);
+        finalizeUserInputs(psbt, this.getPayment().fundingPayment);
         break;
       case 'withdraw':
-        psbt.sign(this.getPrivateKey('p2tr'));
+        psbt.sign(this.getPrivateKey('taproot'));
         break;
       default:
         throw new Error('Invalid Transaction Type');
@@ -301,12 +320,12 @@ export class PrivateKeyDLCHandler {
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ) {
-    const { nativeSegwitPayment, taprootMultisigPayment } = this.createPayments(
+    const { fundingPayment, multisigPayment } = this.createPayments(
       vault.uuid,
       attestorGroupPublicKey
     );
 
-    if (taprootMultisigPayment.address === undefined || nativeSegwitPayment.address === undefined) {
+    if (multisigPayment.address === undefined || fundingPayment.address === undefined) {
       throw new Error('Payment Address is undefined');
     }
 
@@ -319,8 +338,8 @@ export class PrivateKeyDLCHandler {
       this.bitcoinNetwork,
       depositAmount,
       fundingTransactionID,
-      taprootMultisigPayment,
-      nativeSegwitPayment,
+      multisigPayment,
+      fundingPayment,
       feeRate,
       vault.btcFeeRecipient,
       vault.btcMintFeeBasisPoints.toBigInt()
