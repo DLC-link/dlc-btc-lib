@@ -200,7 +200,10 @@ export class SoftwareWalletDLCHandler {
     customFeeRate?: bigint
   ): Promise<Transaction> {
     try {
-      const { fundingPayment, multisigPayment } = this.getPayment();
+      const { fundingPayment, multisigPayment } = await this.createPayments(
+        vault.uuid,
+        attestorGroupPublicKey
+      );
 
       if (multisigPayment.address === undefined || fundingPayment.address === undefined) {
         throw new Error('Payment Address is undefined');
