@@ -13,7 +13,7 @@ import {
 import {
   createDepositTransaction,
   createFundingTransaction,
-  createWithdrawalTransaction,
+  createWithdrawTransaction,
 } from '../functions/bitcoin/psbt-functions.js';
 import { PaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
@@ -86,7 +86,7 @@ export class SoftwareWalletDLCHandler {
     const payment = this.getPayment();
 
     if (payment === undefined) {
-      throw new Error('Payment objects have not been set');
+      throw new Error('Payment Objects have not been set');
     }
 
     let address: string;
@@ -161,29 +161,25 @@ export class SoftwareWalletDLCHandler {
         attestorGroupPublicKey
       );
 
-      if (fundingPayment.address === undefined || multisigPayment.address === undefined) {
-        throw new Error('Payment Address is undefined');
-      }
-
       const feeRate =
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const addressBalance = await getBalance(fundingPayment.address, this.bitcoinBlockchainAPI);
+      const addressBalance = await getBalance(fundingPayment, this.bitcoinBlockchainAPI);
 
       if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
         throw new Error('Insufficient Funds');
       }
 
       const fundingTransaction = await createFundingTransaction(
-        bitcoinAmount,
+        this.bitcoinBlockchainAPI,
         this.bitcoinNetwork,
-        multisigPayment.address,
+        bitcoinAmount,
+        multisigPayment,
         fundingPayment,
         feeRate,
         vault.btcFeeRecipient,
-        vault.btcMintFeeBasisPoints.toBigInt(),
-        this.bitcoinBlockchainAPI
+        vault.btcMintFeeBasisPoints.toBigInt()
       );
       return fundingTransaction;
     } catch (error: any) {
@@ -191,7 +187,7 @@ export class SoftwareWalletDLCHandler {
     }
   }
 
-  async createWithdrawalPSBT(
+  async createWithdrawPSBT(
     vault: RawVault,
     withdrawAmount: bigint,
     attestorGroupPublicKey: string,
@@ -205,28 +201,24 @@ export class SoftwareWalletDLCHandler {
         attestorGroupPublicKey
       );
 
-      if (multisigPayment.address === undefined || fundingPayment.address === undefined) {
-        throw new Error('Payment Address is undefined');
-      }
-
       const feeRate =
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const withdrawalTransaction = await createWithdrawalTransaction(
+      const withdrawTransaction = await createWithdrawTransaction(
         this.bitcoinBlockchainAPI,
-        withdrawAmount,
         this.bitcoinNetwork,
+        withdrawAmount,
         fundingTransactionID,
         multisigPayment,
-        fundingPayment.address!,
+        fundingPayment,
         feeRate,
         vault.btcFeeRecipient,
         vault.btcRedeemFeeBasisPoints.toBigInt()
       );
-      return withdrawalTransaction;
+      return withdrawTransaction;
     } catch (error: any) {
-      throw new Error(`Error creating Withdrawal PSBT: ${error}`);
+      throw new Error(`Error creating Withdraw PSBT: ${error}`);
     }
   }
 
@@ -242,10 +234,6 @@ export class SoftwareWalletDLCHandler {
       vault.uuid,
       attestorGroupPublicKey
     );
-
-    if (multisigPayment.address === undefined || fundingPayment.address === undefined) {
-      throw new Error('Payment Address is undefined');
-    }
 
     const feeRate =
       customFeeRate ??

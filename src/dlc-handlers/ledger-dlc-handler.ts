@@ -20,7 +20,7 @@ import {
   addTaprootInputSignaturesToPSBT,
   createDepositTransaction,
   createFundingTransaction,
-  createWithdrawalTransaction,
+  createWithdrawTransaction,
   getNativeSegwitInputsToSign,
   getTaprootInputsToSign,
   updateNativeSegwitInputs,
@@ -297,32 +297,25 @@ export class LedgerDLCHandler {
         attestorGroupPublicKey
       );
 
-      if ([multisigPayment.address, fundingPayment.address].some(x => x === undefined)) {
-        throw new Error('Payment Address is undefined');
-      }
-
       const feeRate =
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const addressBalance = await getBalance(
-        fundingPayment.address as string,
-        this.bitcoinBlockchainAPI
-      );
+      const addressBalance = await getBalance(fundingPayment, this.bitcoinBlockchainAPI);
 
       if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
         throw new Error('Insufficient Funds');
       }
 
       const fundingTransaction = await createFundingTransaction(
-        bitcoinAmount,
+        this.bitcoinBlockchainAPI,
         this.bitcoinNetwork,
-        multisigPayment.address as string,
+        bitcoinAmount,
+        multisigPayment,
         fundingPayment,
         feeRate,
         vault.btcFeeRecipient,
-        vault.btcMintFeeBasisPoints.toBigInt(),
-        this.bitcoinBlockchainAPI
+        vault.btcMintFeeBasisPoints.toBigInt()
       );
 
       const signingConfiguration = createBitcoinInputSigningConfiguration(
@@ -368,7 +361,7 @@ export class LedgerDLCHandler {
     }
   }
 
-  async createWithdrawalPSBT(
+  async createWithdrawPSBT(
     vault: RawVault,
     withdrawAmount: bigint,
     attestorGroupPublicKey: string,
@@ -382,54 +375,50 @@ export class LedgerDLCHandler {
         attestorGroupPublicKey
       );
 
-      if (multisigPayment.address === undefined || fundingPayment.address === undefined) {
-        throw new Error('Payment Address is undefined');
-      }
-
       const feeRate =
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const withdrawalTransaction = await createWithdrawalTransaction(
+      const withdrawTransaction = await createWithdrawTransaction(
         this.bitcoinBlockchainAPI,
-        withdrawAmount,
         this.bitcoinNetwork,
+        withdrawAmount,
         fundingTransactionID,
         multisigPayment,
-        fundingPayment.address,
+        fundingPayment,
         feeRate,
         vault.btcFeeRecipient,
         vault.btcRedeemFeeBasisPoints.toBigInt()
       );
 
-      const withdrawalTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(
-        withdrawalTransaction,
+      const withdrawTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(
+        withdrawTransaction,
         this.walletAccountIndex,
         this.bitcoinNetwork
       );
 
-      const formattedWithdrawalPSBT = Psbt.fromBuffer(Buffer.from(withdrawalTransaction.toPSBT()), {
+      const formattedWithdrawPSBT = Psbt.fromBuffer(Buffer.from(withdrawTransaction.toPSBT()), {
         network: this.bitcoinNetwork,
       });
 
-      const withdrawalInputByPaymentTypeArray = getInputByPaymentTypeArray(
-        withdrawalTransactionSigningConfiguration,
-        formattedWithdrawalPSBT.toBuffer(),
+      const withdrawInputByPaymentTypeArray = getInputByPaymentTypeArray(
+        withdrawTransactionSigningConfiguration,
+        formattedWithdrawPSBT.toBuffer(),
         this.bitcoinNetwork
       );
 
-      const taprootInputsToSign = getTaprootInputsToSign(withdrawalInputByPaymentTypeArray);
+      const taprootInputsToSign = getTaprootInputsToSign(withdrawInputByPaymentTypeArray);
 
       await updateTaprootInputs(
         taprootInputsToSign,
         taprootDerivedPublicKey,
         this.masterFingerprint,
-        formattedWithdrawalPSBT
+        formattedWithdrawPSBT
       );
 
-      return formattedWithdrawalPSBT;
+      return formattedWithdrawPSBT;
     } catch (error: any) {
-      throw new Error(`Error creating Withdrawal PSBT: ${error}`);
+      throw new Error(`Error creating Withdraw PSBT: ${error}`);
     }
   }
 
@@ -443,10 +432,6 @@ export class LedgerDLCHandler {
   ) {
     const { fundingPayment, taprootDerivedPublicKey, fundingDerivedPublicKey, multisigPayment } =
       await this.createPayment(vault.uuid, attestorGroupPublicKey);
-
-    if (multisigPayment.address === undefined || fundingPayment.address === undefined) {
-      throw new Error('Payment Address is undefined');
-    }
 
     const feeRate =
       customFeeRate ??
@@ -474,14 +459,14 @@ export class LedgerDLCHandler {
       network: this.bitcoinNetwork,
     });
 
-    const withdrawalInputByPaymentTypeArray = getInputByPaymentTypeArray(
+    const depositInputByPaymentTypeArray = getInputByPaymentTypeArray(
       depositTransactionSigningConfiguration,
       formattedDepositPSBT.toBuffer(),
       this.bitcoinNetwork
     );
 
-    const taprootInputsToSign = getTaprootInputsToSign(withdrawalInputByPaymentTypeArray);
-    const nativeSegwitInputsToSign = getNativeSegwitInputsToSign(withdrawalInputByPaymentTypeArray);
+    const taprootInputsToSign = getTaprootInputsToSign(depositInputByPaymentTypeArray);
+    const nativeSegwitInputsToSign = getNativeSegwitInputsToSign(depositInputByPaymentTypeArray);
 
     await updateTaprootInputs(
       taprootInputsToSign,

@@ -167,16 +167,16 @@ export async function getFeeRate(
 }
 
 /**
- * Gets the UTXOs of the User's Native Segwit Address.
+ * Gets the UTXOs of a given Bitcoin Payment object's Address.
  *
- * @param fundingPayment - The User's Funding Payment Transaction.
- * @returns A Promise that resolves to the UTXOs of the User's Native Segwit Address.
+ * @param payment - The Payment object to get the Balance of.
+ * @param bitcoinBlockchainAPIURL - The Bitcoin Blockchain URL used to fetch the  User's UTXOs.
  */
 export async function getUTXOs(
-  fundingPayment: P2Ret | P2TROut,
+  payment: P2Ret | P2TROut,
   bitcoinBlockchainAPIURL: string
 ): Promise<any> {
-  const utxoEndpoint = `${bitcoinBlockchainAPIURL}/address/${fundingPayment.address}/utxo`;
+  const utxoEndpoint = `${bitcoinBlockchainAPIURL}/address/${payment.address}/utxo`;
   const utxoResponse = await fetch(utxoEndpoint);
 
   if (!utxoResponse.ok) {
@@ -188,15 +188,15 @@ export async function getUTXOs(
   const modifiedUTXOs = await Promise.all(
     userUTXOs.map(async (utxo: UTXO) => {
       return {
-        ...fundingPayment,
+        ...payment,
         txid: utxo.txid,
         index: utxo.vout,
         value: utxo.value,
         witnessUtxo: {
-          script: fundingPayment.script,
+          script: payment.script,
           amount: BigInt(utxo.value),
         },
-        redeemScript: fundingPayment.redeemScript,
+        redeemScript: payment.redeemScript,
       };
     })
   );
@@ -204,16 +204,23 @@ export async function getUTXOs(
 }
 
 /**
- * Gets the Balance of the User's Bitcoin Address.
+ * Gets the Balance of a given Bitcoin Payment object's Address.
  *
- * @param bitcoinAddress - The User's Bitcoin Address.
+ * @param payment - The Payment object to get the Balance of.
+ * @param bitcoinBlockchainAPIURL - The Bitcoin Blockchain URL used to fetch the  User's UTXOs.
  * @returns A Promise that resolves to the Balance of the User's Bitcoin Address.
  */
 export async function getBalance(
-  bitcoinAddress: string,
+  payment: P2Ret | P2TROut,
   bitcoinBlockchainAPIURL: string
 ): Promise<number> {
-  const utxoResponse = await fetch(`${bitcoinBlockchainAPIURL}/address/${bitcoinAddress}/utxo`);
+  const userAddress = payment.address;
+
+  if (!userAddress) {
+    throw new Error('Payment is missing Address');
+  }
+
+  const utxoResponse = await fetch(`${bitcoinBlockchainAPIURL}/address/${userAddress}/utxo`);
 
   if (!utxoResponse.ok) {
     throw new Error(`Error getting UTXOs: ${utxoResponse.statusText}`);
@@ -408,17 +415,17 @@ export function getInputByPaymentTypeArray(
   });
 }
 
-export function getValueMatchingInputFromTransaction(
+export function getValueMatchingOutputFromTransaction(
   bitcoinTransaction: BitcoinTransaction,
   bitcoinValue: number
 ): BitcoinTransactionVectorOutput {
-  const valueMatchingTransactionInput = bitcoinTransaction.vout.find(
+  const valueMatchingTransactionOutput = bitcoinTransaction.vout.find(
     output => output.value === bitcoinValue
   );
-  if (!valueMatchingTransactionInput) {
+  if (!valueMatchingTransactionOutput) {
     throw new Error('Could not find Value matching Input in Transaction');
   }
-  return valueMatchingTransactionInput;
+  return valueMatchingTransactionOutput;
 }
 
 export function validateScript(script: Uint8Array, outputScript: Uint8Array): boolean {

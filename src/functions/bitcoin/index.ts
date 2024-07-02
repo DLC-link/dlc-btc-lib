@@ -6,13 +6,15 @@ import {
   getBalance,
 } from '../bitcoin/bitcoin-request-functions.js';
 import {
+  createDepositTransaction,
   createFundingTransaction,
-  createWithdrawalTransaction,
+  createWithdrawTransaction,
 } from '../bitcoin/psbt-functions.js';
 
 export {
   createFundingTransaction,
-  createWithdrawalTransaction,
+  createDepositTransaction,
+  createWithdrawTransaction,
   broadcastTransaction,
   fetchBitcoinBlockchainBlockHeight,
   fetchBitcoinTransaction,

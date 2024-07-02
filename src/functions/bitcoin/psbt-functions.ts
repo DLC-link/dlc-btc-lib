@@ -15,34 +15,43 @@ import {
 import { fetchBitcoinTransaction } from './bitcoin-request-functions.js';
 
 /**
- * Creates the initial Funding Transaction to fund the Multisig Transaction.
+ * Creates a Funding Transaction to deposit Bitcoin into an empty Vault.
+ * Uses the UTXOs of the User to create the Funding Transaction.
+ * The specified amount of Bitcoin is sent to the Vault's Multisig Address.
  *
- * @param bitcoinAmount - The amount of Bitcoin to fund the Transaction with.
+ * @param bitcoinBlockchainURL - The Bitcoin Blockchain URL used to fetch the  User's UTXOs.
  * @param bitcoinNetwork - The Bitcoin Network to use.
- * @param multisigAddress - The Multisig Address.
- * @param bitcoinNativeSegwitTransaction - The user's Native Segwit Payment Transaction.
+ * @param depositAmount - The amount of Bitcoin to deposit into the Vault.
+ * @param multisigPayment - The Multisig Payment object created from the User's Taproot Public Key, the Attestor's Public Key, and the Unspendable Public Key committed to the Vault's UUID.
+ * @param depositPayment - The User's Payment object which will be used to fund the Deposit Transaction.
  * @param feeRate - The Fee Rate to use for the Transaction.
  * @param feePublicKey - The Fee Recipient's Public Key.
  * @param feeBasisPoints - The Fee Basis Points.
- * @returns The Funding Transaction.
+ * @returns A Funding Transaction.
  */
 export async function createFundingTransaction(
-  bitcoinAmount: bigint,
+  bitcoinBlockchainAPIURL: string,
   bitcoinNetwork: Network,
-  multisigAddress: string,
-  fundingPayment: P2Ret | P2TROut,
+  depositAmount: bigint,
+  multisigPayment: P2TROut,
+  depositPayment: P2Ret | P2TROut,
   feeRate: bigint,
   feePublicKey: string,
-  feeBasisPoints: bigint,
-  bitcoinBlockchainAPIURL: string
+  feeBasisPoints: bigint
 ): Promise<Transaction> {
-  const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
-  const feeAmount = getFeeAmount(Number(bitcoinAmount), Number(feeBasisPoints));
+  const multisigAddress = multisigPayment.address;
 
-  const userUTXOs = await getUTXOs(fundingPayment, bitcoinBlockchainAPIURL);
+  if (!multisigAddress) {
+    throw new Error('Multisig Payment is missing Address');
+  }
+
+  const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
+  const feeAmount = getFeeAmount(Number(depositAmount), Number(feeBasisPoints));
+
+  const userUTXOs = await getUTXOs(depositPayment, bitcoinBlockchainAPIURL);
 
   const psbtOutputs = [
-    { address: multisigAddress, amount: bitcoinAmount },
+    { address: multisigAddress, amount: depositAmount },
     {
       address: feeAddress,
       amount: BigInt(feeAmount),
@@ -50,7 +59,7 @@ export async function createFundingTransaction(
   ];
 
   const selected = selectUTXO(userUTXOs, psbtOutputs, 'default', {
-    changeAddress: fundingPayment.address!,
+    changeAddress: depositPayment.address!,
     feePerByte: feeRate,
     bip69: false,
     createTx: true,
@@ -75,21 +84,21 @@ export async function createFundingTransaction(
 }
 
 /**
- * Creates a Deposit Transaction.
- * Uses the existing Vault's Funding Transaction ID and additional UTXOs to create the Deposit Transaction.
+ * Creates a Deposit Transaction to deposit Bitcoin into a Vault.
+ * Uses the existing Vault's Funding Transaction ID and additional UTXOsof the User to create the Deposit Transaction.
  * The specified amount of Bitcoin is sent to the Vault's Multisig Address.
- * The remaining amount is sent back to the user's address.
+ * The remaining amount is sent back to the User's Address.
  *
- * @param bitcoinBlockchainURL - The Bitcoin Blockchain URL.
+ * @param bitcoinBlockchainURL - The Bitcoin Blockchain URL used to fetch the  User's UTXOs and the Vault's Funding Transaction.
  * @param bitcoinNetwork - The Bitcoin Network to use.
- * @param depositAmount - The Amount of Bitcoin to deposit.
+ * @param depositAmount - The amount of Bitcoin to deposit into the Vault.
  * @param vaultTransactionID - The ID of the Vault Funding Transaction.
- * @param multisigPayment - The Taproot Multisig Payment Transaction.
- * @param depositPayment - The User's Native Segwit or Taproot Payment Transaction which will be used to fund the Deposit Transaction.
+ * @param multisigPayment - The Multisig Payment object created from the User's Taproot Public Key, the Attestor's Public Key, and the Unspendable Public Key committed to the Vault's UUID.
+ * @param depositPayment - The User's Payment object which will be used to fund the Deposit Transaction.
  * @param feeRate - The Fee Rate to use for the Transaction.
  * @param feePublicKey - The Fee Recipient's Public Key.
  * @param feeBasisPoints - The Fee Basis Points.
- * @returns The Deposit Transaction.
+ * @returns A Deposit Transaction.
  */
 export async function createDepositTransaction(
   bitcoinBlockchainURL: string,
@@ -102,15 +111,15 @@ export async function createDepositTransaction(
   feePublicKey: string,
   feeBasisPoints: bigint
 ): Promise<Transaction> {
-  const multisigPaymentAddress = multisigPayment.address;
+  const multisigAddress = multisigPayment.address;
 
-  if (!multisigPaymentAddress) {
+  if (!multisigAddress) {
     throw new Error('Multisig Payment is missing Address');
   }
 
-  const depositPaymentAddress = depositPayment.address;
+  const depositAddress = depositPayment.address;
 
-  if (!depositPaymentAddress) {
+  if (!depositAddress) {
     throw new Error('Deposit Payment is missing Address');
   }
 
@@ -120,7 +129,7 @@ export async function createDepositTransaction(
   const vaultTransaction = await fetchBitcoinTransaction(vaultTransactionID, bitcoinBlockchainURL);
 
   const vaultTransactionOutputIndex = vaultTransaction.vout.findIndex(
-    output => output.scriptpubkey_address === multisigPaymentAddress
+    output => output.scriptpubkey_address === multisigAddress
   );
 
   if (vaultTransactionOutputIndex === -1) {
@@ -139,13 +148,13 @@ export async function createDepositTransaction(
       amount: BigInt(feeAmount),
     },
     {
-      address: multisigPaymentAddress,
+      address: multisigAddress,
       amount: BigInt(depositAmount),
     },
   ];
 
   const additionalDepositSelected = selectUTXO(userUTXOs, additionalDepositOutputs, 'default', {
-    changeAddress: depositPaymentAddress,
+    changeAddress: depositAddress,
     feePerByte: feeRate,
     bip69: false,
     createTx: false,
@@ -187,13 +196,13 @@ export async function createDepositTransaction(
       amount: BigInt(feeAmount),
     },
     {
-      address: multisigPaymentAddress,
+      address: multisigAddress,
       amount: BigInt(depositAmount) + BigInt(vaultTransactionOutputValue),
     },
   ];
 
   const depositSelected = selectUTXO(depositInputs, depositOutputs, 'default', {
-    changeAddress: depositPaymentAddress,
+    changeAddress: depositAddress,
     feePerByte: feeRate,
     bip69: false,
     createTx: true,
@@ -218,45 +227,51 @@ export async function createDepositTransaction(
 }
 
 /**
- * Creates a Withdrawal Transaction.
- * Uses the Funding Transaction's ID to create the Withdrawal Transaction.
- * The specified amount of Bitcoin is sent to the User's Native Segwit Address.
- * The remaining amount is sent back to the Multisig Transaction.
+ * Creates a Withdraw Transaction to withdraw Bitcoin from a Vault.
+ * Uses the existing Vault's Funding Transaction ID to create the Withdraw Transaction.
+ * The specified amount of Bitcoin is sent to the User's Address.
+ * The remaining amount is sent back to the Vault's Multisig Address.
  *
- * @param bitcoinBlockchainURL - The Bitcoin Blockchain URL.
- * @param bitcoinAmount - The Amount of Bitcoin to withdraw.
+ * @param bitcoinBlockchainURL - The Bitcoin Blockchain URL used to fetch the Vault's Funding Transaction.
  * @param bitcoinNetwork - The Bitcoin Network to use.
- * @param fundingTransactionID - The ID of the Funding Transaction.
- * @param multisigTransaction - The Multisig Transaction.
- * @param userNativeSegwitAddress - The User's Native Segwit Address.
+ * @param withdrawAmount - The amount of Bitcoin to withdraw from the Vault.
+ * @param vaultTransactionID - The ID of the Vault Funding Transaction.
+ * @param multisigPayment - The Multisig Payment object created from the User's Taproot Public Key, the Attestor's Public Key, and the Unspendable Public Key committed to the Vault's UUID.
+ * @param withdrawPayment - The User's Payment object which will be used to receive the withdrawn Bitcoin.
  * @param feeRate - The Fee Rate to use for the Transaction.
  * @param feePublicKey - The Fee Recipient's Public Key.
  * @param feeBasisPoints - The Fee Basis Points.
- * @returns The Closing Transaction.
+ * @returns A Withdraw Transaction.
  */
-export async function createWithdrawalTransaction(
+export async function createWithdrawTransaction(
   bitcoinBlockchainURL: string,
-  bitcoinAmount: bigint,
   bitcoinNetwork: Network,
-  fundingTransactionID: string,
-  multisigTransaction: P2TROut,
-  withdrawAddress: string,
+  withdrawAmount: bigint,
+  vaultTransactionID: string,
+  multisigPayment: P2TROut,
+  withdrawPayment: P2Ret | P2TROut,
   feeRate: bigint,
   feePublicKey: string,
   feeBasisPoints: bigint
 ): Promise<Transaction> {
-  const multisigTransactionAddress = multisigTransaction.address;
+  const multisigAddress = multisigPayment.address;
 
-  if (!multisigTransactionAddress) {
+  if (!multisigAddress) {
     throw new Error('Multisig Transaction is missing Address');
   }
+
+  const withdrawAddress = withdrawPayment.address;
+
+  if (!withdrawAddress) {
+    throw new Error('Withdraw Payment is missing Address');
+  }
   const fundingTransaction = await fetchBitcoinTransaction(
-    fundingTransactionID,
+    vaultTransactionID,
     bitcoinBlockchainURL
   );
 
   const fundingTransactionOutputIndex = fundingTransaction.vout.findIndex(
-    output => output.scriptpubkey_address === multisigTransactionAddress
+    output => output.scriptpubkey_address === multisigAddress
   );
 
   if (fundingTransactionOutputIndex === -1) {
@@ -267,25 +282,25 @@ export async function createWithdrawalTransaction(
     fundingTransaction.vout[fundingTransactionOutputIndex].value
   );
 
-  if (fundingTransactionOutputValue < bitcoinAmount) {
+  if (fundingTransactionOutputValue < withdrawAmount) {
     throw new Error('Insufficient Funds');
   }
 
   const remainingAmount =
-    BigInt(fundingTransaction.vout[fundingTransactionOutputIndex].value) - BigInt(bitcoinAmount);
+    BigInt(fundingTransaction.vout[fundingTransactionOutputIndex].value) - BigInt(withdrawAmount);
 
   const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
-  const feeAmount = getFeeAmount(Number(bitcoinAmount), Number(feeBasisPoints));
+  const feeAmount = getFeeAmount(Number(withdrawAmount), Number(feeBasisPoints));
 
   const inputs = [
     {
-      txid: hexToBytes(fundingTransactionID),
+      txid: hexToBytes(vaultTransactionID),
       index: fundingTransactionOutputIndex,
       witnessUtxo: {
         amount: BigInt(fundingTransaction.vout[fundingTransactionOutputIndex].value),
-        script: multisigTransaction.script,
+        script: multisigPayment.script,
       },
-      ...multisigTransaction,
+      ...multisigPayment,
     },
   ];
 
@@ -298,7 +313,7 @@ export async function createWithdrawalTransaction(
 
   if (remainingAmount > 0) {
     outputs.push({
-      address: multisigTransactionAddress,
+      address: multisigAddress,
       amount: remainingAmount,
     });
   }
@@ -313,13 +328,13 @@ export async function createWithdrawalTransaction(
 
   if (!selected) {
     throw new Error(
-      'Failed to select Inputs for the Withdrawal Transaction. Ensure sufficient funds are available.'
+      'Failed to select Inputs for the Withdraw Transaction. Ensure sufficient funds are available.'
     );
   }
 
   const withdrawTX = selected.tx;
 
-  if (!withdrawTX) throw new Error('Could not create Withdrawal Transaction');
+  if (!withdrawTX) throw new Error('Could not create Withdraw Transaction');
 
   withdrawTX.updateInput(0, {
     sequence: 0xfffffff0,

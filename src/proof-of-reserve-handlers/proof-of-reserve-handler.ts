@@ -5,7 +5,7 @@ import {
   createTaprootMultisigPayment,
   deriveUnhardenedPublicKey,
   getUnspendableKeyCommittedToUUID,
-  getValueMatchingInputFromTransaction,
+  getValueMatchingOutputFromTransaction,
   validateScript,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import {
@@ -49,7 +49,7 @@ export class ProofOfReserveHandler {
         return false;
       }
 
-      const closingTransactionInput = getValueMatchingInputFromTransaction(
+      const vaultTransactionOutput = getValueMatchingOutputFromTransaction(
         fundingTransaction,
         vault.valueLocked.toNumber()
       );
@@ -67,7 +67,7 @@ export class ProofOfReserveHandler {
 
       return validateScript(
         taprootMultisigPayment.script,
-        hex.decode(closingTransactionInput.scriptpubkey)
+        hex.decode(vaultTransactionOutput.scriptpubkey)
       );
     } catch (error) {
       console.error(`Error verifying Vault Deposit: ${error}`);
