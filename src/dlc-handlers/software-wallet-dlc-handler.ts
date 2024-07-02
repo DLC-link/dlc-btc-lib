@@ -11,8 +11,9 @@ import {
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import {
-  createClosingTransaction,
+  createDepositTransaction,
   createFundingTransaction,
+  createWithdrawTransaction,
 } from '../functions/bitcoin/psbt-functions.js';
 import { PaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
@@ -77,11 +78,15 @@ export class SoftwareWalletDLCHandler {
     return this.payment;
   }
 
+  getTaprootDerivedPublicKey(): string {
+    return this.taprootDerivedPublicKey;
+  }
+
   getVaultRelatedAddress(paymentType: 'funding' | 'multisig'): string {
     const payment = this.getPayment();
 
     if (payment === undefined) {
-      throw new Error('Payment objects have not been set');
+      throw new Error('Payment Objects have not been set');
     }
 
     let address: string;
@@ -145,6 +150,7 @@ export class SoftwareWalletDLCHandler {
 
   async createFundingPSBT(
     vault: RawVault,
+    bitcoinAmount: bigint,
     attestorGroupPublicKey: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
@@ -155,66 +161,96 @@ export class SoftwareWalletDLCHandler {
         attestorGroupPublicKey
       );
 
-      if (fundingPayment.address === undefined || multisigPayment.address === undefined) {
-        throw new Error('Payment Address is undefined');
-      }
-
       const feeRate =
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const addressBalance = await getBalance(fundingPayment.address, this.bitcoinBlockchainAPI);
+      const addressBalance = await getBalance(fundingPayment, this.bitcoinBlockchainAPI);
 
       if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
         throw new Error('Insufficient Funds');
       }
 
-      const fundingPSBT = await createFundingTransaction(
-        vault.valueLocked.toBigInt(),
+      const fundingTransaction = await createFundingTransaction(
+        this.bitcoinBlockchainAPI,
         this.bitcoinNetwork,
-        multisigPayment.address,
+        bitcoinAmount,
+        multisigPayment,
         fundingPayment,
         feeRate,
         vault.btcFeeRecipient,
-        vault.btcMintFeeBasisPoints.toBigInt(),
-        this.bitcoinBlockchainAPI
+        vault.btcMintFeeBasisPoints.toBigInt()
       );
-      return Transaction.fromPSBT(fundingPSBT);
+      return fundingTransaction;
     } catch (error: any) {
       throw new Error(`Error creating Funding PSBT: ${error}`);
     }
   }
 
-  async createClosingPSBT(
+  async createWithdrawPSBT(
     vault: RawVault,
+    withdrawAmount: bigint,
+    attestorGroupPublicKey: string,
     fundingTransactionID: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Transaction> {
     try {
-      const { fundingPayment, multisigPayment } = this.getPayment();
-
-      if (multisigPayment.address === undefined || fundingPayment.address === undefined) {
-        throw new Error('Payment Address is undefined');
-      }
+      const { fundingPayment, multisigPayment } = await this.createPayments(
+        vault.uuid,
+        attestorGroupPublicKey
+      );
 
       const feeRate =
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const closingTransaction = createClosingTransaction(
-        vault.valueLocked.toBigInt(),
+      const withdrawTransaction = await createWithdrawTransaction(
+        this.bitcoinBlockchainAPI,
         this.bitcoinNetwork,
+        withdrawAmount,
         fundingTransactionID,
         multisigPayment,
-        fundingPayment.address!,
+        fundingPayment,
         feeRate,
         vault.btcFeeRecipient,
         vault.btcRedeemFeeBasisPoints.toBigInt()
       );
-      return Transaction.fromPSBT(closingTransaction);
+      return withdrawTransaction;
     } catch (error: any) {
-      throw new Error(`Error creating Closing PSBT: ${error}`);
+      throw new Error(`Error creating Withdraw PSBT: ${error}`);
     }
+  }
+
+  async createDepositPSBT(
+    depositAmount: bigint,
+    vault: RawVault,
+    attestorGroupPublicKey: string,
+    fundingTransactionID: string,
+    feeRateMultiplier?: number,
+    customFeeRate?: bigint
+  ) {
+    const { fundingPayment, multisigPayment } = await this.createPayments(
+      vault.uuid,
+      attestorGroupPublicKey
+    );
+
+    const feeRate =
+      customFeeRate ??
+      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+
+    const depositTransaction = await createDepositTransaction(
+      this.bitcoinBlockchainAPI,
+      this.bitcoinNetwork,
+      depositAmount,
+      fundingTransactionID,
+      multisigPayment,
+      fundingPayment,
+      feeRate,
+      vault.btcFeeRecipient,
+      vault.btcMintFeeBasisPoints.toBigInt()
+    );
+
+    return depositTransaction;
   }
 }

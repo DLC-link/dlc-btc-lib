@@ -59,4 +59,4 @@ export const addNetworkParams = {
 
 export const GITHUB_SOLIDITY_URL = 'https://raw.githubusercontent.com/DLC-link/dlc-solidity';
 
-export const dlcContractNames: DLCEthereumContractName[] = ['TokenManager', 'DLCManager', 'DLCBTC'];
+export const dlcContractNames: DLCEthereumContractName[] = ['DLCManager', 'DLCBTC'];

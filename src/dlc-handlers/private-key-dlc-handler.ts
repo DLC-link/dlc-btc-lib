@@ -1,3 +1,4 @@
+import { bytesToHex } from '@noble/hashes/utils';
 import { Transaction, p2wpkh } from '@scure/btc-signer';
 import { P2Ret, P2TROut, p2tr } from '@scure/btc-signer/payment';
 import { Signer } from '@scure/btc-signer/transaction';
@@ -10,13 +11,15 @@ import {
   deriveUnhardenedKeyPairFromRootPrivateKey,
   deriveUnhardenedPublicKey,
   ecdsaPublicKeyToSchnorr,
+  finalizeUserInputs,
   getBalance,
   getFeeRate,
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import {
-  createClosingTransaction,
+  createDepositTransaction,
   createFundingTransaction,
+  createWithdrawTransaction,
 } from '../functions/bitcoin/psbt-functions.js';
 import { PaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
@@ -94,6 +97,17 @@ export class PrivateKeyDLCHandler {
       fundingPayment,
       multisigPayment,
     };
+  }
+
+  private getPayment(): PaymentInformation {
+    if (!this.payment) {
+      throw new Error('Payment Information not set');
+    }
+    return this.payment;
+  }
+
+  getTaprootDerivedPublicKey(): string {
+    return bytesToHex(this.derivedKeyPair.taprootDerivedKeyPair.publicKey);
   }
 
   getVaultRelatedAddress(paymentType: 'funding' | 'multisig'): string {
@@ -189,6 +203,7 @@ export class PrivateKeyDLCHandler {
 
   async createFundingPSBT(
     vault: RawVault,
+    bitcoinAmount: bigint,
     attestorGroupPublicKey: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
@@ -198,14 +213,7 @@ export class PrivateKeyDLCHandler {
       attestorGroupPublicKey
     );
 
-    if ([multisigPayment.address, fundingPayment.address].some(x => x === undefined)) {
-      throw new Error('Payment Address is undefined');
-    }
-
-    const addressBalance = await getBalance(
-      fundingPayment.address as string,
-      this.bitcoinBlockchainAPI
-    );
+    const addressBalance = await getBalance(fundingPayment, this.bitcoinBlockchainAPI);
 
     if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
       throw new Error('Insufficient Funds');
@@ -215,57 +223,113 @@ export class PrivateKeyDLCHandler {
       customFeeRate ??
       BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-    const fundingPSBT = await createFundingTransaction(
-      vault.valueLocked.toBigInt(),
+    const fundingTransaction = await createFundingTransaction(
+      this.bitcoinBlockchainAPI,
       this.bitcoinNetwork,
-      multisigPayment.address as string,
+      bitcoinAmount,
+      multisigPayment,
       fundingPayment,
       feeRate,
       vault.btcFeeRecipient,
-      vault.btcMintFeeBasisPoints.toBigInt(),
-      this.bitcoinBlockchainAPI
+      vault.btcMintFeeBasisPoints.toBigInt()
     );
 
-    return Transaction.fromPSBT(fundingPSBT);
+    return fundingTransaction;
   }
 
-  async createClosingPSBT(
+  async createWithdrawPSBT(
     vault: RawVault,
+    withdrawAmount: bigint,
+    attestorGroupPublicKey: string,
     fundingTransactionID: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Transaction> {
-    if (this.payment === undefined) {
-      throw new Error('Payment objects have not been set');
+    try {
+      const { fundingPayment, multisigPayment } = this.createPayments(
+        vault.uuid,
+        attestorGroupPublicKey
+      );
+
+      const feeRate =
+        customFeeRate ??
+        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+
+      const withdrawTransaction = await createWithdrawTransaction(
+        this.bitcoinBlockchainAPI,
+        this.bitcoinNetwork,
+        withdrawAmount,
+        fundingTransactionID,
+        multisigPayment,
+        fundingPayment,
+        feeRate,
+        vault.btcFeeRecipient,
+        vault.btcRedeemFeeBasisPoints.toBigInt()
+      );
+      return withdrawTransaction;
+    } catch (error: any) {
+      throw new Error(`Error creating Withdraw PSBT: ${error}`);
+    }
+  }
+
+  signPSBT(psbt: Transaction, transactionType: 'funding' | 'deposit' | 'withdraw'): Transaction {
+    switch (transactionType) {
+      case 'funding':
+        psbt.sign(this.getPrivateKey('funding'));
+        psbt.finalize();
+        break;
+      case 'deposit':
+        try {
+          psbt.sign(this.getPrivateKey('funding'));
+        } catch (error: any) {
+          // this can happen if there are no tr inputs to sign
+        }
+        try {
+          psbt.sign(this.getPrivateKey('taproot'));
+        } catch (error: any) {
+          // this can happen if there are no p2wpkh inputs to sign
+        }
+        finalizeUserInputs(psbt, this.getPayment().fundingPayment);
+        break;
+      case 'withdraw':
+        psbt.sign(this.getPrivateKey('taproot'));
+        break;
+      default:
+        throw new Error('Invalid Transaction Type');
     }
 
-    const { fundingPayment, multisigPayment } = this.payment;
+    return psbt;
+  }
 
-    if (fundingPayment.address === undefined) {
-      throw new Error('Could not get Addresses from Payments');
-    }
+  async createDepositPSBT(
+    depositAmount: bigint,
+    vault: RawVault,
+    attestorGroupPublicKey: string,
+    fundingTransactionID: string,
+    feeRateMultiplier?: number,
+    customFeeRate?: bigint
+  ) {
+    const { fundingPayment, multisigPayment } = this.createPayments(
+      vault.uuid,
+      attestorGroupPublicKey
+    );
 
     const feeRate =
       customFeeRate ??
       BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-    const closingPSBT = createClosingTransaction(
-      vault.valueLocked.toBigInt(),
+    const depositTransaction = await createDepositTransaction(
+      this.bitcoinBlockchainAPI,
       this.bitcoinNetwork,
+      depositAmount,
       fundingTransactionID,
       multisigPayment,
-      fundingPayment.address,
+      fundingPayment,
       feeRate,
       vault.btcFeeRecipient,
-      vault.btcRedeemFeeBasisPoints.toBigInt()
+      vault.btcMintFeeBasisPoints.toBigInt()
     );
 
-    return Transaction.fromPSBT(closingPSBT);
-  }
-
-  signPSBT(psbt: Transaction, transactionType: 'funding' | 'closing'): Transaction {
-    psbt.sign(this.getPrivateKey(transactionType === 'funding' ? 'funding' : 'taproot'));
-    if (transactionType === 'funding') psbt.finalize();
-    return psbt;
+    return depositTransaction;
   }
 }

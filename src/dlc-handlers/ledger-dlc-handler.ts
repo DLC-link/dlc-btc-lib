@@ -1,3 +1,4 @@
+import { bytesToHex } from '@noble/hashes/utils';
 import { Transaction } from '@scure/btc-signer';
 import { P2Ret, P2TROut, p2tr, p2wpkh } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
@@ -17,8 +18,9 @@ import {
 import {
   addNativeSegwitSignaturesToPSBT,
   addTaprootInputSignaturesToPSBT,
-  createClosingTransaction,
+  createDepositTransaction,
   createFundingTransaction,
+  createWithdrawTransaction,
   getNativeSegwitInputsToSign,
   getTaprootInputsToSign,
   updateNativeSegwitInputs,
@@ -128,6 +130,10 @@ export class LedgerDLCHandler {
       throw new Error('Payment Information not set');
     }
     return this.payment;
+  }
+
+  getTaprootDerivedPublicKey(): string {
+    return bytesToHex(this.getPayment().taprootDerivedPublicKey);
   }
 
   getVaultRelatedAddress(paymentType: 'funding' | 'multisig'): string {
@@ -280,6 +286,7 @@ export class LedgerDLCHandler {
 
   async createFundingPSBT(
     vault: RawVault,
+    bitcoinAmount: bigint,
     attestorGroupPublicKey: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
@@ -290,41 +297,34 @@ export class LedgerDLCHandler {
         attestorGroupPublicKey
       );
 
-      if ([multisigPayment.address, fundingPayment.address].some(x => x === undefined)) {
-        throw new Error('Payment Address is undefined');
-      }
-
       const feeRate =
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const addressBalance = await getBalance(
-        fundingPayment.address as string,
-        this.bitcoinBlockchainAPI
-      );
+      const addressBalance = await getBalance(fundingPayment, this.bitcoinBlockchainAPI);
 
       if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
         throw new Error('Insufficient Funds');
       }
 
-      const fundingPSBT = await createFundingTransaction(
-        vault.valueLocked.toBigInt(),
+      const fundingTransaction = await createFundingTransaction(
+        this.bitcoinBlockchainAPI,
         this.bitcoinNetwork,
-        multisigPayment.address as string,
+        bitcoinAmount,
+        multisigPayment,
         fundingPayment,
         feeRate,
         vault.btcFeeRecipient,
-        vault.btcMintFeeBasisPoints.toBigInt(),
-        this.bitcoinBlockchainAPI
+        vault.btcMintFeeBasisPoints.toBigInt()
       );
 
       const signingConfiguration = createBitcoinInputSigningConfiguration(
-        fundingPSBT,
+        fundingTransaction,
         this.walletAccountIndex,
         this.bitcoinNetwork
       );
 
-      const formattedFundingPSBT = Psbt.fromBuffer(Buffer.from(fundingPSBT), {
+      const formattedFundingPSBT = Psbt.fromBuffer(Buffer.from(fundingTransaction.toPSBT()), {
         network: this.bitcoinNetwork,
       });
 
@@ -361,66 +361,135 @@ export class LedgerDLCHandler {
     }
   }
 
-  async createClosingPSBT(
+  async createWithdrawPSBT(
     vault: RawVault,
+    withdrawAmount: bigint,
+    attestorGroupPublicKey: string,
     fundingTransactionID: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Psbt> {
     try {
-      const { fundingPayment, multisigPayment, taprootDerivedPublicKey } = this.getPayment();
-
-      if (fundingPayment.address === undefined) {
-        throw new Error('Could not get Addresses from Payments');
-      }
+      const { fundingPayment, taprootDerivedPublicKey, multisigPayment } = await this.createPayment(
+        vault.uuid,
+        attestorGroupPublicKey
+      );
 
       const feeRate =
         customFeeRate ??
         BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
-      const closingPSBT = createClosingTransaction(
-        vault.valueLocked.toBigInt(),
+      const withdrawTransaction = await createWithdrawTransaction(
+        this.bitcoinBlockchainAPI,
         this.bitcoinNetwork,
+        withdrawAmount,
         fundingTransactionID,
         multisigPayment,
-        fundingPayment.address,
+        fundingPayment,
         feeRate,
         vault.btcFeeRecipient,
         vault.btcRedeemFeeBasisPoints.toBigInt()
       );
 
-      const closingTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(
-        closingPSBT,
+      const withdrawTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(
+        withdrawTransaction,
         this.walletAccountIndex,
         this.bitcoinNetwork
       );
 
-      const formattedClosingPSBT = Psbt.fromBuffer(Buffer.from(closingPSBT), {
+      const formattedWithdrawPSBT = Psbt.fromBuffer(Buffer.from(withdrawTransaction.toPSBT()), {
         network: this.bitcoinNetwork,
       });
 
-      const closingInputByPaymentTypeArray = getInputByPaymentTypeArray(
-        closingTransactionSigningConfiguration,
-        formattedClosingPSBT.toBuffer(),
+      const withdrawInputByPaymentTypeArray = getInputByPaymentTypeArray(
+        withdrawTransactionSigningConfiguration,
+        formattedWithdrawPSBT.toBuffer(),
         this.bitcoinNetwork
       );
 
-      const taprootInputsToSign = getTaprootInputsToSign(closingInputByPaymentTypeArray);
+      const taprootInputsToSign = getTaprootInputsToSign(withdrawInputByPaymentTypeArray);
 
       await updateTaprootInputs(
         taprootInputsToSign,
         taprootDerivedPublicKey,
         this.masterFingerprint,
-        formattedClosingPSBT
+        formattedWithdrawPSBT
       );
 
-      return formattedClosingPSBT;
+      return formattedWithdrawPSBT;
     } catch (error: any) {
-      throw new Error(`Error creating Closing PSBT: ${error}`);
+      throw new Error(`Error creating Withdraw PSBT: ${error}`);
     }
   }
 
-  async signPSBT(psbt: Psbt, transactionType: 'funding' | 'closing'): Promise<Transaction> {
+  async createDepositPSBT(
+    depositAmount: bigint,
+    vault: RawVault,
+    attestorGroupPublicKey: string,
+    fundingTransactionID: string,
+    feeRateMultiplier?: number,
+    customFeeRate?: bigint
+  ) {
+    const { fundingPayment, taprootDerivedPublicKey, fundingDerivedPublicKey, multisigPayment } =
+      await this.createPayment(vault.uuid, attestorGroupPublicKey);
+
+    const feeRate =
+      customFeeRate ??
+      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+
+    const depositTransaction = await createDepositTransaction(
+      this.bitcoinBlockchainAPI,
+      this.bitcoinNetwork,
+      depositAmount,
+      fundingTransactionID,
+      multisigPayment,
+      fundingPayment,
+      feeRate,
+      vault.btcFeeRecipient,
+      vault.btcMintFeeBasisPoints.toBigInt()
+    );
+
+    const depositTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(
+      depositTransaction,
+      this.walletAccountIndex,
+      this.bitcoinNetwork
+    );
+
+    const formattedDepositPSBT = Psbt.fromBuffer(Buffer.from(depositTransaction.toPSBT()), {
+      network: this.bitcoinNetwork,
+    });
+
+    const depositInputByPaymentTypeArray = getInputByPaymentTypeArray(
+      depositTransactionSigningConfiguration,
+      formattedDepositPSBT.toBuffer(),
+      this.bitcoinNetwork
+    );
+
+    const taprootInputsToSign = getTaprootInputsToSign(depositInputByPaymentTypeArray);
+    const nativeSegwitInputsToSign = getNativeSegwitInputsToSign(depositInputByPaymentTypeArray);
+
+    await updateTaprootInputs(
+      taprootInputsToSign,
+      taprootDerivedPublicKey,
+      this.masterFingerprint,
+      formattedDepositPSBT
+    );
+
+    await updateNativeSegwitInputs(
+      nativeSegwitInputsToSign,
+      fundingDerivedPublicKey,
+      this.masterFingerprint,
+      formattedDepositPSBT,
+      this.bitcoinBlockchainAPI
+    );
+
+    return formattedDepositPSBT;
+  }
+
+  async signPSBT(
+    psbt: Psbt,
+    transactionType: 'funding' | 'deposit' | 'withdraw'
+  ): Promise<Transaction> {
     try {
       const { fundingWalletPolicy, multisigWalletPolicy, multisigWalletPolicyHMac } =
         this.getPolicyInformation();
@@ -444,13 +513,27 @@ export class LedgerDLCHandler {
           transaction = Transaction.fromPSBT(psbt.toBuffer());
           transaction.finalize();
           return transaction;
-        case 'closing':
+        case 'deposit':
           signatures = await this.ledgerApp.signPsbt(
             psbt.toBase64(),
             multisigWalletPolicy,
             multisigWalletPolicyHMac
           );
-          addTaprootInputSignaturesToPSBT('closing', psbt, signatures);
+          addTaprootInputSignaturesToPSBT('funding', psbt, signatures);
+
+          signatures = await this.ledgerApp.signPsbt(psbt.toBase64(), fundingWalletPolicy, null);
+
+          addNativeSegwitSignaturesToPSBT(psbt, signatures);
+
+          transaction = Transaction.fromPSBT(psbt.toBuffer());
+          return transaction;
+        case 'withdraw':
+          signatures = await this.ledgerApp.signPsbt(
+            psbt.toBase64(),
+            multisigWalletPolicy,
+            multisigWalletPolicyHMac
+          );
+          addTaprootInputSignaturesToPSBT('withdraw', psbt, signatures);
           transaction = Transaction.fromPSBT(psbt.toBuffer());
           return transaction;
         default:

@@ -118,11 +118,10 @@ export function getEthereumContracts(
   ethereumDeploymentPlans: EthereumDeploymentPlan[],
   signer: Wallet | providers.JsonRpcSigner
 ): DLCEthereumContracts {
-  const protocolContract = getEthereumontract(ethereumDeploymentPlans, 'TokenManager', signer);
   const dlcManagerContract = getEthereumontract(ethereumDeploymentPlans, 'DLCManager', signer);
   const dlcBTCContract = getEthereumontract(ethereumDeploymentPlans, 'DLCBTC', signer);
 
-  return { protocolContract, dlcManagerContract, dlcBTCContract };
+  return { dlcManagerContract, dlcBTCContract };
 }
 
 export function getReadOnlyEthereumContracts(
@@ -146,7 +145,7 @@ export function getReadOnlyEthereumContracts(
 
 export async function getLockedBTCBalance(userVaults: RawVault[]): Promise<number> {
   try {
-    const fundedVaults = userVaults.filter(vault => vault.status === VaultState.Funded);
+    const fundedVaults = userVaults.filter(vault => vault.status === VaultState.FUNDED);
     const totalCollateral = fundedVaults.reduce(
       (sum: number, vault: RawVault) => sum + vault.valueLocked.toNumber(),
       0

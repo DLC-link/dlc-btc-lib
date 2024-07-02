@@ -42,34 +42,46 @@ export class EthereumHandler {
 
   async getAllVaults(): Promise<RawVault[]> {
     try {
-      const userAddress = await this.ethereumContracts.protocolContract.signer.getAddress();
-      return await this.ethereumContracts.protocolContract.getAllVaultsForAddress(userAddress);
+      const userAddress = await this.ethereumContracts.dlcManagerContract.signer.getAddress();
+      return await this.ethereumContracts.dlcManagerContract.getAllVaultsForAddress(userAddress);
     } catch (error) {
       throw new EthereumError(`Could not fetch Vaults: ${error}`);
     }
   }
 
   async getRawVault(vaultUUID: string): Promise<RawVault> {
-    const vault: RawVault = await this.ethereumContracts.protocolContract.getVault(vaultUUID);
+    const vault: RawVault = await this.ethereumContracts.dlcManagerContract.getVault(vaultUUID);
     if (!vault) throw new Error('Vault not found');
     return vault;
   }
 
-  async setupVault(bitcoinDepositAmount: number): Promise<any | undefined> {
+  async setupVault(): Promise<any | undefined> {
     try {
-      await this.ethereumContracts.protocolContract.callStatic.setupVault(bitcoinDepositAmount);
-      const transaction =
-        await this.ethereumContracts.protocolContract.setupVault(bitcoinDepositAmount);
+      await this.ethereumContracts.dlcManagerContract.callStatic.setupVault();
+      const transaction = await this.ethereumContracts.dlcManagerContract.setupVault();
       return await transaction.wait();
     } catch (error: any) {
       throw new EthereumError(`Could not setup Vault: ${error}`);
     }
   }
 
+  async withdraw(vaultUUID: string, amount: bigint) {
+    try {
+      await this.ethereumContracts.dlcManagerContract.callStatic.withdraw(vaultUUID, amount);
+      const transaction = await this.ethereumContracts.dlcManagerContract.withdraw(
+        vaultUUID,
+        amount
+      );
+      return await transaction.wait();
+    } catch (error: any) {
+      throw new EthereumError(`Unable to perform withdraw: ${error}`);
+    }
+  }
+
   async closeVault(vaultUUID: string) {
     try {
-      await this.ethereumContracts.protocolContract.callStatic.closeVault(vaultUUID);
-      const transaction = await this.ethereumContracts.protocolContract.closeVault(vaultUUID);
+      await this.ethereumContracts.dlcManagerContract.callStatic.closeVault(vaultUUID);
+      const transaction = await this.ethereumContracts.dlcManagerContract.closeVault(vaultUUID);
       return await transaction.wait();
     } catch (error: any) {
       throw new EthereumError(`Could not close Vault: ${error}`);
@@ -78,7 +90,7 @@ export class EthereumHandler {
 
   async getDLCBTCBalance(): Promise<number | undefined> {
     try {
-      const userAddress = await this.ethereumContracts.protocolContract.signer.getAddress();
+      const userAddress = await this.ethereumContracts.dlcManagerContract.signer.getAddress();
       const balance = await this.ethereumContracts.dlcBTCContract.balanceOf(userAddress);
       return balance.toNumber();
     } catch (error) {
@@ -108,10 +120,6 @@ export class EthereumHandler {
           return await this.ethereumContracts.dlcManagerContract.queryFilter(
             this.ethereumContracts.dlcManagerContract.filters.Transfer()
           );
-        case 'TokenManager':
-          return await this.ethereumContracts.protocolContract.queryFilter(
-            this.ethereumContracts.protocolContract.filters.Transfer()
-          );
         default:
           throw new Error('Invalid Contract Name');
       }
@@ -140,7 +148,7 @@ export class EthereumHandler {
             totalFetched,
             totalFetched + amount
           );
-        const filteredVaults = fetchedVaults.filter(vault => vault.status === VaultState.Funded);
+        const filteredVaults = fetchedVaults.filter(vault => vault.status === VaultState.FUNDED);
         fundedVaults.push(...filteredVaults);
 
         totalFetched += amount;
