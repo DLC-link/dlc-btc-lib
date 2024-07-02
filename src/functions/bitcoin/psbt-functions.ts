@@ -45,6 +45,12 @@ export async function createFundingTransaction(
     throw new Error('Multisig Payment is missing Address');
   }
 
+  const depositAddress = depositPayment.address;
+
+  if (!depositAddress) {
+    throw new Error('Deposit Payment is missing Address');
+  }
+
   const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(depositAmount), Number(feeBasisPoints));
 
@@ -59,7 +65,7 @@ export async function createFundingTransaction(
   ];
 
   const selected = selectUTXO(userUTXOs, psbtOutputs, 'default', {
-    changeAddress: depositPayment.address!,
+    changeAddress: depositAddress,
     feePerByte: feeRate,
     bip69: false,
     createTx: true,
