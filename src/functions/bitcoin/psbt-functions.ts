@@ -117,6 +117,7 @@ export async function createDepositTransaction(
   feePublicKey: string,
   feeBasisPoints: bigint
 ): Promise<Transaction> {
+  console.log('creating deposit transaction');
   const multisigAddress = multisigPayment.address;
 
   if (!multisigAddress) {
@@ -183,6 +184,8 @@ export async function createDepositTransaction(
     ...multisigPayment,
   };
 
+  console.log('vaultInput', vaultInput);
+
   const depositInputPromises = additionalDepositSelected.inputs
     .map(async input => {
       const txID = input.txid;
@@ -196,6 +199,10 @@ export async function createDepositTransaction(
   const depositInputs = await Promise.all(depositInputPromises);
   depositInputs.push(vaultInput);
 
+  console.log('depositInputs', depositInputs);
+
+  console.log('updated depositInputs', depositInputs);
+
   const depositOutputs = [
     {
       address: feeAddress,
@@ -207,7 +214,7 @@ export async function createDepositTransaction(
     },
   ];
 
-  const depositSelected = selectUTXO(depositInputs, depositOutputs, 'default', {
+  const depositSelected = selectUTXO(depositInputs, depositOutputs, 'all', {
     changeAddress: depositAddress,
     feePerByte: feeRate,
     bip69: false,
@@ -525,7 +532,7 @@ export function addNativeSegwitSignaturesToPSBT(
  * @returns The updated PSBT.
  */
 export function addTaprootInputSignaturesToPSBT(
-  psbtType: 'funding' | 'withdraw',
+  psbtType: 'funding' | 'depositWithdraw',
   psbt: Psbt,
   signatures: [number, PartialSignature][]
 ): void {

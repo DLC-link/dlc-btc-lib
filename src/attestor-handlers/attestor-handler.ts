@@ -1,8 +1,4 @@
-import {
-  FundingTXAttestorInfo,
-  WithdrawDepositTXAttestorInfo,
-} from 'src/models/attestor.models.js';
-
+import { FundingTXAttestorInfo, WithdrawDepositTXAttestorInfo } from '../models/attestor.models.js';
 import { AttestorError } from '../models/errors.js';
 
 export class AttestorHandler {

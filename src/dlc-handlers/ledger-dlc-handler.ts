@@ -490,57 +490,62 @@ export class LedgerDLCHandler {
     psbt: Psbt,
     transactionType: 'funding' | 'deposit' | 'withdraw'
   ): Promise<Transaction> {
-    try {
-      const { fundingWalletPolicy, multisigWalletPolicy, multisigWalletPolicyHMac } =
-        this.getPolicyInformation();
-
-      let signatures;
-      let transaction: Transaction;
-
-      switch (transactionType) {
-        case 'funding':
-          signatures = await this.ledgerApp.signPsbt(psbt.toBase64(), fundingWalletPolicy, null);
-          switch (this.fundingPaymentType) {
-            case 'wpkh':
-              addNativeSegwitSignaturesToPSBT(psbt, signatures);
-              break;
-            case 'tr':
-              addTaprootInputSignaturesToPSBT('funding', psbt, signatures);
-              break;
-            default:
-              throw new Error('Invalid Funding Payment Type');
-          }
-          transaction = Transaction.fromPSBT(psbt.toBuffer());
-          transaction.finalize();
-          return transaction;
-        case 'deposit':
-          signatures = await this.ledgerApp.signPsbt(
-            psbt.toBase64(),
-            multisigWalletPolicy,
-            multisigWalletPolicyHMac
-          );
-          addTaprootInputSignaturesToPSBT('funding', psbt, signatures);
-
-          signatures = await this.ledgerApp.signPsbt(psbt.toBase64(), fundingWalletPolicy, null);
-
+    const { fundingWalletPolicy, multisigWalletPolicy, multisigWalletPolicyHMac } =
+      this.getPolicyInformation();
+    if (transactionType === 'funding') {
+      const signatures = await this.ledgerApp.signPsbt(psbt.toBase64(), fundingWalletPolicy, null);
+      switch (this.fundingPaymentType) {
+        case 'wpkh':
           addNativeSegwitSignaturesToPSBT(psbt, signatures);
-
-          transaction = Transaction.fromPSBT(psbt.toBuffer());
-          return transaction;
-        case 'withdraw':
-          signatures = await this.ledgerApp.signPsbt(
-            psbt.toBase64(),
-            multisigWalletPolicy,
-            multisigWalletPolicyHMac
-          );
-          addTaprootInputSignaturesToPSBT('withdraw', psbt, signatures);
-          transaction = Transaction.fromPSBT(psbt.toBuffer());
-          return transaction;
+          break;
+        case 'tr':
+          addTaprootInputSignaturesToPSBT('funding', psbt, signatures);
+          break;
         default:
-          throw new Error('Invalid Transaction Type');
+          throw new Error('Invalid Funding Payment Type');
       }
-    } catch (error: any) {
-      throw new Error(`Error signing PSBT: ${error}`);
+      const fundingTransaction = Transaction.fromPSBT(psbt.toBuffer());
+      fundingTransaction.finalize();
+      return fundingTransaction;
+    } else if (transactionType === 'deposit') {
+      const multisigSignatures = await this.ledgerApp.signPsbt(
+        psbt.toBase64(),
+        multisigWalletPolicy,
+        multisigWalletPolicyHMac
+      );
+      addTaprootInputSignaturesToPSBT('depositWithdraw', psbt, multisigSignatures);
+      const userSignatures = await this.ledgerApp.signPsbt(
+        psbt.toBase64(),
+        fundingWalletPolicy,
+        null
+      );
+      console.log('userSignatures', userSignatures);
+      switch (this.fundingPaymentType) {
+        case 'wpkh':
+          addNativeSegwitSignaturesToPSBT(psbt, userSignatures);
+          break;
+        case 'tr':
+          addTaprootInputSignaturesToPSBT('funding', psbt, userSignatures);
+          break;
+        default:
+          throw new Error('Invalid Funding Payment Type');
+      }
+      const userInputIndices = userSignatures.map(signature => signature[0]);
+      console.log('userInputIndices', userInputIndices);
+      const depositTransaction = Transaction.fromPSBT(psbt.toBuffer());
+      userInputIndices.forEach(index => {
+        depositTransaction.finalizeIdx(index);
+      });
+      return depositTransaction;
+    } else {
+      const multisigSignatures = await this.ledgerApp.signPsbt(
+        psbt.toBase64(),
+        multisigWalletPolicy,
+        multisigWalletPolicyHMac
+      );
+      addTaprootInputSignaturesToPSBT('depositWithdraw', psbt, multisigSignatures);
+      const withdrawTransaction = Transaction.fromPSBT(psbt.toBuffer());
+      return withdrawTransaction;
     }
   }
 }
