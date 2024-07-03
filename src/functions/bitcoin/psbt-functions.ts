@@ -117,7 +117,6 @@ export async function createDepositTransaction(
   feePublicKey: string,
   feeBasisPoints: bigint
 ): Promise<Transaction> {
-  console.log('creating deposit transaction');
   const multisigAddress = multisigPayment.address;
 
   if (!multisigAddress) {
@@ -184,8 +183,6 @@ export async function createDepositTransaction(
     ...multisigPayment,
   };
 
-  console.log('vaultInput', vaultInput);
-
   const depositInputPromises = additionalDepositSelected.inputs
     .map(async input => {
       const txID = input.txid;
@@ -198,10 +195,6 @@ export async function createDepositTransaction(
 
   const depositInputs = await Promise.all(depositInputPromises);
   depositInputs.push(vaultInput);
-
-  console.log('depositInputs', depositInputs);
-
-  console.log('updated depositInputs', depositInputs);
 
   const depositOutputs = [
     {
