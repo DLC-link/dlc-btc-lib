@@ -519,7 +519,6 @@ export class LedgerDLCHandler {
         fundingWalletPolicy,
         null
       );
-      console.log('userSignatures', userSignatures);
       switch (this.fundingPaymentType) {
         case 'wpkh':
           addNativeSegwitSignaturesToPSBT(psbt, userSignatures);
@@ -531,7 +530,7 @@ export class LedgerDLCHandler {
           throw new Error('Invalid Funding Payment Type');
       }
       const userInputIndices = userSignatures.map(signature => signature[0]);
-      console.log('userInputIndices', userInputIndices);
+
       const depositTransaction = Transaction.fromPSBT(psbt.toBuffer());
       userInputIndices.forEach(index => {
         depositTransaction.finalizeIdx(index);
