@@ -207,7 +207,7 @@ export async function createDepositTransaction(
     },
   ];
 
-  const depositSelected = selectUTXO(depositInputs, depositOutputs, 'default', {
+  const depositSelected = selectUTXO(depositInputs, depositOutputs, 'all', {
     changeAddress: depositAddress,
     feePerByte: feeRate,
     bip69: false,
@@ -525,7 +525,7 @@ export function addNativeSegwitSignaturesToPSBT(
  * @returns The updated PSBT.
  */
 export function addTaprootInputSignaturesToPSBT(
-  psbtType: 'funding' | 'withdraw',
+  psbtType: 'funding' | 'depositWithdraw',
   psbt: Psbt,
   signatures: [number, PartialSignature][]
 ): void {
