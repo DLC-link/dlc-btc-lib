@@ -435,6 +435,26 @@ export function validateScript(script: Uint8Array, outputScript: Uint8Array): bo
   );
 }
 
+export function getInputIndicesByScript(script: Uint8Array, transaction: Transaction): number[] {
+  const inputIndices: number[] = [];
+
+  createRangeFromLength(transaction.inputsLength).forEach(index => {
+    const inputScript = transaction.getInput(index).witnessUtxo?.script;
+
+    if (!inputScript) {
+      throw new Error('Could not get Input Script');
+    }
+
+    if (
+      inputScript.length === script.length &&
+      inputScript.every((value, index) => value === script[index])
+    ) {
+      inputIndices.push(index);
+    }
+  });
+  return inputIndices;
+}
+
 export function finalizeUserInputs(
   transaction: Transaction,
   userPayment: P2TROut | P2Ret

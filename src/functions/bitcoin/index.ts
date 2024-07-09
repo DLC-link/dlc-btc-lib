@@ -1,4 +1,9 @@
-import { finalizeUserInputs, getFeeAmount } from '../bitcoin/bitcoin-functions.js';
+import {
+  finalizeUserInputs,
+  getFeeAmount,
+  getFeeRecipientAddressFromPublicKey,
+  getInputIndicesByScript,
+} from '../bitcoin/bitcoin-functions.js';
 import {
   broadcastTransaction,
   fetchBitcoinBlockchainBlockHeight,
@@ -21,4 +26,6 @@ export {
   finalizeUserInputs,
   getFeeAmount,
   getBalance,
+  getFeeRecipientAddressFromPublicKey,
+  getInputIndicesByScript,
 };
