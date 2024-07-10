@@ -6,7 +6,6 @@ import {
   deriveUnhardenedPublicKey,
   getUnspendableKeyCommittedToUUID,
   getValueMatchingOutputFromTransaction,
-  validateScript,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import {
   checkBitcoinTransactionConfirmations,
@@ -14,6 +13,7 @@ import {
   fetchBitcoinTransaction,
 } from '../functions/bitcoin/bitcoin-request-functions.js';
 import { RawVault } from '../models/ethereum-models.js';
+import { compareUint8Arrays } from '../utilities/index.js';
 
 export class ProofOfReserveHandler {
   private bitcoinBlockchainAPI: string;
@@ -65,7 +65,7 @@ export class ProofOfReserveHandler {
         this.bitcoinNetwork
       );
 
-      return validateScript(
+      return compareUint8Arrays(
         taprootMultisigPayment.script,
         hex.decode(vaultTransactionOutput.scriptpubkey)
       );

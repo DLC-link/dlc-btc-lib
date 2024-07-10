@@ -24,7 +24,12 @@ import {
   PaymentTypes,
   UTXO,
 } from '../../models/bitcoin-models.js';
-import { createRangeFromLength, isDefined, isUndefined } from '../../utilities/index.js';
+import {
+  compareUint8Arrays,
+  createRangeFromLength,
+  isDefined,
+  isUndefined,
+} from '../../utilities/index.js';
 
 const TAPROOT_UNSPENDABLE_KEY_HEX =
   '0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
@@ -428,51 +433,21 @@ export function getValueMatchingOutputFromTransaction(
   return valueMatchingTransactionOutput;
 }
 
-export function validateScript(script: Uint8Array, outputScript: Uint8Array): boolean {
-  return (
-    outputScript.length === script.length &&
-    outputScript.every((value, index) => value === script[index])
-  );
-}
-
 export function getInputIndicesByScript(script: Uint8Array, transaction: Transaction): number[] {
-  const inputIndices: number[] = [];
-
-  createRangeFromLength(transaction.inputsLength).forEach(index => {
-    const inputScript = transaction.getInput(index).witnessUtxo?.script;
-
-    if (!inputScript) {
-      throw new Error('Could not get Input Script');
-    }
-
-    if (
-      inputScript.length === script.length &&
-      inputScript.every((value, index) => value === script[index])
-    ) {
-      inputIndices.push(index);
-    }
+  return createRangeFromLength(transaction.inputsLength).flatMap(index => {
+    return compareUint8Arrays(transaction.getInput(index).witnessUtxo?.script, script)
+      ? [index]
+      : [];
   });
-  return inputIndices;
 }
 
 export function finalizeUserInputs(
   transaction: Transaction,
   userPayment: P2TROut | P2Ret
 ): Transaction {
-  const userPaymentScript = userPayment.script;
   createRangeFromLength(transaction.inputsLength).forEach(index => {
-    const inputScript = transaction.getInput(index).witnessUtxo?.script;
-
-    if (!inputScript) {
-      throw new Error('Could not get Input Script');
-    }
-
-    if (
-      inputScript.length === userPaymentScript.length &&
-      inputScript.every((value, index) => value === userPaymentScript[index])
-    ) {
+    if (compareUint8Arrays(transaction.getInput(index).witnessUtxo?.script, userPayment.script))
       transaction.finalizeIdx(index);
-    }
   });
 
   return transaction;
