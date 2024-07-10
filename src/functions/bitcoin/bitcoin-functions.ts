@@ -435,22 +435,17 @@ export function getValueMatchingOutputFromTransaction(
 
 export function getInputIndicesByScript(script: Uint8Array, transaction: Transaction): number[] {
   return createRangeFromLength(transaction.inputsLength).flatMap(index => {
-    return compareUint8Arrays(transaction.getInput(index).witnessUtxo?.script, script)
-      ? [index]
-      : [];
+    const inputScript = transaction.getInput(index).witnessUtxo?.script;
+    return inputScript && compareUint8Arrays(inputScript, script) ? [index] : [];
   });
 }
 
-export function finalizeUserInputs(
-  transaction: Transaction,
-  userPayment: P2TROut | P2Ret
-): Transaction {
+export function finalizeUserInputs(transaction: Transaction, userPayment: P2TROut | P2Ret): void {
   createRangeFromLength(transaction.inputsLength).forEach(index => {
-    if (compareUint8Arrays(transaction.getInput(index).witnessUtxo?.script, userPayment.script))
+    const inputScript = transaction.getInput(index).witnessUtxo?.script;
+    if (inputScript && compareUint8Arrays(inputScript, userPayment.script))
       transaction.finalizeIdx(index);
   });
-
-  return transaction;
 }
 
 /**
