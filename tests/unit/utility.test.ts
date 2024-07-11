@@ -31,9 +31,9 @@ describe('Utility Functions', () => {
   describe('customShiftValue', () => {
     it('correctly shifts the value based on the provided parameters', () => {
       const value = 1;
-      const shift = 8;
+      const shift = 12;
       const shiftedValue = customShiftValue(value, shift, false);
-      expect(shiftedValue).toBe(100000000);
+      expect(shiftedValue).toBe(1000000000000);
     });
 
     it('correctly unshifts the value based on the provided parameters', () => {
@@ -133,7 +133,7 @@ describe('Utility Functions', () => {
 
   describe('delay', () => {
     it('delays execution for the specified number of milliseconds', () => {
-      const delayTime = 1000;
+      const delayTime = 10;
       const startTime = Date.now();
       delay(delayTime).then(() => {
         const endTime = Date.now();

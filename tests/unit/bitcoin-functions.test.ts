@@ -15,12 +15,13 @@ import {
   TEST_ALICE_TAPROOT_PUBLIC_KEY_2,
   TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_1,
   TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_2,
+  TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_3,
   TEST_WITHDRAW_PSBT_PARTIALLY_SIGNED_WITHDRAW_PSBT_1,
 } from '../mocks/constants';
 
 describe('Bitcoin Functions', () => {
   describe('getInputIndicesByScript', () => {
-    it('correctly retrieves the input indices by script', () => {
+    it('correctly retrieves one input index by script', () => {
       const transaction = Transaction.fromPSBT(
         hexToBytes(TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_1)
       );
@@ -29,7 +30,16 @@ describe('Bitcoin Functions', () => {
       expect(inputIndices).toEqual([0]);
     });
 
-    it('correctly retrieve an empty array when the script is not found', () => {
+    it('correctly retrieves multiple input indices by script', () => {
+      const transaction = Transaction.fromPSBT(
+        hexToBytes(TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_3)
+      );
+      const aliceScript = hexToBytes(TEST_ALICE_NATIVE_SEGWIT_PAYMENT_SCRIPT_1);
+      const inputIndices = getInputIndicesByScript(aliceScript, transaction);
+      expect(inputIndices).toEqual([0, 1, 2]);
+    });
+
+    it('correctly retrieve an empty array when no inputs found with given script', () => {
       const transaction = Transaction.fromPSBT(
         hexToBytes(TEST_WITHDRAW_PSBT_PARTIALLY_SIGNED_WITHDRAW_PSBT_1)
       );
@@ -54,7 +64,7 @@ describe('Bitcoin Functions', () => {
       expect(transaction.getInput(1).finalScriptWitness).toBeUndefined();
     });
 
-    it('does not finalize inputs given a transaction and a native segwit payment script', () => {
+    it('does not finalize inputs given a transaction and a native segwit payment script that is not included in this transaction', () => {
       const transaction = Transaction.fromPSBT(
         hexToBytes(TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_1)
       );
@@ -85,7 +95,7 @@ describe('Bitcoin Functions', () => {
     expect(transaction.getInput(1).finalScriptWitness).toBeUndefined();
   });
 
-  it('does not finalize inputs given a transaction and a taproot payment script', () => {
+  it('does not finalize inputs given a transaction and a taproot payment script that is not included in this transaction', () => {
     const transaction = Transaction.fromPSBT(
       hexToBytes(TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_2)
     );
