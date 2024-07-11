@@ -18,7 +18,7 @@ describe('Proof of Reserve Calculation', () => {
     jest.clearAllMocks();
   });
   describe('verifyVaultDeposit', () => {
-    xit("should return true when the vault's funding transaction is confirmed, contains an output with the multisig's script, and the output's value matches the vault's valueLocked field", async () => {
+    it("should return true when the vault's funding transaction is confirmed, contains an output with the multisig's script, and the output's value matches the vault's valueLocked field", async () => {
       jest
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
@@ -34,7 +34,7 @@ describe('Proof of Reserve Calculation', () => {
       expect(result).toBe(true);
     });
 
-    xit('should return false if the funding transaction is not found', async () => {
+    it('should return false if the funding transaction is not found', async () => {
       jest
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => {
@@ -52,7 +52,7 @@ describe('Proof of Reserve Calculation', () => {
       expect(result).toBe(false);
     });
 
-    xit("should return false when the vault's funding transaction is not yet confirmed", async () => {
+    it("should return false when the vault's funding transaction is not yet confirmed", async () => {
       jest
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
