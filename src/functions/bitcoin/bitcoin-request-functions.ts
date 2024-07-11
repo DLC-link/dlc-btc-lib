@@ -12,7 +12,6 @@ export async function fetchBitcoinTransaction(
   bitcoinBlockchainAPI: string
 ): Promise<BitcoinTransaction> {
   try {
-    console.log('txID: ', txID);
     const bitcoinBlockchainAPITransactionEndpoint = `${bitcoinBlockchainAPI}/tx/${txID}`;
 
     const response = await fetch(bitcoinBlockchainAPITransactionEndpoint);
