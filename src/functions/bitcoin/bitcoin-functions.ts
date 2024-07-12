@@ -51,9 +51,11 @@ export function getFeeAmount(bitcoinAmount: number, feeBasisPoints: number): num
  */
 export function deriveUnhardenedPublicKey(
   extendedPublicKey: string,
-  bitcoinNetwork: Network
+  bitcoinNetwork: Network,
+  addressIndex: number = 0
 ): Buffer {
-  return bip32.fromBase58(extendedPublicKey, bitcoinNetwork).derivePath('0/0').publicKey;
+  return bip32.fromBase58(extendedPublicKey, bitcoinNetwork).derivePath(`0/${addressIndex}`)
+    .publicKey;
 }
 
 /**

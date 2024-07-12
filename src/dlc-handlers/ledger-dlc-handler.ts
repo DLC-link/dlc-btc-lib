@@ -40,6 +40,7 @@ export class LedgerDLCHandler {
   private ledgerApp: AppClient;
   private masterFingerprint: string;
   private walletAccountIndex: number;
+  private walletAddressIndex: number;
   private fundingPaymentType: 'wpkh' | 'tr';
   private policyInformation: LedgerPolicyInformation | undefined;
   public payment: ExtendedPaymentInformation | undefined;
@@ -52,6 +53,7 @@ export class LedgerDLCHandler {
     ledgerApp: AppClient,
     masterFingerprint: string,
     walletAccountIndex: number,
+    walletAddressIndex: number,
     fundingPaymentType: 'wpkh' | 'tr',
     bitcoinNetwork: Network,
     bitcoinBlockchainAPI?: string,
@@ -89,6 +91,7 @@ export class LedgerDLCHandler {
     this.ledgerApp = ledgerApp;
     this.masterFingerprint = masterFingerprint;
     this.walletAccountIndex = walletAccountIndex;
+    this.walletAddressIndex = walletAddressIndex;
     this.fundingPaymentType = fundingPaymentType;
     this.bitcoinNetwork = bitcoinNetwork;
   }
@@ -185,13 +188,14 @@ export class LedgerDLCHandler {
         fundingWalletPolicy,
         null,
         0,
-        0,
+        this.walletAddressIndex,
         false
       );
 
       const fundingDerivedPublicKey = deriveUnhardenedPublicKey(
         fundingExtendedPublicKey,
-        this.bitcoinNetwork
+        this.bitcoinNetwork,
+        this.walletAddressIndex
       );
 
       const fundingPayment =
