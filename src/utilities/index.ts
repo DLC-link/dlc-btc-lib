@@ -45,6 +45,10 @@ export function isDefined<T>(argument: T | undefined): argument is T {
   return !isUndefined(argument);
 }
 
+export function isStringDefinedAndNotEmpty(string: string | undefined): boolean {
+  return isDefined(string) && string !== '';
+}
+
 export function compareUint8Arrays(a: Uint8Array, b: Uint8Array): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index]);
 }

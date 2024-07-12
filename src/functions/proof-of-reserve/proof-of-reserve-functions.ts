@@ -1,6 +1,7 @@
 import { Network } from 'bitcoinjs-lib';
-import { RawVault } from 'src/models/ethereum-models.js';
 
+import { RawVault } from '../../models/ethereum-models.js';
+import { isStringDefinedAndNotEmpty } from '../../utilities/index.js';
 import {
   createTaprootMultisigPayment,
   deriveUnhardenedPublicKey,
@@ -18,12 +19,14 @@ export async function verifyVaultDeposit(
   bitcoinBlockchainBlockHeight: number,
   bitcoinBlockchainAPI: string,
   bitcoinNetwork: Network
-): Promise<boolean> {
+): Promise<number> {
   try {
-    const fundingTransaction = await fetchBitcoinTransaction(
-      vault.fundingTxId,
-      bitcoinBlockchainAPI
-    );
+    if (!isStringDefinedAndNotEmpty(vault.wdTxId) && !isStringDefinedAndNotEmpty(vault.fundingTxId))
+      return 0;
+
+    const txID = isStringDefinedAndNotEmpty(vault.wdTxId) ? vault.wdTxId : vault.fundingTxId;
+
+    const fundingTransaction = await fetchBitcoinTransaction(txID, bitcoinBlockchainAPI);
 
     const isFundingTransactionConfirmed = await checkBitcoinTransactionConfirmations(
       fundingTransaction,
@@ -31,7 +34,7 @@ export async function verifyVaultDeposit(
     );
 
     if (!isFundingTransactionConfirmed) {
-      return false;
+      return 0;
     }
 
     const unspendableKeyCommittedToUUID = deriveUnhardenedPublicKey(
@@ -52,16 +55,12 @@ export async function verifyVaultDeposit(
     );
 
     if (!vaultTransactionOutput) {
-      return false;
+      return 0;
     }
 
-    if (vaultTransactionOutput.value !== vault.valueLocked.toNumber()) {
-      return false;
-    }
-
-    return true;
+    return vaultTransactionOutput.value;
   } catch (error) {
     console.log(`Error verifying Vault Deposit: ${error}`);
-    return false;
+    return 0;
   }
 }

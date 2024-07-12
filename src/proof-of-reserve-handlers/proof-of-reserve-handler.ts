@@ -31,17 +31,15 @@ export class ProofOfReserveHandler {
     );
 
     const verifiedDeposits = await Promise.all(
-      vaults.map(async vault => {
-        return (await verifyVaultDeposit(
+      vaults.map(vault =>
+        verifyVaultDeposit(
           vault,
           derivedAttestorGroupPublicKey,
           bitcoinBlockchainBlockHeight,
           this.bitcoinBlockchainAPI,
           this.bitcoinNetwork
-        )) === true
-          ? vault.valueLocked.toNumber()
-          : 0;
-      })
+        )
+      )
     );
     return verifiedDeposits.reduce((a, b) => a + b, 0);
   }
