@@ -4,7 +4,7 @@ import {
   customShiftValue,
   delay,
   isDefined,
-  isStringDefinedAndNotEmpty,
+  isNonEmptyString,
   isUndefined,
   reverseBytes,
   shiftValue,
@@ -89,22 +89,22 @@ describe('Utility Functions', () => {
     });
   });
 
-  describe('isStringDefinedAndNotEmpty', () => {
+  describe('isNonEmptyString', () => {
     it('correctly identifies if a string is defined and not empty', () => {
       const value = 'Hello, World!';
-      const isValueDefinedAndNotEmpty = isStringDefinedAndNotEmpty(value);
+      const isValueDefinedAndNotEmpty = isNonEmptyString(value);
       expect(isValueDefinedAndNotEmpty).toBe(true);
     });
 
     it('correctly identifies if a string is not defined', () => {
       const value = undefined;
-      const isValueDefinedAndNotEmpty = isStringDefinedAndNotEmpty(value);
+      const isValueDefinedAndNotEmpty = isNonEmptyString(value);
       expect(isValueDefinedAndNotEmpty).toBe(false);
     });
 
     it('correctly identifies if a string is defined but empty', () => {
       const value = '';
-      const isValueDefinedAndNotEmpty = isStringDefinedAndNotEmpty(value);
+      const isValueDefinedAndNotEmpty = isNonEmptyString(value);
       expect(isValueDefinedAndNotEmpty).toBe(false);
     });
   });

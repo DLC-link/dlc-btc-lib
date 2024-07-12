@@ -45,7 +45,7 @@ export function isDefined<T>(argument: T | undefined): argument is T {
   return !isUndefined(argument);
 }
 
-export function isStringDefinedAndNotEmpty(string: string | undefined): boolean {
+export function isNonEmptyString(string: string | undefined): boolean {
   return isDefined(string) && string !== '';
 }
 

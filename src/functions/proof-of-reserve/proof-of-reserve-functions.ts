@@ -1,7 +1,7 @@
 import { Network } from 'bitcoinjs-lib';
 
 import { RawVault } from '../../models/ethereum-models.js';
-import { isStringDefinedAndNotEmpty } from '../../utilities/index.js';
+import { isNonEmptyString } from '../../utilities/index.js';
 import {
   createTaprootMultisigPayment,
   deriveUnhardenedPublicKey,
@@ -21,10 +21,9 @@ export async function verifyVaultDeposit(
   bitcoinNetwork: Network
 ): Promise<number> {
   try {
-    if (!isStringDefinedAndNotEmpty(vault.wdTxId) && !isStringDefinedAndNotEmpty(vault.fundingTxId))
-      return 0;
+    if (!isNonEmptyString(vault.wdTxId) && !isNonEmptyString(vault.fundingTxId)) return 0;
 
-    const txID = isStringDefinedAndNotEmpty(vault.wdTxId) ? vault.wdTxId : vault.fundingTxId;
+    const txID = isNonEmptyString(vault.wdTxId) ? vault.wdTxId : vault.fundingTxId;
 
     const fundingTransaction = await fetchBitcoinTransaction(txID, bitcoinBlockchainAPI);
 
