@@ -1,18 +1,20 @@
 import { Transaction, p2wpkh } from '@scure/btc-signer';
+import { regtest } from 'bitcoinjs-lib/src/networks.js';
 
 import { PrivateKeyDLCHandler } from '../../src/index.js';
 import { shiftValue } from '../../src/utilities/index.js';
 import {
-  TEST_BITCOIN_AMOUNT,
-  TEST_BITCOIN_BLOCKCHAIN_API,
   TEST_BITCOIN_BLOCKCHAIN_FEE_RECOMMENDATION_API,
+  TEST_REGTEST_BITCOIN_BLOCKCHAIN_API,
+} from '../mocks/api.test.constants.js';
+import { TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1 } from '../mocks/attestor.test.constants.js';
+import {
+  TEST_BITCOIN_AMOUNT,
   TEST_BITCOIN_EXTENDED_PRIVATE_KEY,
-  TEST_BITCOIN_NETWORK,
   TEST_BITCOIN_WALLET_ACCOUNT_INDEX,
   TEST_FUNDING_PAYMENT_TYPE,
-  TEST_REGTEST_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY,
-  TEST_VAULT,
-} from '../mocks/constants.js';
+} from '../mocks/bitcoin.test.constants.js';
+import { TEST_VAULT_1 } from '../mocks/ethereum-vault.test.constants.js';
 
 describe('Create and Sign Vault related Transactions', () => {
   let dlcHandler: PrivateKeyDLCHandler;
@@ -24,26 +26,26 @@ describe('Create and Sign Vault related Transactions', () => {
       TEST_BITCOIN_EXTENDED_PRIVATE_KEY,
       TEST_BITCOIN_WALLET_ACCOUNT_INDEX,
       TEST_FUNDING_PAYMENT_TYPE,
-      TEST_BITCOIN_NETWORK,
-      TEST_BITCOIN_BLOCKCHAIN_API,
+      regtest,
+      TEST_REGTEST_BITCOIN_BLOCKCHAIN_API,
       TEST_BITCOIN_BLOCKCHAIN_FEE_RECOMMENDATION_API
     );
   });
 
   it('should create a funding transaction', async () => {
     fundingTransaction = await dlcHandler.createFundingPSBT(
-      TEST_VAULT,
+      TEST_VAULT_1,
       BigInt(shiftValue(TEST_BITCOIN_AMOUNT)),
-      TEST_REGTEST_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY,
+      TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
       2
     );
 
-    const vaultAmount = TEST_VAULT.valueLocked.toBigInt();
-    const feeAmount = vaultAmount / TEST_VAULT.btcMintFeeBasisPoints.toBigInt();
+    const vaultAmount = TEST_VAULT_1.valueLocked.toBigInt();
+    const feeAmount = vaultAmount / TEST_VAULT_1.btcMintFeeBasisPoints.toBigInt();
 
     const feeRecipientScript = p2wpkh(
-      Buffer.from(TEST_VAULT.btcFeeRecipient, 'hex'),
-      TEST_BITCOIN_NETWORK
+      Buffer.from(TEST_VAULT_1.btcFeeRecipient, 'hex'),
+      regtest
     ).script;
     const multisigScript = dlcHandler.payment?.multisigPayment.script;
 

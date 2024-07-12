@@ -1,3 +1,4 @@
+import { hexToBytes } from '@noble/hashes/utils';
 import {
   Address,
   OutScript,
@@ -420,17 +421,20 @@ export function getInputByPaymentTypeArray(
   });
 }
 
-export function getValueMatchingOutputFromTransaction(
+export function getScriptMatchingOutputFromTransaction(
   bitcoinTransaction: BitcoinTransaction,
-  bitcoinValue: number
-): BitcoinTransactionVectorOutput {
-  const valueMatchingTransactionOutput = bitcoinTransaction.vout.find(
-    output => output.value === bitcoinValue
+  script: Uint8Array
+): BitcoinTransactionVectorOutput | undefined {
+  return bitcoinTransaction.vout.find(output =>
+    validateScript(script, hexToBytes(output.scriptpubkey))
   );
-  if (!valueMatchingTransactionOutput) {
-    throw new Error('Could not find Value matching Input in Transaction');
-  }
-  return valueMatchingTransactionOutput;
+}
+
+export function validateScript(script: Uint8Array, outputScript: Uint8Array): boolean {
+  return (
+    outputScript.length === script.length &&
+    outputScript.every((value, index) => value === script[index])
+  );
 }
 
 export function getInputIndicesByScript(script: Uint8Array, transaction: Transaction): number[] {

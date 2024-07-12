@@ -1,3 +1,5 @@
+import { BitcoinTransaction } from '../../src/models/bitcoin-models';
+
 export const TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_1 =
   '70736274ff0100c5020000000269680a0f87525a598abaf823342a4cb6d632027252e51d242e51c61770f17c990200000000f0ffffff751757d16e395a1da0457531b8a9eed579bdd87f3d60034b179976be5fb5178a0100000000ffffffff0370170000000000001600145a81f36535980769bccc23c196337a78458abd1e80969800000000002251203789ed985ab9d1c94f5889973376a88d9940835206461151685a7a3fbb84de599ec6202901000000160014add70fb03578d3ac85aab80897395bb046223c92000000000001011f302b6d2901000000160014add70fb03578d3ac85aab80897395bb046223c92220202f4d8696f9b275f4e10af63f03bcb7fbba7b1ed44dd9b12a973c8d20212beb8d1483045022100d7788684a0d1f05f35a861f72457a8d1aa7efbfdf1227d3e6cdf72b7feab9f7e02203d57106adbaf190731c0447e990833835c6de86052161e39b06193ad306e80a1010001012b404b4c00000000002251203789ed985ab9d1c94f5889973376a88d9940835206461151685a7a3fbb84de594114bb7e175e63064479102ee0b69a719a9f54f8f1b29df17cfaa5437697393e7cfce24db130ab82d20d322c295aa18921a7fe87fb13df3d5b3b2ee0469e2a84511440d8fb920db7745d01f2762b6285e10a3d16ef056fd1dc26879eea5dc5410d4da53a458820088e5a22c11ef27527a8db546a0e8997d80b4b3c4f861a6b4410bd482215c1e52a5f154612da28faade658332157966492aa20a523162a8b584682a23dc72645205216652630455eb8546bbab45e6fdef6498eee683ed339f405d326414b05b192ad20bb7e175e63064479102ee0b69a719a9f54f8f1b29df17cfaa5437697393e7cfcacc0011720e52a5f154612da28faade658332157966492aa20a523162a8b584682a23dc726011820e24db130ab82d20d322c295aa18921a7fe87fb13df3d5b3b2ee0469e2a84511400000000';
 // Readable format:
@@ -918,3 +920,181 @@ export const TEST_WITHDRAW_PSBT_PARTIALLY_SIGNED_WITHDRAW_PSBT_2 =
 //       "PSBTVersion": 0
 //     }
 //   }
+
+// This is a testnet funding transaction with valid inputs and outputs
+export const TEST_TESTNET_FUNDING_TRANSACTION_1: BitcoinTransaction = {
+  txid: '4cf5c2954c84bf5225d98ef014aa97bbfa0f05d56b5749782fcd8af8b9d505a5',
+  version: 2,
+  locktime: 0,
+  vin: [
+    {
+      txid: 'cefbeafc3e50618a59646ba6e7b3bba8f15b3e2551570af98182f4234586d085',
+      vout: 2,
+      prevout: {
+        scriptpubkey: '5120192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+        scriptpubkey_asm:
+          'OP_PUSHNUM_1 OP_PUSHBYTES_32 192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+        scriptpubkey_type: 'v1_p2tr',
+        scriptpubkey_address: 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq',
+        value: 71607616,
+      },
+      scriptsig: '',
+      scriptsig_asm: '',
+      witness: [
+        'd4ad3523fdc9ec709e8bf2ecadd56c9266f9c57bccb5d165cd57dc815a88de34957764482a6fab3897ce7be2677168f69be93d799021b502899b556436c3f6bb',
+      ],
+      is_coinbase: false,
+      sequence: 4294967280,
+    },
+  ],
+  vout: [
+    {
+      scriptpubkey: '51206d7e5019c795d05fd3df81713069aa3a309e912a61555ab3ebd6e477f42c1f70',
+      scriptpubkey_asm:
+        'OP_PUSHNUM_1 OP_PUSHBYTES_32 6d7e5019c795d05fd3df81713069aa3a309e912a61555ab3ebd6e477f42c1f70',
+      scriptpubkey_type: 'v1_p2tr',
+      scriptpubkey_address: 'tb1pd4l9qxw8jhg9l57ls9cnq6d28gcfayf2v9244vlt6mj80apvracqgdt090',
+      value: 10000000,
+    },
+    {
+      scriptpubkey: '0014f28ec1a3e3df0240b98582ca7754e6948e9bf930',
+      scriptpubkey_asm: 'OP_0 OP_PUSHBYTES_20 f28ec1a3e3df0240b98582ca7754e6948e9bf930',
+      scriptpubkey_type: 'v0_p2wpkh',
+      scriptpubkey_address: 'tb1q728vrglrmupypwv9st98w48xjj8fh7fs8mrdre',
+      value: 100000,
+    },
+    {
+      scriptpubkey: '5120192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+      scriptpubkey_asm:
+        'OP_PUSHNUM_1 OP_PUSHBYTES_32 192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+      scriptpubkey_type: 'v1_p2tr',
+      scriptpubkey_address: 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq',
+      value: 61490226,
+    },
+  ],
+  size: 236,
+  weight: 740,
+  fee: 17390,
+  status: {
+    confirmed: true,
+    block_height: 2867279,
+    block_hash: '000000000000001ee12e0297ff36e8c8041aefb65af0c1033a1af4fdb8146f0d',
+    block_time: 1720620175,
+  },
+};
+
+// This transaction is missing the output with the multisig's script.
+export const TEST_TESTNET_FUNDING_TRANSACTION_2: BitcoinTransaction = {
+  txid: '4cf5c2954c84bf5225d98ef014aa97bbfa0f05d56b5749782fcd8af8b9d505a5',
+  version: 2,
+  locktime: 0,
+  vin: [
+    {
+      txid: 'cefbeafc3e50618a59646ba6e7b3bba8f15b3e2551570af98182f4234586d085',
+      vout: 2,
+      prevout: {
+        scriptpubkey: '5120192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+        scriptpubkey_asm:
+          'OP_PUSHNUM_1 OP_PUSHBYTES_32 192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+        scriptpubkey_type: 'v1_p2tr',
+        scriptpubkey_address: 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq',
+        value: 71607616,
+      },
+      scriptsig: '',
+      scriptsig_asm: '',
+      witness: [
+        'd4ad3523fdc9ec709e8bf2ecadd56c9266f9c57bccb5d165cd57dc815a88de34957764482a6fab3897ce7be2677168f69be93d799021b502899b556436c3f6bb',
+      ],
+      is_coinbase: false,
+      sequence: 4294967280,
+    },
+  ],
+  vout: [
+    {
+      scriptpubkey: '0014f28ec1a3e3df0240b98582ca7754e6948e9bf930',
+      scriptpubkey_asm: 'OP_0 OP_PUSHBYTES_20 f28ec1a3e3df0240b98582ca7754e6948e9bf930',
+      scriptpubkey_type: 'v0_p2wpkh',
+      scriptpubkey_address: 'tb1q728vrglrmupypwv9st98w48xjj8fh7fs8mrdre',
+      value: 100000,
+    },
+    {
+      scriptpubkey: '5120192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+      scriptpubkey_asm:
+        'OP_PUSHNUM_1 OP_PUSHBYTES_32 192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+      scriptpubkey_type: 'v1_p2tr',
+      scriptpubkey_address: 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq',
+      value: 61490226,
+    },
+  ],
+  size: 236,
+  weight: 740,
+  fee: 17390,
+  status: {
+    confirmed: true,
+    block_height: 2867279,
+    block_hash: '000000000000001ee12e0297ff36e8c8041aefb65af0c1033a1af4fdb8146f0d',
+    block_time: 1720620175,
+  },
+};
+
+// This transaction's multisig output value does not match the vault's valueLocked field.
+export const TEST_TESTNET_FUNDING_TRANSACTION_3: BitcoinTransaction = {
+  txid: '4cf5c2954c84bf5225d98ef014aa97bbfa0f05d56b5749782fcd8af8b9d505a5',
+  version: 2,
+  locktime: 0,
+  vin: [
+    {
+      txid: 'cefbeafc3e50618a59646ba6e7b3bba8f15b3e2551570af98182f4234586d085',
+      vout: 2,
+      prevout: {
+        scriptpubkey: '5120192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+        scriptpubkey_asm:
+          'OP_PUSHNUM_1 OP_PUSHBYTES_32 192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+        scriptpubkey_type: 'v1_p2tr',
+        scriptpubkey_address: 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq',
+        value: 71607616,
+      },
+      scriptsig: '',
+      scriptsig_asm: '',
+      witness: [
+        'd4ad3523fdc9ec709e8bf2ecadd56c9266f9c57bccb5d165cd57dc815a88de34957764482a6fab3897ce7be2677168f69be93d799021b502899b556436c3f6bb',
+      ],
+      is_coinbase: false,
+      sequence: 4294967280,
+    },
+  ],
+  vout: [
+    {
+      scriptpubkey: '51206d7e5019c795d05fd3df81713069aa3a309e912a61555ab3ebd6e477f42c1f70',
+      scriptpubkey_asm:
+        'OP_PUSHNUM_1 OP_PUSHBYTES_32 6d7e5019c795d05fd3df81713069aa3a309e912a61555ab3ebd6e477f42c1f70',
+      scriptpubkey_type: 'v1_p2tr',
+      scriptpubkey_address: 'tb1pd4l9qxw8jhg9l57ls9cnq6d28gcfayf2v9244vlt6mj80apvracqgdt090',
+      value: 5000000,
+    },
+    {
+      scriptpubkey: '0014f28ec1a3e3df0240b98582ca7754e6948e9bf930',
+      scriptpubkey_asm: 'OP_0 OP_PUSHBYTES_20 f28ec1a3e3df0240b98582ca7754e6948e9bf930',
+      scriptpubkey_type: 'v0_p2wpkh',
+      scriptpubkey_address: 'tb1q728vrglrmupypwv9st98w48xjj8fh7fs8mrdre',
+      value: 100000,
+    },
+    {
+      scriptpubkey: '5120192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+      scriptpubkey_asm:
+        'OP_PUSHNUM_1 OP_PUSHBYTES_32 192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+      scriptpubkey_type: 'v1_p2tr',
+      scriptpubkey_address: 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq',
+      value: 61490226,
+    },
+  ],
+  size: 236,
+  weight: 740,
+  fee: 17390,
+  status: {
+    confirmed: true,
+    block_height: 2867279,
+    block_hash: '000000000000001ee12e0297ff36e8c8041aefb65af0c1033a1af4fdb8146f0d',
+    block_time: 1720620175,
+  },
+};
