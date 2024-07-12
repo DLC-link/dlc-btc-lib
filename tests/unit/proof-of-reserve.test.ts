@@ -5,13 +5,15 @@ import { verifyVaultDeposit } from '../../src/functions/proof-of-reserve/proof-o
 import { TEST_TESTNET_BITCOIN_BLOCKCHAIN_API } from '../mocks/api.test.constants.js';
 import { TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1 } from '../mocks/attestor.test.constants.js';
 import {
-  TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_1,
-  TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_2,
   TEST_TESTNET_FUNDING_TRANSACTION_1,
   TEST_TESTNET_FUNDING_TRANSACTION_2,
   TEST_TESTNET_FUNDING_TRANSACTION_3,
+} from '../mocks/bitcoin-transaction.test.constants.js';
+import {
+  TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_1,
+  TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_2,
 } from '../mocks/bitcoin.test.constants.js';
-import { TEST_VAULT_2 } from '../mocks/constants';
+import { TEST_VAULT_2 } from '../mocks/ethereum-vault.test.constants.js';
 
 describe('Proof of Reserve Calculation', () => {
   beforeEach(() => {
