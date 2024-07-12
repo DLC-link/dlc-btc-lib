@@ -7,7 +7,6 @@ import { TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1 } from '../mocks/
 import {
   TEST_TESTNET_FUNDING_TRANSACTION_1,
   TEST_TESTNET_FUNDING_TRANSACTION_2,
-  TEST_TESTNET_FUNDING_TRANSACTION_3,
 } from '../mocks/bitcoin-transaction.test.constants.js';
 import {
   TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_1,
@@ -20,7 +19,7 @@ describe('Proof of Reserve Calculation', () => {
     jest.clearAllMocks();
   });
   describe('verifyVaultDeposit', () => {
-    it("should return true when the vault's funding transaction is confirmed, contains an output with the multisig's script, and the output's value matches the vault's valueLocked field", async () => {
+    it("should return the expected value when the vault's funding transaction is confirmed, contains an output with the multisig's script, and the output's value matches the vault's valueLocked field", async () => {
       jest
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
@@ -33,10 +32,10 @@ describe('Proof of Reserve Calculation', () => {
         testnet
       );
 
-      expect(result).toBe(true);
+      expect(result).toBe(10000000);
     });
 
-    it('should return false if the funding transaction is not found', async () => {
+    it('should return 0 if the funding transaction is not found', async () => {
       jest
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => {
@@ -51,10 +50,10 @@ describe('Proof of Reserve Calculation', () => {
         testnet
       );
 
-      expect(result).toBe(false);
+      expect(result).toBe(0);
     });
 
-    it("should return false when the vault's funding transaction is not yet confirmed", async () => {
+    it("should return 0 when the vault's funding transaction is not yet confirmed", async () => {
       jest
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
@@ -67,10 +66,10 @@ describe('Proof of Reserve Calculation', () => {
         testnet
       );
 
-      expect(result).toBe(false);
+      expect(result).toBe(0);
     });
 
-    it("should return false if the vault's funding transaction lacks an output with the multisig's script", async () => {
+    it("should return 0 if the vault's funding transaction lacks an output with the multisig's script", async () => {
       jest
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_2);
@@ -83,23 +82,7 @@ describe('Proof of Reserve Calculation', () => {
         testnet
       );
 
-      expect(result).toBe(false);
-    });
-
-    it("should return false if the output value related to the multisig script differs from the vault's valueLocked field in the funding transaction", async () => {
-      jest
-        .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
-        .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_3);
-
-      const result = await verifyVaultDeposit(
-        TEST_VAULT_2,
-        Buffer.from(TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1, 'hex'),
-        TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_1,
-        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
-        testnet
-      );
-
-      expect(result).toBe(false);
+      expect(result).toBe(0);
     });
   });
 });
