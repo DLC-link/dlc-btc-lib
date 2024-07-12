@@ -18,7 +18,6 @@ export enum VaultState {
   CLOSING = 2,
   CLOSED = 3,
   PENDING = 4,
-  FUNDING = 5,
 }
 
 export interface RawVault {
