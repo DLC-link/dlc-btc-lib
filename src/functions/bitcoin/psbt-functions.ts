@@ -411,10 +411,37 @@ export function getNativeSegwitInputsToSign(
  */
 export async function updateTaprootInputs(
   inputsToUpdate: BitcoinInputSigningConfig[] = [],
-  taprootPublicKey: Buffer,
+  multisigPublicKey: Buffer,
+  fundingPublicKey: Buffer,
   masterFingerprint: string,
   psbt: Psbt
 ): Promise<Psbt> {
+  inputsToUpdate.forEach(({ index, derivationPath, isMultisigInput }) => {
+    console.log('index', index);
+    console.log('derivationPath', derivationPath);
+    psbt.updateInput(index, {
+      tapBip32Derivation: [
+        {
+          masterFingerprint: Buffer.from(masterFingerprint, 'hex'),
+          pubkey: isMultisigInput
+            ? ecdsaPublicKeyToSchnorr(multisigPublicKey)
+            : ecdsaPublicKeyToSchnorr(fundingPublicKey),
+          path: derivationPath,
+          leafHashes: [],
+        },
+      ],
+    });
+  });
+
+  return psbt;
+}
+
+export async function updateTaprootMultisigInputs(
+  inputsToUpdate: BitcoinInputSigningConfig[] = [],
+  taprootPublicKey: Buffer,
+  masterFingerprint: string,
+  psbt: Psbt
+): Promise<void> {
   inputsToUpdate.forEach(({ index, derivationPath }) => {
     psbt.updateInput(index, {
       tapBip32Derivation: [
@@ -427,8 +454,6 @@ export async function updateTaprootInputs(
       ],
     });
   });
-
-  return psbt;
 }
 
 /**

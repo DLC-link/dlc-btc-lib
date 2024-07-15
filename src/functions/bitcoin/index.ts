@@ -3,6 +3,7 @@ import {
   getFeeAmount,
   getFeeRecipientAddressFromPublicKey,
   getInputIndicesByScript,
+  getPublicKeyFromExtendedPublicKey,
 } from '../bitcoin/bitcoin-functions.js';
 import {
   broadcastTransaction,
@@ -28,4 +29,5 @@ export {
   getBalance,
   getFeeRecipientAddressFromPublicKey,
   getInputIndicesByScript,
+  getPublicKeyFromExtendedPublicKey,
 };

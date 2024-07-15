@@ -8,6 +8,7 @@ export interface UTXO {
 }
 
 export interface BitcoinInputSigningConfig {
+  isMultisigInput: boolean;
   derivationPath: string;
   index: number;
 }

@@ -296,10 +296,8 @@ export class LedgerDLCHandler {
     customFeeRate?: bigint
   ): Promise<Psbt> {
     try {
-      const { fundingPayment, fundingDerivedPublicKey, multisigPayment } = await this.createPayment(
-        vault.uuid,
-        attestorGroupPublicKey
-      );
+      const { fundingPayment, fundingDerivedPublicKey, taprootDerivedPublicKey, multisigPayment } =
+        await this.createPayment(vault.uuid, attestorGroupPublicKey);
 
       const feeRate =
         customFeeRate ??
@@ -325,6 +323,8 @@ export class LedgerDLCHandler {
       const signingConfiguration = createBitcoinInputSigningConfiguration(
         fundingTransaction,
         this.walletAccountIndex,
+        this.walletAddressIndex,
+        multisigPayment,
         this.bitcoinNetwork
       );
 
@@ -353,6 +353,7 @@ export class LedgerDLCHandler {
 
         await updateTaprootInputs(
           taprootInputsToSign,
+          taprootDerivedPublicKey,
           fundingDerivedPublicKey,
           this.masterFingerprint,
           formattedFundingPSBT
@@ -374,10 +375,8 @@ export class LedgerDLCHandler {
     customFeeRate?: bigint
   ): Promise<Psbt> {
     try {
-      const { fundingPayment, taprootDerivedPublicKey, multisigPayment } = await this.createPayment(
-        vault.uuid,
-        attestorGroupPublicKey
-      );
+      const { fundingPayment, fundingDerivedPublicKey, taprootDerivedPublicKey, multisigPayment } =
+        await this.createPayment(vault.uuid, attestorGroupPublicKey);
 
       const feeRate =
         customFeeRate ??
@@ -398,6 +397,8 @@ export class LedgerDLCHandler {
       const withdrawTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(
         withdrawTransaction,
         this.walletAccountIndex,
+        this.walletAddressIndex,
+        multisigPayment,
         this.bitcoinNetwork
       );
 
@@ -416,6 +417,7 @@ export class LedgerDLCHandler {
       await updateTaprootInputs(
         taprootInputsToSign,
         taprootDerivedPublicKey,
+        fundingDerivedPublicKey,
         this.masterFingerprint,
         formattedWithdrawPSBT
       );
@@ -456,6 +458,8 @@ export class LedgerDLCHandler {
     const depositTransactionSigningConfiguration = createBitcoinInputSigningConfiguration(
       depositTransaction,
       this.walletAccountIndex,
+      this.walletAddressIndex,
+      multisigPayment,
       this.bitcoinNetwork
     );
 
@@ -475,6 +479,7 @@ export class LedgerDLCHandler {
     await updateTaprootInputs(
       taprootInputsToSign,
       taprootDerivedPublicKey,
+      fundingDerivedPublicKey,
       this.masterFingerprint,
       formattedDepositPSBT
     );

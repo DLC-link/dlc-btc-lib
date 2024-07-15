@@ -58,6 +58,13 @@ export function deriveUnhardenedPublicKey(
     .publicKey;
 }
 
+export function getPublicKeyFromExtendedPublicKey(
+  extendedPublicKey: string,
+  bitcoinNetwork: Network
+): Buffer {
+  return bip32.fromBase58(extendedPublicKey, bitcoinNetwork).publicKey;
+}
+
 /**
  * Derives the Account Key Pair from the Root Private Key.
  * @param rootPrivateKey - The Root Private Key.
@@ -369,31 +376,50 @@ function getAddressFromOutScript(script: Uint8Array, bitcoinNetwork: Network): s
 export function createBitcoinInputSigningConfiguration(
   transaction: Transaction,
   walletAccountIndex: number,
+  walletAddressIndex: number,
+  multisigPayment: P2TROut,
   bitcoinNetwork: Network
 ): BitcoinInputSigningConfig[] {
-  const networkIndex = bitcoinNetwork === bitcoin ? 0 : 1;
+  const networkIndex = getBitcoinNetworkIndex(bitcoinNetwork);
 
-  const nativeSegwitDerivationPath = `m/84'/${networkIndex}'/${walletAccountIndex}'/0/0`;
-  const taprootDerivationPath = `m/86'/${networkIndex}'/${walletAccountIndex}'/0/0`;
+  const nativeSegwitDerivationPath = `m/84'/${networkIndex}'/${walletAccountIndex}'/0/${walletAddressIndex}`;
+  const taprootDerivationPath = `m/86'/${networkIndex}'/${walletAccountIndex}'/0/${walletAddressIndex}`;
+  const multisigDerivationPath = `m/86'/${networkIndex}'/${walletAccountIndex}'/0/0`;
 
-  const indexesToSign = createRangeFromLength(transaction.inputsLength);
-  return indexesToSign.map(inputIndex => {
+  const multisigPaymentScript = multisigPayment.script;
+
+  return createRangeFromLength(transaction.inputsLength).map(inputIndex => {
     const input = transaction.getInput(inputIndex);
 
     if (isUndefined(input.index)) throw new Error('Input must have an index for payment type');
+
     const paymentType = getInputPaymentType(input.index, input, bitcoinNetwork);
+
+    const witnessUTXOScript = input.witnessUtxo?.script;
+
+    if (isUndefined(witnessUTXOScript)) throw new Error('Witness UTXO Script is undefined');
 
     switch (paymentType) {
       case 'p2wpkh':
         return {
           index: inputIndex,
           derivationPath: nativeSegwitDerivationPath,
+          isMultisigInput: false,
         };
       case 'p2tr':
-        return {
-          index: inputIndex,
-          derivationPath: taprootDerivationPath,
-        };
+        if (compareUint8Arrays(witnessUTXOScript, multisigPaymentScript)) {
+          return {
+            index: inputIndex,
+            derivationPath: multisigDerivationPath,
+            isMultisigInput: true,
+          };
+        } else {
+          return {
+            index: inputIndex,
+            derivationPath: taprootDerivationPath,
+            isMultisigInput: false,
+          };
+        }
       default:
         throw new Error('Unsupported Payment Type');
     }
@@ -452,6 +478,18 @@ export function finalizeUserInputs(transaction: Transaction, userPayment: P2TROu
     if (inputScript && compareUint8Arrays(inputScript, userPayment.script))
       transaction.finalizeIdx(index);
   });
+}
+
+export function getBitcoinNetworkIndex(bitcoinNetwork: Network): number {
+  switch (bitcoinNetwork) {
+    case bitcoin:
+      return 0;
+    case testnet:
+    case regtest:
+      return 1;
+    default:
+      throw new Error('Unsupported Bitcoin Network');
+  }
 }
 
 /**
