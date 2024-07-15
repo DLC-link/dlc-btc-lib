@@ -58,13 +58,6 @@ export function deriveUnhardenedPublicKey(
     .publicKey;
 }
 
-export function getPublicKeyFromExtendedPublicKey(
-  extendedPublicKey: string,
-  bitcoinNetwork: Network
-): Buffer {
-  return bip32.fromBase58(extendedPublicKey, bitcoinNetwork).publicKey;
-}
-
 /**
  * Derives the Account Key Pair from the Root Private Key.
  * @param rootPrivateKey - The Root Private Key.

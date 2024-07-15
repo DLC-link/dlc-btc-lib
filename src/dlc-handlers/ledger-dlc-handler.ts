@@ -13,11 +13,12 @@ import {
   getBalance,
   getFeeRate,
   getInputByPaymentTypeArray,
+  getInputIndicesByScript,
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import {
-  addNativeSegwitSignaturesToPSBT,
-  addTaprootInputSignaturesToPSBT,
+  addFundingSignaturesBasedOnPaymentType,
+  addTaprooMultisigInputSignaturesToPSBT,
   createDepositTransaction,
   createFundingTransaction,
   createWithdrawTransaction,
@@ -296,8 +297,10 @@ export class LedgerDLCHandler {
     customFeeRate?: bigint
   ): Promise<Psbt> {
     try {
-      const { fundingPayment, fundingDerivedPublicKey, taprootDerivedPublicKey, multisigPayment } =
-        await this.createPayment(vault.uuid, attestorGroupPublicKey);
+      const { fundingPayment, fundingDerivedPublicKey, multisigPayment } = await this.createPayment(
+        vault.uuid,
+        attestorGroupPublicKey
+      );
 
       const feeRate =
         customFeeRate ??
@@ -353,7 +356,6 @@ export class LedgerDLCHandler {
 
         await updateTaprootInputs(
           taprootInputsToSign,
-          taprootDerivedPublicKey,
           fundingDerivedPublicKey,
           this.masterFingerprint,
           formattedFundingPSBT
@@ -375,8 +377,10 @@ export class LedgerDLCHandler {
     customFeeRate?: bigint
   ): Promise<Psbt> {
     try {
-      const { fundingPayment, fundingDerivedPublicKey, taprootDerivedPublicKey, multisigPayment } =
-        await this.createPayment(vault.uuid, attestorGroupPublicKey);
+      const { fundingPayment, taprootDerivedPublicKey, multisigPayment } = await this.createPayment(
+        vault.uuid,
+        attestorGroupPublicKey
+      );
 
       const feeRate =
         customFeeRate ??
@@ -417,7 +421,6 @@ export class LedgerDLCHandler {
       await updateTaprootInputs(
         taprootInputsToSign,
         taprootDerivedPublicKey,
-        fundingDerivedPublicKey,
         this.masterFingerprint,
         formattedWithdrawPSBT
       );
@@ -474,23 +477,42 @@ export class LedgerDLCHandler {
     );
 
     const taprootInputsToSign = getTaprootInputsToSign(depositInputByPaymentTypeArray);
-    const nativeSegwitInputsToSign = getNativeSegwitInputsToSign(depositInputByPaymentTypeArray);
+
+    const taprootUserInputsToSign = taprootInputsToSign.filter(inputSigningConfig => {
+      return !inputSigningConfig.isMultisigInput;
+    });
+
+    const taprootMultisigInputsToSign = taprootInputsToSign.filter(inputSigningConfig => {
+      return inputSigningConfig.isMultisigInput;
+    });
 
     await updateTaprootInputs(
-      taprootInputsToSign,
+      taprootMultisigInputsToSign,
       taprootDerivedPublicKey,
-      fundingDerivedPublicKey,
       this.masterFingerprint,
       formattedDepositPSBT
     );
 
-    await updateNativeSegwitInputs(
-      nativeSegwitInputsToSign,
-      fundingDerivedPublicKey,
-      this.masterFingerprint,
-      formattedDepositPSBT,
-      this.bitcoinBlockchainAPI
-    );
+    if (taprootUserInputsToSign.length !== 0) {
+      await updateTaprootInputs(
+        taprootUserInputsToSign,
+        fundingDerivedPublicKey,
+        this.masterFingerprint,
+        formattedDepositPSBT
+      );
+    }
+
+    const nativeSegwitInputsToSign = getNativeSegwitInputsToSign(depositInputByPaymentTypeArray);
+
+    if (nativeSegwitInputsToSign.length !== 0) {
+      await updateNativeSegwitInputs(
+        nativeSegwitInputsToSign,
+        fundingDerivedPublicKey,
+        this.masterFingerprint,
+        formattedDepositPSBT,
+        this.bitcoinBlockchainAPI
+      );
+    }
 
     return formattedDepositPSBT;
   }
@@ -499,61 +521,59 @@ export class LedgerDLCHandler {
     psbt: Psbt,
     transactionType: 'funding' | 'deposit' | 'withdraw'
   ): Promise<Transaction> {
+    let transaction: Transaction;
+
     const { fundingWalletPolicy, multisigWalletPolicy, multisigWalletPolicyHMac } =
       this.getPolicyInformation();
-    if (transactionType === 'funding') {
-      const signatures = await this.ledgerApp.signPsbt(psbt.toBase64(), fundingWalletPolicy, null);
-      switch (this.fundingPaymentType) {
-        case 'wpkh':
-          addNativeSegwitSignaturesToPSBT(psbt, signatures);
-          break;
-        case 'tr':
-          addTaprootInputSignaturesToPSBT('funding', psbt, signatures);
-          break;
-        default:
-          throw new Error('Invalid Funding Payment Type');
-      }
-      const fundingTransaction = Transaction.fromPSBT(psbt.toBuffer());
-      fundingTransaction.finalize();
-      return fundingTransaction;
-    } else if (transactionType === 'deposit') {
-      const multisigSignatures = await this.ledgerApp.signPsbt(
-        psbt.toBase64(),
-        multisigWalletPolicy,
-        multisigWalletPolicyHMac
-      );
-      addTaprootInputSignaturesToPSBT('depositWithdraw', psbt, multisigSignatures);
-      const userSignatures = await this.ledgerApp.signPsbt(
-        psbt.toBase64(),
-        fundingWalletPolicy,
-        null
-      );
-      switch (this.fundingPaymentType) {
-        case 'wpkh':
-          addNativeSegwitSignaturesToPSBT(psbt, userSignatures);
-          break;
-        case 'tr':
-          addTaprootInputSignaturesToPSBT('funding', psbt, userSignatures);
-          break;
-        default:
-          throw new Error('Invalid Funding Payment Type');
-      }
-      const userInputIndices = userSignatures.map(signature => signature[0]);
 
-      const depositTransaction = Transaction.fromPSBT(psbt.toBuffer());
-      userInputIndices.forEach(index => {
-        depositTransaction.finalizeIdx(index);
-      });
-      return depositTransaction;
-    } else {
-      const multisigSignatures = await this.ledgerApp.signPsbt(
-        psbt.toBase64(),
-        multisigWalletPolicy,
-        multisigWalletPolicyHMac
-      );
-      addTaprootInputSignaturesToPSBT('depositWithdraw', psbt, multisigSignatures);
-      const withdrawTransaction = Transaction.fromPSBT(psbt.toBuffer());
-      return withdrawTransaction;
+    switch (transactionType) {
+      case 'funding':
+        addFundingSignaturesBasedOnPaymentType(
+          psbt,
+          this.fundingPaymentType,
+          await this.ledgerApp.signPsbt(psbt.toBase64(), fundingWalletPolicy, null)
+        );
+        transaction = Transaction.fromPSBT(psbt.toBuffer());
+        transaction.finalize();
+        break;
+      case 'deposit':
+        addTaprooMultisigInputSignaturesToPSBT(
+          psbt,
+          await this.ledgerApp.signPsbt(
+            psbt.toBase64(),
+            multisigWalletPolicy,
+            multisigWalletPolicyHMac
+          )
+        );
+
+        addFundingSignaturesBasedOnPaymentType(
+          psbt,
+          this.fundingPaymentType,
+          await this.ledgerApp.signPsbt(psbt.toBase64(), fundingWalletPolicy, null)
+        );
+
+        transaction = Transaction.fromPSBT(psbt.toBuffer());
+
+        getInputIndicesByScript(this.getPayment().fundingPayment.script, transaction).forEach(
+          index => {
+            transaction.finalizeIdx(index);
+          }
+        );
+        break;
+      case 'withdraw':
+        addTaprooMultisigInputSignaturesToPSBT(
+          psbt,
+          await this.ledgerApp.signPsbt(
+            psbt.toBase64(),
+            multisigWalletPolicy,
+            multisigWalletPolicyHMac
+          )
+        );
+        transaction = Transaction.fromPSBT(psbt.toBuffer());
+        break;
+      default:
+        throw new Error('Invalid Transaction Type');
     }
+    return transaction;
   }
 }
