@@ -328,7 +328,8 @@ export class LedgerDLCHandler {
         this.walletAccountIndex,
         this.walletAddressIndex,
         multisigPayment,
-        this.bitcoinNetwork
+        this.bitcoinNetwork,
+        this.bitcoinNetworkIndex
       );
 
       const formattedFundingPSBT = Psbt.fromBuffer(Buffer.from(fundingTransaction.toPSBT()), {
@@ -403,7 +404,8 @@ export class LedgerDLCHandler {
         this.walletAccountIndex,
         this.walletAddressIndex,
         multisigPayment,
-        this.bitcoinNetwork
+        this.bitcoinNetwork,
+        this.bitcoinNetworkIndex
       );
 
       const formattedWithdrawPSBT = Psbt.fromBuffer(Buffer.from(withdrawTransaction.toPSBT()), {
@@ -463,7 +465,8 @@ export class LedgerDLCHandler {
       this.walletAccountIndex,
       this.walletAddressIndex,
       multisigPayment,
-      this.bitcoinNetwork
+      this.bitcoinNetwork,
+      this.bitcoinNetworkIndex
     );
 
     const formattedDepositPSBT = Psbt.fromBuffer(Buffer.from(depositTransaction.toPSBT()), {

@@ -371,13 +371,12 @@ export function createBitcoinInputSigningConfiguration(
   walletAccountIndex: number,
   walletAddressIndex: number,
   multisigPayment: P2TROut,
-  bitcoinNetwork: Network
+  bitcoinNetwork: Network,
+  bitcoinNetworkIndex: number
 ): BitcoinInputSigningConfig[] {
-  const networkIndex = getBitcoinNetworkIndex(bitcoinNetwork);
-
-  const nativeSegwitDerivationPath = `m/84'/${networkIndex}'/${walletAccountIndex}'/0/${walletAddressIndex}`;
-  const taprootDerivationPath = `m/86'/${networkIndex}'/${walletAccountIndex}'/0/${walletAddressIndex}`;
-  const multisigDerivationPath = `m/86'/${networkIndex}'/${walletAccountIndex}'/0/0`;
+  const nativeSegwitDerivationPath = `m/84'/${bitcoinNetworkIndex}'/${walletAccountIndex}'/0/${walletAddressIndex}`;
+  const taprootDerivationPath = `m/86'/${bitcoinNetworkIndex}'/${walletAccountIndex}'/0/${walletAddressIndex}`;
+  const multisigDerivationPath = `m/86'/${bitcoinNetworkIndex}'/${walletAccountIndex}'/0/0`;
 
   const multisigPaymentScript = multisigPayment.script;
 
@@ -471,18 +470,6 @@ export function finalizeUserInputs(transaction: Transaction, userPayment: P2TROu
     if (inputScript && compareUint8Arrays(inputScript, userPayment.script))
       transaction.finalizeIdx(index);
   });
-}
-
-export function getBitcoinNetworkIndex(bitcoinNetwork: Network): number {
-  switch (bitcoinNetwork) {
-    case bitcoin:
-      return 0;
-    case testnet:
-    case regtest:
-      return 1;
-    default:
-      throw new Error('Unsupported Bitcoin Network');
-  }
 }
 
 /**
