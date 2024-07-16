@@ -51,9 +51,11 @@ export function getFeeAmount(bitcoinAmount: number, feeBasisPoints: number): num
  */
 export function deriveUnhardenedPublicKey(
   extendedPublicKey: string,
-  bitcoinNetwork: Network
+  bitcoinNetwork: Network,
+  addressIndex: number = 0
 ): Buffer {
-  return bip32.fromBase58(extendedPublicKey, bitcoinNetwork).derivePath('0/0').publicKey;
+  return bip32.fromBase58(extendedPublicKey, bitcoinNetwork).derivePath(`0/${addressIndex}`)
+    .publicKey;
 }
 
 /**
@@ -367,31 +369,49 @@ function getAddressFromOutScript(script: Uint8Array, bitcoinNetwork: Network): s
 export function createBitcoinInputSigningConfiguration(
   transaction: Transaction,
   walletAccountIndex: number,
-  bitcoinNetwork: Network
+  walletAddressIndex: number,
+  multisigPayment: P2TROut,
+  bitcoinNetwork: Network,
+  bitcoinNetworkIndex: number
 ): BitcoinInputSigningConfig[] {
-  const networkIndex = bitcoinNetwork === bitcoin ? 0 : 1;
+  const nativeSegwitDerivationPath = `m/84'/${bitcoinNetworkIndex}'/${walletAccountIndex}'/0/${walletAddressIndex}`;
+  const taprootDerivationPath = `m/86'/${bitcoinNetworkIndex}'/${walletAccountIndex}'/0/${walletAddressIndex}`;
+  const multisigDerivationPath = `m/86'/${bitcoinNetworkIndex}'/${walletAccountIndex}'/0/0`;
 
-  const nativeSegwitDerivationPath = `m/84'/${networkIndex}'/${walletAccountIndex}'/0/0`;
-  const taprootDerivationPath = `m/86'/${networkIndex}'/${walletAccountIndex}'/0/0`;
+  const multisigPaymentScript = multisigPayment.script;
 
-  const indexesToSign = createRangeFromLength(transaction.inputsLength);
-  return indexesToSign.map(inputIndex => {
+  return createRangeFromLength(transaction.inputsLength).map(inputIndex => {
     const input = transaction.getInput(inputIndex);
 
     if (isUndefined(input.index)) throw new Error('Input must have an index for payment type');
+
     const paymentType = getInputPaymentType(input.index, input, bitcoinNetwork);
+
+    const witnessUTXOScript = input.witnessUtxo?.script;
+
+    if (isUndefined(witnessUTXOScript)) throw new Error('Witness UTXO Script is undefined');
 
     switch (paymentType) {
       case 'p2wpkh':
         return {
           index: inputIndex,
           derivationPath: nativeSegwitDerivationPath,
+          isMultisigInput: false,
         };
       case 'p2tr':
-        return {
-          index: inputIndex,
-          derivationPath: taprootDerivationPath,
-        };
+        if (compareUint8Arrays(witnessUTXOScript, multisigPaymentScript)) {
+          return {
+            index: inputIndex,
+            derivationPath: multisigDerivationPath,
+            isMultisigInput: true,
+          };
+        } else {
+          return {
+            index: inputIndex,
+            derivationPath: taprootDerivationPath,
+            isMultisigInput: false,
+          };
+        }
       default:
         throw new Error('Unsupported Payment Type');
     }

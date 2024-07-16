@@ -414,7 +414,7 @@ export async function updateTaprootInputs(
   taprootPublicKey: Buffer,
   masterFingerprint: string,
   psbt: Psbt
-): Promise<Psbt> {
+): Promise<void> {
   inputsToUpdate.forEach(({ index, derivationPath }) => {
     psbt.updateInput(index, {
       tapBip32Derivation: [
@@ -427,8 +427,6 @@ export async function updateTaprootInputs(
       ],
     });
   });
-
-  return psbt;
 }
 
 /**
@@ -489,7 +487,7 @@ async function addNativeSegwitBip32Derivation(
   masterFingerPrint: string,
   nativeSegwitPublicKey: Buffer,
   inputSigningConfiguration: BitcoinInputSigningConfig[]
-): Promise<Psbt> {
+): Promise<void> {
   inputSigningConfiguration.forEach(({ index, derivationPath }) => {
     psbt.updateInput(index, {
       bip32Derivation: [
@@ -501,8 +499,6 @@ async function addNativeSegwitBip32Derivation(
       ],
     });
   });
-
-  return psbt;
 }
 
 /**
@@ -525,25 +521,50 @@ export function addNativeSegwitSignaturesToPSBT(
  * @returns The updated PSBT.
  */
 export function addTaprootInputSignaturesToPSBT(
-  psbtType: 'funding' | 'depositWithdraw',
   psbt: Psbt,
   signatures: [number, PartialSignature][]
 ): void {
-  if (psbtType === 'funding') {
-    signatures.forEach(([index, signature]) =>
-      psbt.updateInput(index, { tapKeySig: signature.signature })
-    );
-  } else {
-    signatures.forEach(([index, signature]) =>
-      psbt.updateInput(index, {
-        tapScriptSig: [
-          {
-            signature: signature.signature,
-            pubkey: signature.pubkey,
-            leafHash: signature.tapleafHash!,
-          },
-        ],
-      })
-    );
+  signatures.forEach(([index, signature]) =>
+    psbt.updateInput(index, { tapKeySig: signature.signature })
+  );
+}
+
+export function addFundingSignaturesBasedOnPaymentType(
+  psbt: Psbt,
+  paymentType: 'wpkh' | 'tr',
+  signatures: [number, PartialSignature][]
+): void {
+  switch (paymentType) {
+    case 'wpkh':
+      addNativeSegwitSignaturesToPSBT(psbt, signatures);
+      break;
+    case 'tr':
+      addTaprootInputSignaturesToPSBT(psbt, signatures);
+      break;
+    default:
+      throw new Error('Invalid Funding Payment Type');
   }
+}
+
+/**
+ * This function updates the PSBT with the received Taproot Partial Signatures.
+ * @param psbt - The PSBT to update.
+ * @param signatures - An array of tuples containing the index of the input and the PartialSignature.
+ * @returns The updated PSBT.
+ */
+export function addTaprooMultisigInputSignaturesToPSBT(
+  psbt: Psbt,
+  signatures: [number, PartialSignature][]
+): void {
+  signatures.forEach(([index, signature]) =>
+    psbt.updateInput(index, {
+      tapScriptSig: [
+        {
+          signature: signature.signature,
+          pubkey: signature.pubkey,
+          leafHash: signature.tapleafHash!,
+        },
+      ],
+    })
+  );
 }
