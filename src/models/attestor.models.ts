@@ -1,4 +1,9 @@
-export type AttestorChainID = 'evm-arbitrum' | 'evm-arbsepolia' | 'evm-localhost';
+export type AttestorChainID =
+  | 'evm-arbitrum'
+  | 'evm-arbsepolia'
+  | 'evm-localhost'
+  | 'evm-hardhat-arb'
+  | 'evm-hardhat-eth';
 
 export interface FundingTXAttestorInfo {
   vaultUUID: string;
