@@ -15,5 +15,5 @@ export interface FundingTXAttestorInfo {
 
 export interface WithdrawDepositTXAttestorInfo {
   vaultUUID: string;
-  depositWithdrawPSBT: string;
+  withdrawDepositPSBT: string;
 }
