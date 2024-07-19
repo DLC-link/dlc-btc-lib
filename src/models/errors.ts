@@ -5,6 +5,13 @@ export class EthereumError extends Error {
   }
 }
 
+export class EthereumHandlerError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EthereumHandlerError';
+  }
+}
+
 export class BitcoinError extends Error {
   constructor(message: string) {
     super(message);
