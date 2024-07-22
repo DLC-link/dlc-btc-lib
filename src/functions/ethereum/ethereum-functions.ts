@@ -129,25 +129,6 @@ export function getEthereumContracts(
   return { dlcManagerContract, dlcBTCContract };
 }
 
-export function getReadOnlyEthereumContracts(
-  ethereumDeploymentPlans: EthereumDeploymentPlan[],
-  readOnlyProvider: providers.JsonRpcProvider
-): { protocolContract: Contract; dlcManagerContract: Contract; dlcBTCContract: Contract } {
-  const protocolContract = getEthereumContract(
-    ethereumDeploymentPlans,
-    'TokenManager',
-    readOnlyProvider
-  );
-  const dlcManagerContract = getEthereumContract(
-    ethereumDeploymentPlans,
-    'DLCManager',
-    readOnlyProvider
-  );
-  const dlcBTCContract = getEthereumContract(ethereumDeploymentPlans, 'DLCBTC', readOnlyProvider);
-
-  return { protocolContract, dlcManagerContract, dlcBTCContract };
-}
-
 export async function getLockedBTCBalance(userVaults: RawVault[]): Promise<number> {
   try {
     const fundedVaults = userVaults.filter(vault => vault.status === VaultState.FUNDED);
