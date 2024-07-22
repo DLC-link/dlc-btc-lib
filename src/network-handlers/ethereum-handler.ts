@@ -1,13 +1,24 @@
-import { Event, Wallet, providers } from 'ethers';
+import { Wallet, providers } from 'ethers';
 
-import { getEthereumContracts, getProvider } from '../functions/ethereum/ethereum-functions.js';
-import { EthereumError } from '../models/errors.js';
 import {
-  DLCEthereumContractName,
+  getAddressDLCBTCBalance,
+  getAllAddressVaults,
+  getAttestorGroupPublicKey,
+  getDLCBTCTotalSupply,
+  getEthereumContracts,
+  getLockedBTCBalance,
+  getProvider,
+  getRawVault,
+  isUserWhitelisted,
+  isWhitelistingEnabled,
+  setupVault,
+  withdraw,
+} from '../functions/ethereum/ethereum-functions.js';
+import { EthereumError, EthereumHandlerError } from '../models/errors.js';
+import {
   DLCEthereumContracts,
   EthereumDeploymentPlan,
   RawVault,
-  VaultState,
 } from '../models/ethereum-models.js';
 
 export class EthereumHandler {
@@ -40,126 +51,97 @@ export class EthereumHandler {
     return this.ethereumContracts;
   }
 
-  async getAllVaults(): Promise<RawVault[]> {
+  async getAllUserVaults(): Promise<RawVault[]> {
     try {
       const userAddress = await this.ethereumContracts.dlcManagerContract.signer.getAddress();
-      return await this.ethereumContracts.dlcManagerContract.getAllVaultsForAddress(userAddress);
+      return await getAllAddressVaults(this.ethereumContracts.dlcManagerContract, userAddress);
     } catch (error) {
-      throw new EthereumError(`Could not fetch Vaults: ${error}`);
+      throw new EthereumHandlerError(`Could not fetch all User Vaults: ${error}`);
     }
   }
 
   async getRawVault(vaultUUID: string): Promise<RawVault> {
-    const vault: RawVault = await this.ethereumContracts.dlcManagerContract.getVault(vaultUUID);
-    if (!vault) throw new Error('Vault not found');
-    return vault;
+    try {
+      return await getRawVault(this.ethereumContracts.dlcManagerContract, vaultUUID);
+    } catch (error) {
+      throw new EthereumHandlerError(`Could not fetch User Vault: ${error}`);
+    }
   }
 
   async setupVault(): Promise<any | undefined> {
     try {
-      await this.ethereumContracts.dlcManagerContract.callStatic.setupVault();
-      const transaction = await this.ethereumContracts.dlcManagerContract.setupVault();
-      return await transaction.wait();
-    } catch (error: any) {
-      throw new EthereumError(`Could not setup Vault: ${error}`);
+      return await setupVault(this.ethereumContracts.dlcManagerContract);
+    } catch (error) {
+      throw new EthereumHandlerError(`Could not setup Vault for User: ${error}`);
     }
   }
 
-  async withdraw(vaultUUID: string, amount: bigint) {
+  async withdraw(vaultUUID: string, withdrawAmount: bigint) {
     try {
-      await this.ethereumContracts.dlcManagerContract.callStatic.withdraw(vaultUUID, amount);
-      const transaction = await this.ethereumContracts.dlcManagerContract.withdraw(
-        vaultUUID,
-        amount
-      );
-      return await transaction.wait();
-    } catch (error: any) {
-      throw new EthereumError(`Unable to perform withdraw: ${error}`);
+      return await withdraw(this.ethereumContracts.dlcManagerContract, vaultUUID, withdrawAmount);
+    } catch (error) {
+      throw new EthereumHandlerError(`Unable to perform Withdraw for User: ${error}`);
     }
   }
 
-  async closeVault(vaultUUID: string) {
-    try {
-      await this.ethereumContracts.dlcManagerContract.callStatic.closeVault(vaultUUID);
-      const transaction = await this.ethereumContracts.dlcManagerContract.closeVault(vaultUUID);
-      return await transaction.wait();
-    } catch (error: any) {
-      throw new EthereumError(`Could not close Vault: ${error}`);
-    }
-  }
-
-  async getDLCBTCBalance(): Promise<number | undefined> {
+  async getUserDLCBTCBalance(): Promise<number | undefined> {
     try {
       const userAddress = await this.ethereumContracts.dlcManagerContract.signer.getAddress();
-      const balance = await this.ethereumContracts.dlcBTCContract.balanceOf(userAddress);
-      return balance.toNumber();
+      return await getAddressDLCBTCBalance(this.ethereumContracts.dlcBTCContract, userAddress);
     } catch (error) {
-      throw new EthereumError(`Could not fetch dlcBTC balance: ${error}`);
+      throw new EthereumHandlerError(`Could not fetch User's dlcBTC balance: ${error}`);
+    }
+  }
+
+  async getDLCBTCTotalSupply(): Promise<number> {
+    try {
+      return await getDLCBTCTotalSupply(this.ethereumContracts.dlcBTCContract);
+    } catch (error) {
+      throw new EthereumHandlerError(`Could not fetch Total Supply of dlcBTC: ${error}`);
+    }
+  }
+
+  async getLockedBTCBalance(userVaults?: RawVault[]): Promise<number> {
+    try {
+      if (!userVaults) {
+        userVaults = await this.getAllUserVaults();
+      }
+      return await getLockedBTCBalance(userVaults);
+    } catch (error) {
+      throw new EthereumHandlerError(`Could not fetch Total Supply of Locked dlcBTC: ${error}`);
     }
   }
 
   async getAttestorGroupPublicKey(): Promise<string> {
     try {
-      const attestorGroupPubKey =
-        await this.ethereumContracts.dlcManagerContract.attestorGroupPubKey();
-      if (!attestorGroupPubKey) throw new Error('Could not get Attestor Group Public Key');
-      return attestorGroupPubKey;
+      return getAttestorGroupPublicKey(this.ethereumContracts.dlcManagerContract);
     } catch (error) {
-      throw new EthereumError(`Could not fetch Attestor Public Key: ${error}`);
+      throw new EthereumHandlerError(`Could not fetch Attestor Public Key: ${error}`);
     }
   }
 
-  async getContractTransferEvents(contractName: DLCEthereumContractName): Promise<Event[]> {
+  async isWhiteLisingEnabled(): Promise<boolean> {
     try {
-      switch (contractName) {
-        case 'DLCBTC':
-          return await this.ethereumContracts.dlcBTCContract.queryFilter(
-            this.ethereumContracts.dlcBTCContract.filters.Transfer()
-          );
-        case 'DLCManager':
-          return await this.ethereumContracts.dlcManagerContract.queryFilter(
-            this.ethereumContracts.dlcManagerContract.filters.Transfer()
-          );
-        default:
-          throw new Error('Invalid Contract Name');
-      }
-    } catch (error: any) {
-      throw new EthereumError(`Could not fetch Transfer Events: ${error}`);
-    }
-  }
-
-  async getContractTotalSupply(): Promise<number> {
-    try {
-      return await this.ethereumContracts.dlcBTCContract.totalSupply().toNumber();
-    } catch (error: any) {
-      throw new EthereumError(`Could not fetch Total Supply: ${error}`);
-    }
-  }
-
-  async getContractFundedVaults(amount: number = 50): Promise<RawVault[]> {
-    try {
-      let totalFetched = 0;
-      const fundedVaults: RawVault[] = [];
-
-      let shouldContinue = true;
-      while (shouldContinue) {
-        const fetchedVaults: RawVault[] =
-          await this.ethereumContracts.dlcManagerContract.getAllDLCs(
-            totalFetched,
-            totalFetched + amount
-          );
-        const filteredVaults = fetchedVaults.filter(vault => vault.status === VaultState.FUNDED);
-        fundedVaults.push(...filteredVaults);
-
-        totalFetched += amount;
-        shouldContinue = fetchedVaults.length === amount;
-      }
-
-      return fundedVaults;
+      return await isWhitelistingEnabled(this.ethereumContracts.dlcManagerContract);
     } catch (error) {
-      throw new EthereumError(
-        `Could not fetch Funded Vaults: ${error instanceof Error ? error.message : error}`
-      );
+      throw new EthereumHandlerError(`Could not fetch Whitelisting Status: ${error}`);
+    }
+  }
+
+  async isUserWhitelisted(): Promise<boolean> {
+    try {
+      const userAddress = await this.ethereumContracts.dlcManagerContract.signer.getAddress();
+      return await isUserWhitelisted(this.ethereumContracts.dlcManagerContract, userAddress);
+    } catch (error) {
+      throw new EthereumHandlerError(`Could not fetch User Whitelisting Status: ${error}`);
+    }
+  }
+
+  async getContractVaults(amount: number = 50): Promise<RawVault[]> {
+    try {
+      return await this.getContractVaults(amount);
+    } catch (error) {
+      throw new EthereumError(`Could not fetch All Vaults: ${error}`);
     }
   }
 }

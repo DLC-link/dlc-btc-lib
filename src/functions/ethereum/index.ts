@@ -1,6 +1,1 @@
-import {
-  fetchEthereumDeploymentPlan,
-  fetchEthereumDeploymentPlansByNetwork,
-} from '../ethereum/ethereum-functions.js';
-
-export { fetchEthereumDeploymentPlan, fetchEthereumDeploymentPlansByNetwork };
+export * from './ethereum-functions.js';

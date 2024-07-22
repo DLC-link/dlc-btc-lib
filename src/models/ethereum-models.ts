@@ -10,6 +10,7 @@ export interface EthereumNetwork {
 export enum EthereumNetworkID {
   ArbitrumSepolia = '421614',
   Arbitrum = '42161',
+  Hardhat = '31337',
 }
 
 export enum VaultState {
@@ -49,6 +50,14 @@ export interface EthereumDeploymentPlan {
   updatedAt: string;
   gitSHA: string;
   contract: EthereumContract;
+}
+
+export interface DetailedEvent {
+  from: string;
+  to: string;
+  value: number;
+  timestamp: number;
+  txHash: string;
 }
 
 export interface DLCEthereumContracts {
