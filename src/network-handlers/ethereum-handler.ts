@@ -4,6 +4,7 @@ import {
   getAddressDLCBTCBalance,
   getAllAddressVaults,
   getAttestorGroupPublicKey,
+  getContractVaults,
   getDLCBTCTotalSupply,
   getEthereumContracts,
   getLockedBTCBalance,
@@ -139,7 +140,7 @@ export class EthereumHandler {
 
   async getContractVaults(amount: number = 50): Promise<RawVault[]> {
     try {
-      return await this.getContractVaults(amount);
+      return await getContractVaults(this.ethereumContracts.dlcManagerContract, amount);
     } catch (error) {
       throw new EthereumError(`Could not fetch All Vaults: ${error}`);
     }
