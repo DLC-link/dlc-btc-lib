@@ -1098,3 +1098,221 @@ export const TEST_TESTNET_FUNDING_TRANSACTION_3: BitcoinTransaction = {
     block_time: 1720620175,
   },
 };
+
+export const TEST_REGTEST_FUNDING_TRANSACTION_1: BitcoinTransaction = {
+  txid: 'e0e1ddc044ba87ad769039f7af507556724defe4576c872dd1271e5740422e37',
+  version: 2,
+  locktime: 0,
+  vin: [
+    {
+      txid: '1b78a88cea3871f0404eae7f94789d3fde0828d73f91ec68fb85d8b0f940650d',
+      vout: 2,
+      prevout: {
+        scriptpubkey: '0014b500f5f6ce6b3aa7f5a871c49ab08ff38b451501',
+        scriptpubkey_asm: 'OP_0 OP_PUSHBYTES_20 b500f5f6ce6b3aa7f5a871c49ab08ff38b451501',
+        scriptpubkey_type: 'v0_p2wpkh',
+        scriptpubkey_address: 'bcrt1qk5q0takwdva20adgw8zf4vy07w9529gpfkrv6v',
+        value: 21848076,
+      },
+      scriptsig: '',
+      scriptsig_asm: '',
+      witness: [
+        '3044022059f91dfec1d446de68d16b3841158fe059409feec8e5871a4251b93fc94f10e102202dfd021e88f96454eb472850a41464bcbb50ce7c6f7a831f196ecf043f342abc01',
+        '02ab6fdbc88fb3d52dc83e5e92f27d26bfc3d161d24b50fa299f3c571f0d5a3220',
+      ],
+      is_coinbase: false,
+      sequence: 4294967280,
+    },
+  ],
+  vout: [
+    {
+      scriptpubkey: '5120742398e7f09cf7e3516d9ddee465f51f5945efed82df5ee0491da2b900db4d63',
+      scriptpubkey_asm:
+        'OP_PUSHNUM_1 OP_PUSHBYTES_32 742398e7f09cf7e3516d9ddee465f51f5945efed82df5ee0491da2b900db4d63',
+      scriptpubkey_type: 'v1_p2tr',
+      scriptpubkey_address: 'bcrt1pws3e3elsnnm7x5tdnh0wge04rav5tmldst04aczfrk3tjqxmf43sq7ep3c',
+      value: 5000000,
+    },
+    {
+      scriptpubkey: '0014622c23eebbf46df254d7da8e1c4d95d4f5c7d69f',
+      scriptpubkey_asm: 'OP_0 OP_PUSHBYTES_20 622c23eebbf46df254d7da8e1c4d95d4f5c7d69f',
+      scriptpubkey_type: 'v0_p2wpkh',
+      scriptpubkey_address: 'bcrt1qvgkz8m4m73kly4xhm28pcnv46n6u045lfq9ta3',
+      value: 6000,
+    },
+    {
+      scriptpubkey: '0014b500f5f6ce6b3aa7f5a871c49ab08ff38b451501',
+      scriptpubkey_asm: 'OP_0 OP_PUSHBYTES_20 b500f5f6ce6b3aa7f5a871c49ab08ff38b451501',
+      scriptpubkey_type: 'v0_p2wpkh',
+      scriptpubkey_address: 'bcrt1qk5q0takwdva20adgw8zf4vy07w9529gpfkrv6v',
+      value: 16841708,
+    },
+  ],
+  size: 265,
+  weight: 733,
+  fee: 368,
+  status: {
+    confirmed: true,
+    block_height: 425893,
+    block_hash: '4c08cbb2509350b5673ebf0baed1f4b501ee8f61436e9e3ddf153a0250e2614a',
+    block_time: 1722953216,
+  },
+};
+
+export const TEST_ALICE_UTXOS_REGTEST_1 = [
+  {
+    type: 'wpkh',
+    script: Uint8Array.from([
+      0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+      21, 1,
+    ]),
+    address: 'bcrt1qk5q0takwdva20adgw8zf4vy07w9529gpfkrv6v',
+    txid: '9d019c793eab883ffdc4f897e2103c325b83a597ebcd131a411d56e757b85287',
+    index: 2,
+    value: 987654,
+    witnessUtxo: {
+      script: Uint8Array.from([
+        0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+        21, 1,
+      ]),
+      amount: 987654n,
+    },
+    redeemScript: undefined,
+  },
+  {
+    type: 'wpkh',
+    script: Uint8Array.from([
+      0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+      21, 1,
+    ]),
+    address: 'bcrt1qk5q0takwdva20adgw8zf4vy07w9529gpfkrv6v',
+    txid: '7ba3319248110169f45e7ae9015826f342f9f32ccf1354c4c0806e74555367d8',
+    index: 2,
+    value: 2963654,
+    witnessUtxo: {
+      script: Uint8Array.from([
+        0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+        21, 1,
+      ]),
+      amount: 2963654n,
+    },
+    redeemScript: undefined,
+  },
+  {
+    type: 'wpkh',
+    script: Uint8Array.from([
+      0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+      21, 1,
+    ]),
+    address: 'bcrt1qk5q0takwdva20adgw8zf4vy07w9529gpfkrv6v',
+    txid: 'e3bf8b78346265ab3a69329fb006a0febdf1e75682d2c9321ee546174765e804',
+    index: 2,
+    value: 987654,
+    witnessUtxo: {
+      script: Uint8Array.from([
+        0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+        21, 1,
+      ]),
+      amount: 987654n,
+    },
+    redeemScript: undefined,
+  },
+  {
+    type: 'wpkh',
+    script: Uint8Array.from([
+      0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+      21, 1,
+    ]),
+    address: 'bcrt1qk5q0takwdva20adgw8zf4vy07w9529gpfkrv6v',
+    txid: '8c741d8fae3b71ee27fb19e86ed066673090726da4d5972d4b5119e548fb94a0',
+    index: 2,
+    value: 987654,
+    witnessUtxo: {
+      script: Uint8Array.from([
+        0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+        21, 1,
+      ]),
+      amount: 987654n,
+    },
+    redeemScript: undefined,
+  },
+  {
+    type: 'wpkh',
+    script: Uint8Array.from([
+      0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+      21, 1,
+    ]),
+    address: 'bcrt1qk5q0takwdva20adgw8zf4vy07w9529gpfkrv6v',
+    txid: 'deaeafeadc87e0277e07ccecc733a3524515b1aa412de3f418d9976ba70ef450',
+    index: 1,
+    value: 987740,
+    witnessUtxo: {
+      script: Uint8Array.from([
+        0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+        21, 1,
+      ]),
+      amount: 987740n,
+    },
+    redeemScript: undefined,
+  },
+  {
+    type: 'wpkh',
+    script: Uint8Array.from([
+      0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+      21, 1,
+    ]),
+    address: 'bcrt1qk5q0takwdva20adgw8zf4vy07w9529gpfkrv6v',
+    txid: 'e0e1ddc044ba87ad769039f7af507556724defe4576c872dd1271e5740422e37',
+    index: 2,
+    value: 16841708,
+    witnessUtxo: {
+      script: Uint8Array.from([
+        0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+        21, 1,
+      ]),
+      amount: 16841708n,
+    },
+    redeemScript: undefined,
+  },
+  {
+    type: 'wpkh',
+    script: Uint8Array.from([
+      0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+      21, 1,
+    ]),
+    address: 'bcrt1qk5q0takwdva20adgw8zf4vy07w9529gpfkrv6v',
+    txid: '48893733ae068391cfcf688a345a152595b63ac56f5b8c3228bb1f0adf8e0591',
+    index: 2,
+    value: 987654,
+    witnessUtxo: {
+      script: Uint8Array.from([
+        0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+        21, 1,
+      ]),
+      amount: 987654n,
+    },
+    redeemScript: undefined,
+  },
+];
+
+export const TEST_ALICE_UTXOS_REGTEST_2 = [
+  {
+    type: 'wpkh',
+    script: Uint8Array.from([
+      0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+      21, 1,
+    ]),
+    address: 'bcrt1qk5q0takwdva20adgw8zf4vy07w9529gpfkrv6v',
+    txid: '9d019c793eab883ffdc4f897e2103c325b83a597ebcd131a411d56e757b85287',
+    index: 2,
+    value: 500000,
+    witnessUtxo: {
+      script: Uint8Array.from([
+        0, 20, 181, 0, 245, 246, 206, 107, 58, 167, 245, 168, 113, 196, 154, 176, 143, 243, 139, 69,
+        21, 1,
+      ]),
+      amount: 500000n,
+    },
+    redeemScript: undefined,
+  },
+];
