@@ -70,6 +70,7 @@ export async function createFundingTransaction(
     bip69: false,
     createTx: true,
     network: bitcoinNetwork,
+    dust: 546n as unknown as number,
   });
 
   if (!selected) {
@@ -165,6 +166,7 @@ export async function createDepositTransaction(
     bip69: false,
     createTx: false,
     network: bitcoinNetwork,
+    dust: 546n as unknown as number,
   });
 
   if (!additionalDepositSelected) {
@@ -213,6 +215,7 @@ export async function createDepositTransaction(
     bip69: false,
     createTx: true,
     network: bitcoinNetwork,
+    dust: 546n as unknown as number,
   });
 
   if (!depositSelected) {
@@ -330,6 +333,7 @@ export async function createWithdrawTransaction(
     bip69: false,
     createTx: true,
     network: bitcoinNetwork,
+    dust: 546n as unknown as number,
   });
 
   if (!selected) {
