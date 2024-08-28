@@ -35,3 +35,20 @@ export const TEST_VAULT_2: RawVault = {
   btcRedeemFeeBasisPoints: BigNumber.from('0x64'),
   taprootPubKey: 'dc544c17af0887dfc8ca9936755c9fdef0c79bbc8866cd69bf120c71509742d2',
 };
+
+export const TEST_VAULT_3: RawVault = {
+  uuid: '0x493ec75561131a09b06a9ab53cb1a5a35b55760b1db8ef4f62bc00066f043038',
+  protocolContract: '0x2940FcBb3C32901Df405da0E96fd97D1E2a53f34',
+  timestamp: BigNumber.from('0x66508949'),
+  valueLocked: BigNumber.from(0),
+  valueMinted: BigNumber.from(0),
+  creator: '0x0DD4f29E21F10cb2E485cf9bDAb9F2dD1f240Bfa',
+  status: 3,
+  fundingTxId: '2a220f043ff34cfca57d910209fa676c82220a817da5ebf09f145cc012d8a85c',
+  closingTxId: '',
+  wdTxId: '',
+  btcFeeRecipient: '021b34f36d8487ce3a7a6f0124f58854d561cb52077593d1e86973fac0fea1a8b1',
+  btcMintFeeBasisPoints: BigNumber.from('0x64'),
+  btcRedeemFeeBasisPoints: BigNumber.from('0x64'),
+  taprootPubKey: 'b362931e3e4cf3cc20f75ae11ff5a4c115ec1548cb5f2c7c48294929f1e8979c',
+};

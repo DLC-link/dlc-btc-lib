@@ -1,5 +1,6 @@
 export const TEST_REGTEST_BITCOIN_BLOCKCHAIN_API = 'https://devnet.dlc.link/electrs';
 export const TEST_TESTNET_BITCOIN_BLOCKCHAIN_API = 'https://testnet.dlc.link/electrs';
+export const TEST_MAINNET_BITCOIN_BLOCKCHAIN_API = 'https://mainnet.dlc.link/electrs';
 
 export const TEST_BITCOIN_BLOCKCHAIN_FEE_RECOMMENDATION_API =
   'https://devnet.dlc.link/electrs/fee-estimates';

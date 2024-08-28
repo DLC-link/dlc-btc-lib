@@ -4,6 +4,34 @@ import {
   EthereumNetworkID,
 } from '../models/ethereum-models.js';
 
+export const ethereumMainnet: EthereumNetwork = {
+  name: 'Mainnet',
+  displayName: 'Mainnet',
+  id: EthereumNetworkID.Mainnet,
+  defaultNodeURL: 'https://cloudflare-eth.com',
+};
+
+export const ethereumSepolia: EthereumNetwork = {
+  name: 'Sepolia',
+  displayName: 'Sepolia',
+  id: EthereumNetworkID.Sepolia,
+  defaultNodeURL: 'https://rpc.sepolia.org',
+};
+
+export const ethereumBase: EthereumNetwork = {
+  name: 'Base',
+  displayName: 'Base',
+  id: EthereumNetworkID.Base,
+  defaultNodeURL: 'https://mainnet.base.org',
+};
+
+export const ethereumBaseSepolia: EthereumNetwork = {
+  name: 'BaseSepolia',
+  displayName: 'Base Sepolia',
+  id: EthereumNetworkID.BaseSepolia,
+  defaultNodeURL: 'https://sepolia.base.org',
+};
+
 export const ethereumArbitrumSepolia: EthereumNetwork = {
   name: 'ArbSepolia',
   displayName: 'Arbitrum Sepolia',
@@ -28,56 +56,12 @@ const ethereumHardhat: EthereumNetwork = {
 export const supportedEthereumNetworks: EthereumNetwork[] = [
   ethereumArbitrumSepolia,
   ethereumArbitrum,
+  ethereumMainnet,
+  ethereumSepolia,
+  ethereumBase,
+  ethereumBaseSepolia,
   ethereumHardhat,
 ];
-
-export const hexChainIDs: { [key in EthereumNetworkID]: string } = {
-  [EthereumNetworkID.ArbitrumSepolia]: '0x66eee',
-  [EthereumNetworkID.Arbitrum]: '0xa4b1',
-  [EthereumNetworkID.Hardhat]: '0x7a69',
-};
-
-export const addNetworkParams = {
-  [EthereumNetworkID.ArbitrumSepolia]: [
-    {
-      chainId: '0x66eee',
-      rpcUrls: ['https://sepolia-rollup.arbitrum.io/rpc', 'https://arb-sepolia.infura.io/v3/'],
-      chainName: 'Arbitrum Sepolia Testnet',
-      nativeCurrency: {
-        name: 'ETH',
-        symbol: 'ETH',
-        decimals: 18,
-      },
-      blockExplorerUrls: ['https://sepolia.arbiscan.io/'],
-    },
-  ],
-  [EthereumNetworkID.Arbitrum]: [
-    {
-      chainId: '42161',
-      rpcUrls: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum-mainnet.infura.io'],
-      chainName: 'Arbitrum One',
-      nativeCurrency: {
-        name: 'ETH',
-        symbol: 'ETH',
-        decimals: 18,
-      },
-      blockExplorerUrls: ['https://arbiscan.io/'],
-    },
-  ],
-  [EthereumNetworkID.Hardhat]: [
-    {
-      chainId: '31337',
-      rpcUrls: ['http://localhost:8545'],
-      chainName: 'Hardhat',
-      nativeCurrency: {
-        name: 'ETH',
-        symbol: 'ETH',
-        decimals: 18,
-      },
-      blockExplorerUrls: [],
-    },
-  ],
-};
 
 export const GITHUB_SOLIDITY_URL = 'https://raw.githubusercontent.com/DLC-link/dlc-solidity';
 

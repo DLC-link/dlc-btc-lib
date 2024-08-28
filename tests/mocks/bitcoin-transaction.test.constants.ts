@@ -1159,6 +1159,62 @@ export const TEST_REGTEST_FUNDING_TRANSACTION_1: BitcoinTransaction = {
   },
 };
 
+// This transaction is missing the output with the multisig's script.
+export const TEST_MAINNET_FUNDING_TRANSACTION_1: BitcoinTransaction = {
+  txid: '2a220f043ff34cfca57d910209fa676c82220a817da5ebf09f145cc012d8a85c',
+  version: 2,
+  locktime: 0,
+  vin: [
+    {
+      txid: '2e9d09f8304b6bdf635adeef799fb9f4e2434bca508eecb35adb41480e24aec3',
+      vout: 0,
+      prevout: {
+        scriptpubkey: '5120ec1354cc8defd6ced2fed85e6921473f7d9e6157974a29d6156ae71d83bf8266',
+        scriptpubkey_asm:
+          'OP_PUSHNUM_1 OP_PUSHBYTES_32 ec1354cc8defd6ced2fed85e6921473f7d9e6157974a29d6156ae71d83bf8266',
+        scriptpubkey_type: 'v1_p2tr',
+        scriptpubkey_address: 'bc1pasf4fnydaltva5h7mp0xjg288a7euc2hja9zn4s4dtn3mqalsfnqckzx6z',
+        value: 1000000,
+      },
+      scriptsig: '',
+      scriptsig_asm: '',
+      witness: [
+        '3dd16b2aa465cfef33fd82d02ca2d21dd095b1ada92b36ce8042faed22eaaf1495304344ed40a1ada5e79845b16fee867b4e104fb820eaefd9dfec7e20ec8e07',
+        'f4f3648bff8c887b18c586fdb5642ddde361cec802498c25a8d86d510c721ec30a515c87bbfc72f2ef6c9c5e60cc261a458276558c226a133c9311ddf54960cb',
+        '20b362931e3e4cf3cc20f75ae11ff5a4c115ec1548cb5f2c7c48294929f1e8979cad20fc36ff16e336657e6ab87bf5ad19ce538ca94e0a52e12a9fd9b65291d296866cac',
+        'c15d741aac77028f6c72167559fe4f8b2ba34b1078648dd621b31411ca2178227f',
+      ],
+      is_coinbase: false,
+      sequence: 4294967295,
+    },
+  ],
+  vout: [
+    {
+      scriptpubkey: '00142d2d0c13815a141129c9df2ab9b68344398de74b',
+      scriptpubkey_asm: 'OP_0 OP_PUSHBYTES_20 2d2d0c13815a141129c9df2ab9b68344398de74b',
+      scriptpubkey_type: 'v0_p2wpkh',
+      scriptpubkey_address: 'bc1q95kscyuptg2pz2wfmu4tnd5rgsucme6tpx900g',
+      value: 10000,
+    },
+    {
+      scriptpubkey: '001405b8d44eb1d67d47192c6168a24cb4e5b5a7b438',
+      scriptpubkey_asm: 'OP_0 OP_PUSHBYTES_20 05b8d44eb1d67d47192c6168a24cb4e5b5a7b438',
+      scriptpubkey_type: 'v0_p2wpkh',
+      scriptpubkey_address: 'bc1qqkudgn436e75wxfvv952yn95uk660dpc7ve7vq',
+      value: 987400,
+    },
+  ],
+  size: 349,
+  weight: 688,
+  fee: 2600,
+  status: {
+    confirmed: true,
+    block_height: 846609,
+    block_hash: '00000000000000000001484d3e7d39acef1604da54d206ed1d52da0af5527522',
+    block_time: 1717580151,
+  },
+};
+
 export const TEST_ALICE_UTXOS_REGTEST_1 = [
   {
     type: 'wpkh',

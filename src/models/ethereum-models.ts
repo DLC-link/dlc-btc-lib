@@ -8,8 +8,12 @@ export interface EthereumNetwork {
 }
 
 export enum EthereumNetworkID {
-  ArbitrumSepolia = '421614',
+  Mainnet = '1',
+  Sepolia = '11155111',
   Arbitrum = '42161',
+  ArbitrumSepolia = '421614',
+  Base = '8453',
+  BaseSepolia = '84532',
   Hardhat = '31337',
 }
 
