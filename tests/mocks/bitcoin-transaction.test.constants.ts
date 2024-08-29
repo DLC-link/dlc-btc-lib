@@ -921,6 +921,45 @@ export const TEST_WITHDRAW_PSBT_PARTIALLY_SIGNED_WITHDRAW_PSBT_2 =
 //     }
 //   }
 
+export const TEST_FUNDING_PSBT_PARTIALLY_SIGNED_WITHDRAW_PSBT_1 =
+  '70736274ff0100a80200000001dcd01b1b19b0f64371bcf4dad0483f963cec83e635b1a650e3bba6dfb91137420000000000f0ffffff0340420f0000000000225120dcdc93b920e39fe9c6efd225dca8cd4fe7bbf873dc8effeb5286159857d7bb1c1027000000000000160014622c23eebbf46df254d7da8e1c4d95d4f5c7d69fcc74e60500000000225120676504fcaf89119cc9762c2f867aaa56aa3fffc85158f7dd61da345cdbf4a9be000000000001012b00e1f50500000000225120676504fcaf89119cc9762c2f867aaa56aa3fffc85158f7dd61da345cdbf4a9be011720bb7e175e63064479102ee0b69a719a9f54f8f1b29df17cfaa5437697393e7cfc00000000';
+// Readable format:
+// {
+//   global: { txVersion: 2 },
+//   inputs: [
+//     {
+//       tapInternalKey: <Buffer bb 7e 17 5e 63 06 44 79 10 2e e0 b6 9a 71 9a 9f 54 f8 f1 b2 9d f1 7c fa a5 43 76 97 39 3e 7c fc>,
+//       txid: [Uint8Array],
+//       index: 0,
+//       witnessUtxo: [Object],
+//       sequence: 4294967280
+//     }
+//   ],
+//   outputs: [
+//     { amount: 1000000n, script: [Uint8Array] },
+//     { amount: 10000n, script: [Uint8Array] },
+//     { amount: 98989260n, script: [Uint8Array] }
+//   ],
+//   opts: {
+//     createTx: true,
+//     bip69: false,
+//     changeAddress: 'bcrt1pvajsfl903ygeejtk9shcv742264rll7g29v00htpmg69ekl54xlq8eddah',
+//     feePerByte: 4n,
+//     network: {
+//       messagePrefix: '\x18Bitcoin Signed Message:\n',
+//       bech32: 'bcrt',
+//       bip32: [Object],
+//       pubKeyHash: 111,
+//       scriptHash: 196,
+//       wif: 239
+//     },
+//     dust: 546n,
+//     version: 2,
+//     lockTime: 0,
+//     PSBTVersion: 0
+//   }
+// }
+
 // This is a testnet funding transaction with valid inputs and outputs
 export const TEST_TESTNET_FUNDING_TRANSACTION_1: BitcoinTransaction = {
   txid: '4cf5c2954c84bf5225d98ef014aa97bbfa0f05d56b5749782fcd8af8b9d505a5',
@@ -1156,6 +1195,62 @@ export const TEST_REGTEST_FUNDING_TRANSACTION_1: BitcoinTransaction = {
     block_height: 425893,
     block_hash: '4c08cbb2509350b5673ebf0baed1f4b501ee8f61436e9e3ddf153a0250e2614a',
     block_time: 1722953216,
+  },
+};
+
+// This transaction is missing the output with the multisig's script.
+export const TEST_MAINNET_FUNDING_TRANSACTION_1: BitcoinTransaction = {
+  txid: '2a220f043ff34cfca57d910209fa676c82220a817da5ebf09f145cc012d8a85c',
+  version: 2,
+  locktime: 0,
+  vin: [
+    {
+      txid: '2e9d09f8304b6bdf635adeef799fb9f4e2434bca508eecb35adb41480e24aec3',
+      vout: 0,
+      prevout: {
+        scriptpubkey: '5120ec1354cc8defd6ced2fed85e6921473f7d9e6157974a29d6156ae71d83bf8266',
+        scriptpubkey_asm:
+          'OP_PUSHNUM_1 OP_PUSHBYTES_32 ec1354cc8defd6ced2fed85e6921473f7d9e6157974a29d6156ae71d83bf8266',
+        scriptpubkey_type: 'v1_p2tr',
+        scriptpubkey_address: 'bc1pasf4fnydaltva5h7mp0xjg288a7euc2hja9zn4s4dtn3mqalsfnqckzx6z',
+        value: 1000000,
+      },
+      scriptsig: '',
+      scriptsig_asm: '',
+      witness: [
+        '3dd16b2aa465cfef33fd82d02ca2d21dd095b1ada92b36ce8042faed22eaaf1495304344ed40a1ada5e79845b16fee867b4e104fb820eaefd9dfec7e20ec8e07',
+        'f4f3648bff8c887b18c586fdb5642ddde361cec802498c25a8d86d510c721ec30a515c87bbfc72f2ef6c9c5e60cc261a458276558c226a133c9311ddf54960cb',
+        '20b362931e3e4cf3cc20f75ae11ff5a4c115ec1548cb5f2c7c48294929f1e8979cad20fc36ff16e336657e6ab87bf5ad19ce538ca94e0a52e12a9fd9b65291d296866cac',
+        'c15d741aac77028f6c72167559fe4f8b2ba34b1078648dd621b31411ca2178227f',
+      ],
+      is_coinbase: false,
+      sequence: 4294967295,
+    },
+  ],
+  vout: [
+    {
+      scriptpubkey: '00142d2d0c13815a141129c9df2ab9b68344398de74b',
+      scriptpubkey_asm: 'OP_0 OP_PUSHBYTES_20 2d2d0c13815a141129c9df2ab9b68344398de74b',
+      scriptpubkey_type: 'v0_p2wpkh',
+      scriptpubkey_address: 'bc1q95kscyuptg2pz2wfmu4tnd5rgsucme6tpx900g',
+      value: 10000,
+    },
+    {
+      scriptpubkey: '001405b8d44eb1d67d47192c6168a24cb4e5b5a7b438',
+      scriptpubkey_asm: 'OP_0 OP_PUSHBYTES_20 05b8d44eb1d67d47192c6168a24cb4e5b5a7b438',
+      scriptpubkey_type: 'v0_p2wpkh',
+      scriptpubkey_address: 'bc1qqkudgn436e75wxfvv952yn95uk660dpc7ve7vq',
+      value: 987400,
+    },
+  ],
+  size: 349,
+  weight: 688,
+  fee: 2600,
+  status: {
+    confirmed: true,
+    block_height: 846609,
+    block_hash: '00000000000000000001484d3e7d39acef1604da54d206ed1d52da0af5527522',
+    block_time: 1717580151,
   },
 };
 
