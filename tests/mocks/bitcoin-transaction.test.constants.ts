@@ -921,6 +921,45 @@ export const TEST_WITHDRAW_PSBT_PARTIALLY_SIGNED_WITHDRAW_PSBT_2 =
 //     }
 //   }
 
+export const TEST_FUNDING_PSBT_PARTIALLY_SIGNED_WITHDRAW_PSBT_1 =
+  '70736274ff0100a80200000001dcd01b1b19b0f64371bcf4dad0483f963cec83e635b1a650e3bba6dfb91137420000000000f0ffffff0340420f0000000000225120dcdc93b920e39fe9c6efd225dca8cd4fe7bbf873dc8effeb5286159857d7bb1c1027000000000000160014622c23eebbf46df254d7da8e1c4d95d4f5c7d69fcc74e60500000000225120676504fcaf89119cc9762c2f867aaa56aa3fffc85158f7dd61da345cdbf4a9be000000000001012b00e1f50500000000225120676504fcaf89119cc9762c2f867aaa56aa3fffc85158f7dd61da345cdbf4a9be011720bb7e175e63064479102ee0b69a719a9f54f8f1b29df17cfaa5437697393e7cfc00000000';
+// Readable format:
+// {
+//   global: { txVersion: 2 },
+//   inputs: [
+//     {
+//       tapInternalKey: <Buffer bb 7e 17 5e 63 06 44 79 10 2e e0 b6 9a 71 9a 9f 54 f8 f1 b2 9d f1 7c fa a5 43 76 97 39 3e 7c fc>,
+//       txid: [Uint8Array],
+//       index: 0,
+//       witnessUtxo: [Object],
+//       sequence: 4294967280
+//     }
+//   ],
+//   outputs: [
+//     { amount: 1000000n, script: [Uint8Array] },
+//     { amount: 10000n, script: [Uint8Array] },
+//     { amount: 98989260n, script: [Uint8Array] }
+//   ],
+//   opts: {
+//     createTx: true,
+//     bip69: false,
+//     changeAddress: 'bcrt1pvajsfl903ygeejtk9shcv742264rll7g29v00htpmg69ekl54xlq8eddah',
+//     feePerByte: 4n,
+//     network: {
+//       messagePrefix: '\x18Bitcoin Signed Message:\n',
+//       bech32: 'bcrt',
+//       bip32: [Object],
+//       pubKeyHash: 111,
+//       scriptHash: 196,
+//       wif: 239
+//     },
+//     dust: 546n,
+//     version: 2,
+//     lockTime: 0,
+//     PSBTVersion: 0
+//   }
+// }
+
 // This is a testnet funding transaction with valid inputs and outputs
 export const TEST_TESTNET_FUNDING_TRANSACTION_1: BitcoinTransaction = {
   txid: '4cf5c2954c84bf5225d98ef014aa97bbfa0f05d56b5749782fcd8af8b9d505a5',
