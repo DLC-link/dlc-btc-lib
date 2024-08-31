@@ -247,8 +247,18 @@ export async function getRawVault(
 
 export async function setupVault(dlcManagerContract: Contract): Promise<any | undefined> {
   try {
+    let transactionOptions = {};
     await dlcManagerContract.callStatic.setupVault();
-    const transaction = await dlcManagerContract.setupVault();
+    const feeData = await dlcManagerContract.provider.getFeeData();
+    const { maxPriorityFeePerGas, maxFeePerGas } = feeData;
+    if (maxPriorityFeePerGas && maxFeePerGas) {
+      transactionOptions = {
+        maxPriorityFeePerGas,
+        maxFeePerGas,
+      };
+    }
+
+    const transaction = await dlcManagerContract.setupVault(transactionOptions);
     return await transaction.wait();
   } catch (error) {
     throw new EthereumError(`Could not Setup Vault: ${error}`);
@@ -261,8 +271,22 @@ export async function withdraw(
   withdrawAmount: bigint
 ) {
   try {
+    let transactionOptions = {};
     await dlcManagerContract.callStatic.withdraw(vaultUUID, withdrawAmount);
-    const transaction = await dlcManagerContract.withdraw(vaultUUID, withdrawAmount);
+    const feeData = await dlcManagerContract.provider.getFeeData();
+    const { maxPriorityFeePerGas, maxFeePerGas } = feeData;
+    if (maxPriorityFeePerGas && maxFeePerGas) {
+      transactionOptions = {
+        maxPriorityFeePerGas,
+        maxFeePerGas,
+      };
+    }
+
+    const transaction = await dlcManagerContract.withdraw(
+      vaultUUID,
+      withdrawAmount,
+      transactionOptions
+    );
     return await transaction.wait();
   } catch (error) {
     throw new EthereumError(`Could not Withdraw: ${error}`);
