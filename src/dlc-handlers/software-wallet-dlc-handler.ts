@@ -1,4 +1,4 @@
-import { Transaction, p2wpkh } from '@scure/btc-signer';
+import { Transaction, p2tr, p2wpkh } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
@@ -6,6 +6,7 @@ import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import {
   createTaprootMultisigPayment,
   deriveUnhardenedPublicKey,
+  ecdsaPublicKeyToSchnorr,
   getBalance,
   getFeeRate,
   getUnspendableKeyCommittedToUUID,
@@ -21,14 +22,16 @@ import { RawVault } from '../models/ethereum-models.js';
 export class SoftwareWalletDLCHandler {
   private fundingDerivedPublicKey: string;
   private taprootDerivedPublicKey: string;
+  private fundingPaymentType: 'wpkh' | 'tr';
   public payment: PaymentInformation | undefined;
   private bitcoinNetwork: Network;
   private bitcoinBlockchainAPI: string;
   private bitcoinBlockchainFeeRecommendationAPI: string;
 
   constructor(
-    nativeSegwitDerivedPublicKey: string,
+    fundingDerivedPublicKey: string,
     taprootDerivedPublicKey: string,
+    fundingPaymentType: 'wpkh' | 'tr',
     bitcoinNetwork: Network,
     bitcoinBlockchainAPI?: string,
     bitcoinBlockchainFeeRecommendationAPI?: string
@@ -59,12 +62,13 @@ export class SoftwareWalletDLCHandler {
       default:
         throw new Error('Invalid Bitcoin Network');
     }
+    this.fundingPaymentType = fundingPaymentType;
     this.bitcoinNetwork = bitcoinNetwork;
-    this.fundingDerivedPublicKey = nativeSegwitDerivedPublicKey;
+    this.fundingDerivedPublicKey = fundingDerivedPublicKey;
     this.taprootDerivedPublicKey = taprootDerivedPublicKey;
   }
 
-  private setPayment(fundingPayment: P2Ret, multisigPayment: P2TROut): void {
+  private setPayment(fundingPayment: P2Ret | P2TROut, multisigPayment: P2TROut): void {
     this.payment = {
       fundingPayment,
       multisigPayment,
@@ -114,10 +118,14 @@ export class SoftwareWalletDLCHandler {
     attestorGroupPublicKey: string
   ): Promise<PaymentInformation> {
     try {
-      const fundingPayment = p2wpkh(
-        Buffer.from(this.fundingDerivedPublicKey, 'hex'),
-        this.bitcoinNetwork
-      );
+      const fundingPayment =
+        this.fundingPaymentType === 'wpkh'
+          ? p2wpkh(Buffer.from(this.fundingDerivedPublicKey, 'hex'), this.bitcoinNetwork)
+          : p2tr(
+              ecdsaPublicKeyToSchnorr(Buffer.from(this.fundingDerivedPublicKey, 'hex')),
+              undefined,
+              this.bitcoinNetwork
+            );
 
       const unspendablePublicKey = getUnspendableKeyCommittedToUUID(vaultUUID, this.bitcoinNetwork);
       const unspendableDerivedPublicKey = deriveUnhardenedPublicKey(
