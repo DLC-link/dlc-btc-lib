@@ -12,10 +12,11 @@ import {
   deriveUnhardenedPublicKey,
   ecdsaPublicKeyToSchnorr,
   finalizeUserInputs,
-  getBalance,
   getFeeRate,
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
+import { getBalanceByPayment } from '../functions/bitcoin/bitcoin-request-functions.js';
+import { BitcoinCoreRpcConnection } from '../functions/bitcoin/bitcoincore-rpc-connection.js';
 import {
   createDepositTransaction,
   createFundingTransaction,
@@ -34,7 +35,8 @@ export class PrivateKeyDLCHandler {
   public payment: PaymentInformation | undefined;
   private fundingPaymentType: 'wpkh' | 'tr';
   private bitcoinNetwork: Network;
-  private bitcoinBlockchainAPI: string;
+  private bitcoincoreRpcConnection: BitcoinCoreRpcConnection;
+  // private bitcoinBlockchainAPI: string;
   private bitcoinBlockchainFeeRecommendationAPI: string;
 
   constructor(
@@ -42,30 +44,25 @@ export class PrivateKeyDLCHandler {
     walletAccountIndex: number,
     fundingPaymentType: 'wpkh' | 'tr',
     bitcoinNetwork: Network,
-    bitcoinBlockchainAPI?: string,
+    bitcoincoreRpcConnection: BitcoinCoreRpcConnection,
+    // bitcoinBlockchainAPI?: string,
     bitcoinBlockchainFeeRecommendationAPI?: string
   ) {
     switch (bitcoinNetwork) {
       case bitcoin:
-        this.bitcoinBlockchainAPI = 'https://mempool.space/api';
+        // this.bitcoinBlockchainAPI = 'https://mempool.space/api';
         this.bitcoinBlockchainFeeRecommendationAPI =
           'https://mempool.space/api/v1/fees/recommended';
         break;
       case testnet:
-        this.bitcoinBlockchainAPI = 'https://mempool.space/testnet/api';
+        // this.bitcoinBlockchainAPI = 'https://mempool.space/testnet/api';
         this.bitcoinBlockchainFeeRecommendationAPI =
           'https://mempool.space/testnet/api/v1/fees/recommended';
         break;
       case regtest:
-        if (
-          bitcoinBlockchainAPI === undefined ||
-          bitcoinBlockchainFeeRecommendationAPI === undefined
-        ) {
-          throw new Error(
-            'Regtest requires a Bitcoin Blockchain API and a Bitcoin Blockchain Fee Recommendation API'
-          );
+        if (bitcoinBlockchainFeeRecommendationAPI === undefined) {
+          throw new Error('Regtest requires a Bitcoin Blockchain Fee Recommendation API');
         }
-        this.bitcoinBlockchainAPI = bitcoinBlockchainAPI;
         this.bitcoinBlockchainFeeRecommendationAPI = bitcoinBlockchainFeeRecommendationAPI;
         break;
       default:
@@ -90,6 +87,8 @@ export class PrivateKeyDLCHandler {
       taprootDerivedKeyPair,
       fundingDerivedKeyPair,
     };
+
+    this.bitcoincoreRpcConnection = bitcoincoreRpcConnection;
   }
 
   private setPayment(fundingPayment: P2Ret | P2TROut, multisigPayment: P2TROut): void {
@@ -107,7 +106,9 @@ export class PrivateKeyDLCHandler {
   }
 
   getTaprootDerivedPublicKey(): string {
-    return bytesToHex(this.derivedKeyPair.taprootDerivedKeyPair.publicKey);
+    const key = bytesToHex(this.derivedKeyPair.taprootDerivedKeyPair.publicKey);
+    console.log('Returning TaprootDerivedPublicKey: ', key);
+    return key;
   }
 
   getVaultRelatedAddress(paymentType: 'funding' | 'multisig'): string {
@@ -213,18 +214,18 @@ export class PrivateKeyDLCHandler {
       attestorGroupPublicKey
     );
 
-    const addressBalance = await getBalance(fundingPayment, this.bitcoinBlockchainAPI);
+    const addressBalance = await getBalanceByPayment(fundingPayment, this.bitcoincoreRpcConnection);
 
     if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
       throw new Error('Insufficient Funds');
     }
 
     const feeRate =
-      customFeeRate ??
-      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+      customFeeRate ?? BigInt(await getFeeRate(this.bitcoincoreRpcConnection, feeRateMultiplier));
 
     const fundingTransaction = await createFundingTransaction(
-      this.bitcoinBlockchainAPI,
+      // this.bitcoinBlockchainAPI,
+      this.bitcoincoreRpcConnection,
       this.bitcoinNetwork,
       bitcoinAmount,
       multisigPayment,
@@ -252,11 +253,10 @@ export class PrivateKeyDLCHandler {
       );
 
       const feeRate =
-        customFeeRate ??
-        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+        customFeeRate ?? BigInt(await getFeeRate(this.bitcoincoreRpcConnection, feeRateMultiplier));
 
       const withdrawTransaction = await createWithdrawTransaction(
-        this.bitcoinBlockchainAPI,
+        this.bitcoincoreRpcConnection,
         this.bitcoinNetwork,
         withdrawAmount,
         fundingTransactionID,
@@ -315,11 +315,11 @@ export class PrivateKeyDLCHandler {
     );
 
     const feeRate =
-      customFeeRate ??
-      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+      customFeeRate ?? BigInt(await getFeeRate(this.bitcoincoreRpcConnection, feeRateMultiplier));
 
     const depositTransaction = await createDepositTransaction(
-      this.bitcoinBlockchainAPI,
+      // this.bitcoinBlockchainAPI,
+      this.bitcoincoreRpcConnection,
       this.bitcoinNetwork,
       depositAmount,
       fundingTransactionID,

@@ -12,12 +12,13 @@ import {
   checkBitcoinTransactionConfirmations,
   fetchBitcoinTransaction,
 } from '../bitcoin/bitcoin-request-functions.js';
+import { BitcoinCoreRpcConnection } from '../bitcoin/bitcoincore-rpc-connection.js';
 
 export async function verifyVaultDeposit(
   vault: RawVault,
   attestorGroupPublicKey: Buffer,
   bitcoinBlockchainBlockHeight: number,
-  bitcoinBlockchainAPI: string,
+  bitcoinConnection: BitcoinCoreRpcConnection,
   bitcoinNetwork: Network
 ): Promise<number> {
   try {
@@ -25,7 +26,7 @@ export async function verifyVaultDeposit(
 
     const txID = isNonEmptyString(vault.wdTxId) ? vault.wdTxId : vault.fundingTxId;
 
-    const fundingTransaction = await fetchBitcoinTransaction(txID, bitcoinBlockchainAPI);
+    const fundingTransaction = await fetchBitcoinTransaction(txID, bitcoinConnection);
 
     const isFundingTransactionConfirmed = await checkBitcoinTransactionConfirmations(
       fundingTransaction,
@@ -56,8 +57,7 @@ export async function verifyVaultDeposit(
     if (!vaultTransactionOutput) {
       return 0;
     }
-
-    return vaultTransactionOutput.value;
+    return vaultTransactionOutput.reduce((a, b) => a + b.value, 0);
   } catch (error) {
     console.log(`Error verifying Vault Deposit: ${error}`);
     return 0;

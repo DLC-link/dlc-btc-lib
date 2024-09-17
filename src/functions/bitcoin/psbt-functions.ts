@@ -2,6 +2,7 @@ import { hexToBytes } from '@noble/hashes/utils';
 import { Transaction, selectUTXO } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
+import { logger } from 'ethers';
 import { PartialSignature } from 'ledger-bitcoin/build/main/lib/appClient.js';
 
 import { BitcoinInputSigningConfig, PaymentTypes } from '../../models/bitcoin-models.js';
@@ -10,9 +11,9 @@ import {
   ecdsaPublicKeyToSchnorr,
   getFeeAmount,
   getFeeRecipientAddressFromPublicKey,
-  getUTXOs,
 } from '../bitcoin/bitcoin-functions.js';
-import { fetchBitcoinTransaction } from './bitcoin-request-functions.js';
+import { fetchBitcoinTransaction, getUTXOs } from './bitcoin-request-functions.js';
+import { BitcoinCoreRpcConnection } from './bitcoincore-rpc-connection.js';
 
 /**
  * Creates a Funding Transaction to deposit Bitcoin into an empty Vault.
@@ -30,7 +31,8 @@ import { fetchBitcoinTransaction } from './bitcoin-request-functions.js';
  * @returns A Funding Transaction.
  */
 export async function createFundingTransaction(
-  bitcoinBlockchainAPIURL: string,
+  // bitcoinBlockchainAPIURL: string,
+  bitcoinCoreRpcConnection: BitcoinCoreRpcConnection,
   bitcoinNetwork: Network,
   depositAmount: bigint,
   multisigPayment: P2TROut,
@@ -51,10 +53,18 @@ export async function createFundingTransaction(
     throw new Error('Deposit Payment is missing Address');
   }
 
-  const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
-  const feeAmount = getFeeAmount(Number(depositAmount), Number(feeBasisPoints));
+  // const client = bitcoincoreRpcAuth.getClient();
 
-  const userUTXOs = await getUTXOs(depositPayment, bitcoinBlockchainAPIURL);
+  logger.info('createFundingTransaction: Getting feeAddress');
+  const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
+  logger.info('feeAddress:', feeAddress);
+
+  logger.info('createFundingTransaction: Getting feeAmount');
+  const feeAmount = getFeeAmount(Number(depositAmount), Number(feeBasisPoints));
+  logger.info('feeAmount:', feeAmount);
+
+  logger.info('createFundingTransaction: Getting userUTXOs');
+  const userUTXOs = await getUTXOs(depositPayment, bitcoinCoreRpcConnection);
 
   const psbtOutputs = [
     { address: multisigAddress, amount: depositAmount },
@@ -108,7 +118,8 @@ export async function createFundingTransaction(
  * @returns A Deposit Transaction.
  */
 export async function createDepositTransaction(
-  bitcoinBlockchainURL: string,
+  // bitcoinBlockchainURL: string,
+  bitcoinCoreRpcConnection: BitcoinCoreRpcConnection,
   bitcoinNetwork: Network,
   depositAmount: bigint,
   vaultTransactionID: string,
@@ -133,10 +144,13 @@ export async function createDepositTransaction(
   const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(depositAmount), Number(feeBasisPoints));
 
-  const vaultTransaction = await fetchBitcoinTransaction(vaultTransactionID, bitcoinBlockchainURL);
+  const vaultTransaction = await fetchBitcoinTransaction(
+    vaultTransactionID,
+    bitcoinCoreRpcConnection
+  );
 
-  const vaultTransactionOutputIndex = vaultTransaction.vout.findIndex(
-    output => output.scriptpubkey_address === multisigAddress
+  const vaultTransactionOutputIndex = vaultTransaction.vout.findIndex(output =>
+    output.scriptPubKey.addresses.includes(multisigAddress)
   );
 
   if (vaultTransactionOutputIndex === -1) {
@@ -147,7 +161,7 @@ export async function createDepositTransaction(
     vaultTransaction.vout[vaultTransactionOutputIndex].value
   );
 
-  const userUTXOs = await getUTXOs(depositPayment, bitcoinBlockchainURL);
+  const userUTXOs = await getUTXOs(depositPayment, bitcoinCoreRpcConnection);
 
   const additionalDepositOutputs = [
     {
@@ -253,7 +267,8 @@ export async function createDepositTransaction(
  * @returns A Withdraw Transaction.
  */
 export async function createWithdrawTransaction(
-  bitcoinBlockchainURL: string,
+  // bitcoinBlockchainURL: string,
+  bitcoinCoreRpcConnection: BitcoinCoreRpcConnection,
   bitcoinNetwork: Network,
   withdrawAmount: bigint,
   vaultTransactionID: string,
@@ -274,13 +289,14 @@ export async function createWithdrawTransaction(
   if (!withdrawAddress) {
     throw new Error('Withdraw Payment is missing Address');
   }
+
   const fundingTransaction = await fetchBitcoinTransaction(
     vaultTransactionID,
-    bitcoinBlockchainURL
+    bitcoinCoreRpcConnection
   );
 
-  const fundingTransactionOutputIndex = fundingTransaction.vout.findIndex(
-    output => output.scriptpubkey_address === multisigAddress
+  const fundingTransactionOutputIndex = fundingTransaction.vout.findIndex(output =>
+    output.scriptPubKey.addresses.includes(multisigAddress)
   );
 
   if (fundingTransactionOutputIndex === -1) {
@@ -369,10 +385,11 @@ export async function updateNativeSegwitInputs(
   nativeSegwitPublicKey: Buffer,
   masterFingerprint: string,
   psbt: Psbt,
-  bitcoinBlockchainAPIURL: string
+  // bitcoinBlockchainAPIURL: string
+  bitcoincoreRpcConnection: BitcoinCoreRpcConnection
 ): Promise<Psbt> {
   try {
-    await addNativeSegwitUTXOLedgerProps(psbt, inputsToUpdate, bitcoinBlockchainAPIURL);
+    await addNativeSegwitUTXOLedgerProps(psbt, inputsToUpdate, bitcoincoreRpcConnection);
   } catch (e) {
     // Intentionally Ignored
   }
@@ -459,13 +476,15 @@ export function getTaprootInputsToSign(
 async function addNativeSegwitUTXOLedgerProps(
   psbt: Psbt,
   inputSigningConfiguration: BitcoinInputSigningConfig[],
-  bitcoinBlockchainAPIURL: string
+  // bitcoinBlockchainAPIURL: string
+  bitcoincoreRpcConnection: BitcoinCoreRpcConnection
 ): Promise<Psbt> {
+  const client = bitcoincoreRpcConnection.getClient();
   const inputTransactionHexes = await Promise.all(
     psbt.txInputs.map(async input =>
-      (
-        await fetch(`${bitcoinBlockchainAPIURL}/tx/${reverseBytes(input.hash).toString('hex')}/hex`)
-      ).text()
+      // await fetch(`${bitcoinBlockchainAPIURL}/tx/${reverseBytes(input.hash).toString('hex')}/hex`)
+      // .text()
+      (await client.getRawTransaction(reverseBytes(input.hash).toString('hex'), true)).toString()
     )
   );
 

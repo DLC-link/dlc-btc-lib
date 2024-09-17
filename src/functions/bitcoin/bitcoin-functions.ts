@@ -12,25 +12,20 @@ import {
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { TransactionInput } from '@scure/btc-signer/psbt';
 import { BIP32Factory, BIP32Interface } from 'bip32';
+import { FetchedRawTransaction, TxOut } from 'bitcoin-simple-rpc';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
-import {
-  BitcoinInputSigningConfig,
-  BitcoinTransaction,
-  BitcoinTransactionVectorOutput,
-  FeeRates,
-  PaymentTypes,
-  UTXO,
-} from '../../models/bitcoin-models.js';
+import { BitcoinInputSigningConfig, PaymentTypes } from '../../models/bitcoin-models.js';
 import {
   compareUint8Arrays,
   createRangeFromLength,
   isDefined,
   isUndefined,
 } from '../../utilities/index.js';
+import { BitcoinCoreRpcConnection } from './bitcoincore-rpc-connection.js';
 
 const TAPROOT_UNSPENDABLE_KEY_HEX =
   '0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
@@ -151,94 +146,41 @@ function checkFeeRate(feeRate: number | undefined): number {
  * @returns A promise that resolves to the hour fee rate.
  */
 export async function getFeeRate(
-  bitcoinBlockchainAPIFeeURL: string,
+  // bitcoinBlockchainAPIFeeURL: string,
+  bitcoincoreRpcConnection: BitcoinCoreRpcConnection,
   feeRateMultiplier?: number
 ): Promise<number> {
-  const response = await fetch(bitcoinBlockchainAPIFeeURL);
+  const client = bitcoincoreRpcConnection.getClient();
+  const response = await client.estimateSmartFee(1);
 
-  if (!response.ok) {
-    throw new Error(`Bitcoin Blockchain Fee Rate Response was not OK: ${response.statusText}`);
+  if (response.errors) {
+    throw new Error(`Bitcoin Blockchain Fee Rate Response was not OK: ${response.errors}`);
   }
 
-  let feeRates: FeeRates;
-
-  try {
-    feeRates = await response.json();
-  } catch (error) {
-    throw new Error(`Error parsing Bitcoin Blockchain Fee Rate Response JSON: ${error}`);
+  const fastestFeeEstimate = response.feerate;
+  if (!fastestFeeEstimate) {
+    throw new Error('Error getting Bitcoin Blockchain Fee Rate Response');
   }
+  // const response = await fetch(bitcoinBlockchainAPIFeeURL);
 
-  const feeRate = checkFeeRate(feeRates.fastestFee);
+  // if (!response.ok) {
+  //   throw new Error(`Bitcoin Blockchain Fee Rate Response was not OK: ${response.statusText}`);
+  // }
+
+  // let feeRates: FeeRates;
+
+  // try {
+  //   feeRates = await response.json();
+  // } catch (error) {
+  //   throw new Error(`Error parsing Bitcoin Blockchain Fee Rate Response JSON: ${error}`);
+  // }
+
+  // const feeRate = checkFeeRate(feeRates.fastestFee);
+  // const multipliedFeeRate = feeRate * (feeRateMultiplier ?? 1);
+  const feeRate = checkFeeRate(fastestFeeEstimate);
   const multipliedFeeRate = feeRate * (feeRateMultiplier ?? 1);
 
   return multipliedFeeRate;
-}
-
-/**
- * Gets the UTXOs of a given Bitcoin Payment object's Address.
- *
- * @param payment - The Payment object to get the Balance of.
- * @param bitcoinBlockchainAPIURL - The Bitcoin Blockchain URL used to fetch the  User's UTXOs.
- */
-export async function getUTXOs(
-  payment: P2Ret | P2TROut,
-  bitcoinBlockchainAPIURL: string
-): Promise<any> {
-  const utxoEndpoint = `${bitcoinBlockchainAPIURL}/address/${payment.address}/utxo`;
-  const utxoResponse = await fetch(utxoEndpoint);
-
-  if (!utxoResponse.ok) {
-    throw new Error(`Error getting UTXOs: ${utxoResponse.statusText}`);
-  }
-
-  const userUTXOs = await utxoResponse.json();
-
-  const modifiedUTXOs = await Promise.all(
-    userUTXOs.map(async (utxo: UTXO) => {
-      return {
-        ...payment,
-        txid: utxo.txid,
-        index: utxo.vout,
-        value: utxo.value,
-        witnessUtxo: {
-          script: payment.script,
-          amount: BigInt(utxo.value),
-        },
-        redeemScript: payment.redeemScript,
-      };
-    })
-  );
-  return modifiedUTXOs;
-}
-
-/**
- * Gets the Balance of a given Bitcoin Payment object's Address.
- *
- * @param payment - The Payment object to get the Balance of.
- * @param bitcoinBlockchainAPIURL - The Bitcoin Blockchain URL used to fetch the  User's UTXOs.
- * @returns A Promise that resolves to the Balance of the User's Bitcoin Address.
- */
-export async function getBalance(
-  payment: P2Ret | P2TROut,
-  bitcoinBlockchainAPIURL: string
-): Promise<number> {
-  const userAddress = payment.address;
-
-  if (!userAddress) {
-    throw new Error('Payment is missing Address');
-  }
-
-  const utxoResponse = await fetch(`${bitcoinBlockchainAPIURL}/address/${userAddress}/utxo`);
-
-  if (!utxoResponse.ok) {
-    throw new Error(`Error getting UTXOs: ${utxoResponse.statusText}`);
-  }
-
-  const userUTXOs: UTXO[] = await utxoResponse.json();
-
-  const balanceInSats = userUTXOs.reduce((total, utxo) => total + utxo.value, 0);
-
-  return balanceInSats;
 }
 
 /**
@@ -442,11 +384,11 @@ export function getInputByPaymentTypeArray(
 }
 
 export function getScriptMatchingOutputFromTransaction(
-  bitcoinTransaction: BitcoinTransaction,
+  bitcoinTransaction: FetchedRawTransaction,
   script: Uint8Array
-): BitcoinTransactionVectorOutput | undefined {
-  return bitcoinTransaction.vout.find(output =>
-    validateScript(script, hexToBytes(output.scriptpubkey))
+): TxOut[] | undefined {
+  return bitcoinTransaction.vout.filter(output =>
+    validateScript(script, hexToBytes(output.scriptPubKey.hex))
   );
 }
 

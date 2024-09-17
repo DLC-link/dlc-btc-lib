@@ -2,27 +2,28 @@ import { Network } from 'bitcoinjs-lib';
 
 import { deriveUnhardenedPublicKey } from '../functions/bitcoin/bitcoin-functions.js';
 import { fetchBitcoinBlockchainBlockHeight } from '../functions/bitcoin/bitcoin-request-functions.js';
+import { BitcoinCoreRpcConnection } from '../functions/bitcoin/bitcoincore-rpc-connection.js';
 import { verifyVaultDeposit } from '../functions/proof-of-reserve/proof-of-reserve-functions.js';
 import { RawVault } from '../models/ethereum-models.js';
 
 export class ProofOfReserveHandler {
-  private bitcoinBlockchainAPI: string;
+  private bitcoinCoreRpcConnection: BitcoinCoreRpcConnection;
   private bitcoinNetwork: Network;
   private attestorGroupPublicKey: string;
 
   constructor(
-    bitcoinBlockchainAPI: string,
+    bitcoinCoreRpcConnection: BitcoinCoreRpcConnection,
     bitcoinNetwork: Network,
     attestorGroupPublicKey: string
   ) {
-    this.bitcoinBlockchainAPI = bitcoinBlockchainAPI;
     this.bitcoinNetwork = bitcoinNetwork;
+    this.bitcoinCoreRpcConnection = bitcoinCoreRpcConnection;
     this.attestorGroupPublicKey = attestorGroupPublicKey;
   }
 
   async calculateProofOfReserve(vaults: RawVault[]): Promise<number> {
     const bitcoinBlockchainBlockHeight = await fetchBitcoinBlockchainBlockHeight(
-      this.bitcoinBlockchainAPI
+      this.bitcoinCoreRpcConnection
     );
 
     const derivedAttestorGroupPublicKey = deriveUnhardenedPublicKey(
@@ -36,7 +37,7 @@ export class ProofOfReserveHandler {
           vault,
           derivedAttestorGroupPublicKey,
           bitcoinBlockchainBlockHeight,
-          this.bitcoinBlockchainAPI,
+          this.bitcoinCoreRpcConnection,
           this.bitcoinNetwork
         )
       )
