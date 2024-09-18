@@ -118,7 +118,10 @@ export async function getBalanceByPayment(
     if (!userAddress) {
       throw new Error('Payment is missing Address');
     }
-    const utxo = await client.getBalance(userAddress);
+    console.log('Client:', client);
+    console.log('User Address:', userAddress);
+    // const utxo = await client.getBalance(userAddress);
+    const utxo = await client.command('getbalance', userAddress);
     console.log('UTXO:', utxo);
     return utxo;
   } catch (error) {
