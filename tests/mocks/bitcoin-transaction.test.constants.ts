@@ -1,3 +1,5 @@
+import { FetchedBlock, FetchedRawTransaction } from 'bitcoin-core';
+
 import { BitcoinTransaction } from '../../src/models/bitcoin-models';
 
 export const TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_1 =
@@ -1074,6 +1076,207 @@ export const TEST_TESTNET_FUNDING_TRANSACTION_2: BitcoinTransaction = {
     block_hash: '000000000000001ee12e0297ff36e8c8041aefb65af0c1033a1af4fdb8146f0d',
     block_time: 1720620175,
   },
+};
+
+export const TEST_TESTNET_FUNDING_TRANSACTION_11: FetchedRawTransaction = {
+  hex: '',
+  blockhash: '000000000000001ee12e0297ff36e8c8041aefb65af0c1033a1af4fdb8146f0d',
+  confirmations: 5,
+  time: 0,
+  blocktime: 0,
+  txid: 'cefbeafc3e50618a59646ba6e7b3bba8f15b3e2551570af98182f4234586d085',
+  hash: '',
+  size: 236,
+  vsize: 0,
+  version: 0,
+  locktime: 0,
+  vin: [
+    {
+      txid: 'cefbeafc3e50618a59646ba6e7b3bba8f15b3e2551570af98182f4234586d085',
+      vout: 2,
+      scriptSig: {
+        asm: '',
+        hex: '',
+      },
+      txinwitness: [
+        'd4ad3523fdc9ec709e8bf2ecadd56c9266f9c57bccb5d165cd57dc815a88de34957764482a6fab3897ce7be2677168f69be93d799021b502899b556436c3f6bb',
+      ],
+      sequence: 4294967280,
+    },
+  ],
+  vout: [
+    {
+      value: 10000000,
+      n: 0,
+      scriptPubKey: {
+        asm: 'OP_PUSHNUM_1 OP_PUSHBYTES_32 6d7e5019c795d05fd3df81713069aa3a309e912a61555ab3ebd6e477f42c1f70',
+        hex: '51206d7e5019c795d05fd3df81713069aa3a309e912a61555ab3ebd6e477f42c1f70',
+        reqSigs: 0,
+        type: 'v1_p2tr',
+        addresses: ['tb1pd4l9qxw8jhg9l57ls9cnq6d28gcfayf2v9244vlt6mj80apvracqgdt090'],
+      },
+    },
+    {
+      value: 100000,
+      n: 0,
+      scriptPubKey: {
+        asm: 'OP_0 OP_PUSHBYTES_20 f28ec1a3e3df0240b98582ca7754e6948e9bf930',
+        hex: '0014f28ec1a3e3df0240b98582ca7754e6948e9bf930',
+        reqSigs: 0,
+        type: 'v0_p2wpkh',
+        addresses: ['tb1q728vrglrmupypwv9st98w48xjj8fh7fs8mrdre'],
+      },
+    },
+    {
+      value: 61490226,
+      n: 0,
+      scriptPubKey: {
+        asm: 'OP_PUSHNUM_1 OP_PUSHBYTES_32 192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+        hex: '',
+        reqSigs: 0,
+        type: 'v1_p2tr',
+        addresses: ['tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq'],
+      },
+    },
+  ],
+};
+
+// This is the same transaction with 6 confirmations
+export const TEST_TESTNET_FUNDING_TRANSACTION_111: FetchedRawTransaction = {
+  hex: '',
+  blockhash: '000000000000001ee12e0297ff36e8c8041aefb65af0c1033a1af4fdb8146f0d',
+  confirmations: 6,
+  time: 0,
+  blocktime: 0,
+  txid: 'cefbeafc3e50618a59646ba6e7b3bba8f15b3e2551570af98182f4234586d085',
+  hash: '',
+  size: 236,
+  vsize: 0,
+  version: 0,
+  locktime: 0,
+  vin: [
+    {
+      txid: 'cefbeafc3e50618a59646ba6e7b3bba8f15b3e2551570af98182f4234586d085',
+      vout: 2,
+      scriptSig: {
+        asm: '',
+        hex: '',
+      },
+      txinwitness: [
+        'd4ad3523fdc9ec709e8bf2ecadd56c9266f9c57bccb5d165cd57dc815a88de34957764482a6fab3897ce7be2677168f69be93d799021b502899b556436c3f6bb',
+      ],
+      sequence: 4294967280,
+    },
+  ],
+  vout: [
+    {
+      value: 10000000,
+      n: 0,
+      scriptPubKey: {
+        asm: 'OP_PUSHNUM_1 OP_PUSHBYTES_32 6d7e5019c795d05fd3df81713069aa3a309e912a61555ab3ebd6e477f42c1f70',
+        hex: '51206d7e5019c795d05fd3df81713069aa3a309e912a61555ab3ebd6e477f42c1f70',
+        reqSigs: 0,
+        type: 'v1_p2tr',
+        addresses: ['tb1pd4l9qxw8jhg9l57ls9cnq6d28gcfayf2v9244vlt6mj80apvracqgdt090'],
+      },
+    },
+    {
+      value: 100000,
+      n: 0,
+      scriptPubKey: {
+        asm: 'OP_0 OP_PUSHBYTES_20 f28ec1a3e3df0240b98582ca7754e6948e9bf930',
+        hex: '0014f28ec1a3e3df0240b98582ca7754e6948e9bf930',
+        reqSigs: 0,
+        type: 'v0_p2wpkh',
+        addresses: ['tb1q728vrglrmupypwv9st98w48xjj8fh7fs8mrdre'],
+      },
+    },
+    {
+      value: 61490226,
+      n: 0,
+      scriptPubKey: {
+        asm: 'OP_PUSHNUM_1 OP_PUSHBYTES_32 192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+        hex: '',
+        reqSigs: 0,
+        type: 'v1_p2tr',
+        addresses: ['tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq'],
+      },
+    },
+  ],
+};
+
+export const TEST_TESTNET_FUNDING_TRANSACTION_11_BLOCK: FetchedBlock = {
+  hash: '000',
+  confirmations: 6,
+  strippedsize: 0,
+  size: 0,
+  weight: 0,
+  height: 0,
+  version: 0,
+  versionHex: '0',
+  merkleroot: '000',
+  tx: ['000'],
+  time: 0,
+  mediantime: 0,
+  nonce: 0,
+  bits: '0',
+  difficulty: 0,
+  chainwork: '0',
+  previousblockhash: '000',
+  nextblockhash: '000',
+};
+
+// This transaction is missing the output with the multisig's script.
+export const TEST_TESTNET_FUNDING_TRANSACTION_12: FetchedRawTransaction = {
+  hex: '',
+  blockhash: '000000000000001ee12e0297ff36e8c8041aefb65af0c1033a1af4fdb8146f0d',
+  confirmations: 0,
+  time: 0,
+  blocktime: 0,
+  txid: '4cf5c2954c84bf5225d98ef014aa97bbfa0f05d56b5749782fcd8af8b9d505a5',
+  hash: '',
+  size: 236,
+  vsize: 0,
+  version: 0,
+  locktime: 0,
+  vin: [
+    {
+      txid: 'cefbeafc3e50618a59646ba6e7b3bba8f15b3e2551570af98182f4234586d085',
+      vout: 2,
+      scriptSig: {
+        asm: '',
+        hex: '',
+      },
+      txinwitness: [
+        'd4ad3523fdc9ec709e8bf2ecadd56c9266f9c57bccb5d165cd57dc815a88de34957764482a6fab3897ce7be2677168f69be93d799021b502899b556436c3f6bb',
+      ],
+      sequence: 4294967280,
+    },
+  ],
+  vout: [
+    {
+      value: 100000,
+      n: 0,
+      scriptPubKey: {
+        asm: 'OP_0 OP_PUSHBYTES_20 f28ec1a3e3df0240b98582ca7754e6948e9bf930',
+        hex: '',
+        reqSigs: 0,
+        type: 'v0_p2wpkhv',
+        addresses: ['tb1q728vrglrmupypwv9st98w48xjj8fh7fs8mrdre'],
+      },
+    },
+    {
+      value: 61490226,
+      n: 0,
+      scriptPubKey: {
+        asm: 'OP_PUSHNUM_1 OP_PUSHBYTES_32 192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+        hex: '',
+        reqSigs: 0,
+        type: 'v1_p2tr',
+        addresses: ['tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq'],
+      },
+    },
+  ],
 };
 
 // This transaction's multisig output value does not match the vault's valueLocked field.

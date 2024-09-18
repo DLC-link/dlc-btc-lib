@@ -16,3 +16,11 @@ export const TEST_ETHEREUM_READ_ONLY_NODE_API = 'https://sepolia-rollup.arbitrum
 
 export const TEST_ETHEREUM_GITHUB_DEPLOYMENT_PLAN_ROOT_URL =
   'https://raw.githubusercontent.com/DLC-link/dlc-solidity';
+
+export const TEST_TESTNET_BITCOINCORE_RPC_USERNAME = 'testnet';
+export const TEST_TESTNET_BITCOINCORE_RPC_PASSWORD = 'testnet';
+export const TEST_TESTNET_BITCOINCORE_RPC_URL = '${TEST_TESTNET_BITCOIN_BLOCKCHAIN_API}:18332';
+
+export const TEST_REGTEST_BITCOINCORE_RPC_USERNAME = 'regtest';
+export const TEST_REGTEST_BITCOINCORE_RPC_PASSWORD = 'regtest';
+export const TEST_REGTEST_BITCOINCORE_RPC_URL = '${TEST_REGTEST_BITCOIN_BLOCKCHAIN_API}:18443';

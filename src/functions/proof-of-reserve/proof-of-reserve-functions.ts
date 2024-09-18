@@ -17,7 +17,6 @@ import { BitcoinCoreRpcConnection } from '../bitcoin/bitcoincore-rpc-connection.
 export async function verifyVaultDeposit(
   vault: RawVault,
   attestorGroupPublicKey: Buffer,
-  bitcoinBlockchainBlockHeight: number,
   bitcoinConnection: BitcoinCoreRpcConnection,
   bitcoinNetwork: Network
 ): Promise<number> {
@@ -28,10 +27,8 @@ export async function verifyVaultDeposit(
 
     const fundingTransaction = await fetchBitcoinTransaction(txID, bitcoinConnection);
 
-    const isFundingTransactionConfirmed = await checkBitcoinTransactionConfirmations(
-      fundingTransaction,
-      bitcoinBlockchainBlockHeight
-    );
+    const isFundingTransactionConfirmed =
+      await checkBitcoinTransactionConfirmations(fundingTransaction);
 
     if (!isFundingTransactionConfirmed) {
       return 0;

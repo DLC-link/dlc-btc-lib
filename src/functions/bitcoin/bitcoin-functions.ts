@@ -12,7 +12,7 @@ import {
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { TransactionInput } from '@scure/btc-signer/psbt';
 import { BIP32Factory, BIP32Interface } from 'bip32';
-import { FetchedRawTransaction, TxOut } from 'bitcoin-simple-rpc';
+import { FetchedRawTransaction, TxOut } from 'bitcoin-core';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
@@ -142,41 +142,19 @@ function checkFeeRate(feeRate: number | undefined): number {
 
 /**
  * Fetches the fee rate from the bitcoin blockchain API.
- *
+ * @param bitcoinCoreRpcConnection - The Bitcoin Core RPC Connection object.
+ * @param feeRateMultiplier - The multiplier to apply to the fee rate.
  * @returns A promise that resolves to the hour fee rate.
  */
 export async function getFeeRate(
-  // bitcoinBlockchainAPIFeeURL: string,
   bitcoincoreRpcConnection: BitcoinCoreRpcConnection,
   feeRateMultiplier?: number
 ): Promise<number> {
   const client = bitcoincoreRpcConnection.getClient();
-  const response = await client.estimateSmartFee(1);
-
-  if (response.errors) {
-    throw new Error(`Bitcoin Blockchain Fee Rate Response was not OK: ${response.errors}`);
-  }
-
-  const fastestFeeEstimate = response.feerate;
+  const fastestFeeEstimate = await client.estimateSmartFee(1);
   if (!fastestFeeEstimate) {
     throw new Error('Error getting Bitcoin Blockchain Fee Rate Response');
   }
-  // const response = await fetch(bitcoinBlockchainAPIFeeURL);
-
-  // if (!response.ok) {
-  //   throw new Error(`Bitcoin Blockchain Fee Rate Response was not OK: ${response.statusText}`);
-  // }
-
-  // let feeRates: FeeRates;
-
-  // try {
-  //   feeRates = await response.json();
-  // } catch (error) {
-  //   throw new Error(`Error parsing Bitcoin Blockchain Fee Rate Response JSON: ${error}`);
-  // }
-
-  // const feeRate = checkFeeRate(feeRates.fastestFee);
-  // const multipliedFeeRate = feeRate * (feeRateMultiplier ?? 1);
   const feeRate = checkFeeRate(fastestFeeEstimate);
   const multipliedFeeRate = feeRate * (feeRateMultiplier ?? 1);
 

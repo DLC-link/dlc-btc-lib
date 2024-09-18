@@ -1,4 +1,4 @@
-import { Client } from 'bitcoin-simple-rpc';
+import Client from 'bitcoin-core';
 import { all, isNil } from 'ramda';
 
 export class BitcoinCoreRpcConnection {
@@ -18,11 +18,9 @@ export class BitcoinCoreRpcConnection {
     this.password = password;
 
     this.client = new Client({
-      baseURL: this.baseUrl,
-      auth: {
-        username: this.username,
-        password: this.password,
-      },
+      host: this.baseUrl,
+      username: this.username,
+      password: this.password,
     });
   }
 

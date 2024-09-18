@@ -19,8 +19,8 @@ import {
   TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_1,
   TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_2,
   TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_3,
-  TEST_TESTNET_FUNDING_TRANSACTION_1,
-  TEST_TESTNET_FUNDING_TRANSACTION_2,
+  TEST_TESTNET_FUNDING_TRANSACTION_11,
+  TEST_TESTNET_FUNDING_TRANSACTION_12,
   TEST_WITHDRAW_PSBT_PARTIALLY_SIGNED_WITHDRAW_PSBT_1,
 } from '../mocks/bitcoin-transaction.test.constants';
 import {
@@ -163,21 +163,18 @@ describe('Bitcoin Functions', () => {
   describe('getScriptMatchingOutputFromTransaction', () => {
     it('should get the script matching output from a transaction', () => {
       const result = getScriptMatchingOutputFromTransaction(
-        TEST_TESTNET_FUNDING_TRANSACTION_1,
+        TEST_TESTNET_FUNDING_TRANSACTION_11,
         hexToBytes(TEST_TAPROOT_MULTISIG_PAYMENT_SCRIPT_1)
       );
-
-      expect(result).toBeDefined();
-      expect(result).toBe(TEST_TESTNET_FUNDING_TRANSACTION_1.vout[0]);
+      expect(result).toStrictEqual([TEST_TESTNET_FUNDING_TRANSACTION_11.vout[0]]);
     });
 
     it('should return undefined for a transaction without any output linked to the multisig script', () => {
       const result = getScriptMatchingOutputFromTransaction(
-        TEST_TESTNET_FUNDING_TRANSACTION_2,
+        TEST_TESTNET_FUNDING_TRANSACTION_12,
         hexToBytes(TEST_TAPROOT_MULTISIG_PAYMENT_SCRIPT_1)
       );
-
-      expect(result).toBeUndefined();
+      expect(result).toStrictEqual([]);
     });
   });
 });

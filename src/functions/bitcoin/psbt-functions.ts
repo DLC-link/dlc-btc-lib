@@ -20,7 +20,7 @@ import { BitcoinCoreRpcConnection } from './bitcoincore-rpc-connection.js';
  * Uses the UTXOs of the User to create the Funding Transaction.
  * The specified amount of Bitcoin is sent to the Vault's Multisig Address.
  *
- * @param bitcoinBlockchainURL - The Bitcoin Blockchain URL used to fetch the  User's UTXOs.
+ * @param bitcoinCoreRpcConnection - The Bitcoin Core RPC Connection object.
  * @param bitcoinNetwork - The Bitcoin Network to use.
  * @param depositAmount - The amount of Bitcoin to deposit into the Vault.
  * @param multisigPayment - The Multisig Payment object created from the User's Taproot Public Key, the Attestor's Public Key, and the Unspendable Public Key committed to the Vault's UUID.
@@ -31,7 +31,6 @@ import { BitcoinCoreRpcConnection } from './bitcoincore-rpc-connection.js';
  * @returns A Funding Transaction.
  */
 export async function createFundingTransaction(
-  // bitcoinBlockchainAPIURL: string,
   bitcoinCoreRpcConnection: BitcoinCoreRpcConnection,
   bitcoinNetwork: Network,
   depositAmount: bigint,
@@ -106,7 +105,7 @@ export async function createFundingTransaction(
  * The specified amount of Bitcoin is sent to the Vault's Multisig Address.
  * The remaining amount is sent back to the User's Address.
  *
- * @param bitcoinBlockchainURL - The Bitcoin Blockchain URL used to fetch the  User's UTXOs and the Vault's Funding Transaction.
+ * @param bitcoinCoreRpcConnection - The Bitcoin Core RPC Connection object.
  * @param bitcoinNetwork - The Bitcoin Network to use.
  * @param depositAmount - The amount of Bitcoin to deposit into the Vault.
  * @param vaultTransactionID - The ID of the Vault Funding Transaction.
@@ -118,7 +117,6 @@ export async function createFundingTransaction(
  * @returns A Deposit Transaction.
  */
 export async function createDepositTransaction(
-  // bitcoinBlockchainURL: string,
   bitcoinCoreRpcConnection: BitcoinCoreRpcConnection,
   bitcoinNetwork: Network,
   depositAmount: bigint,
@@ -255,7 +253,7 @@ export async function createDepositTransaction(
  * The specified amount of Bitcoin is sent to the User's Address.
  * The remaining amount is sent back to the Vault's Multisig Address.
  *
- * @param bitcoinBlockchainURL - The Bitcoin Blockchain URL used to fetch the Vault's Funding Transaction.
+ * @param bitcoinCoreRpcConnection - The Bitcoin Core RPC Connection object.
  * @param bitcoinNetwork - The Bitcoin Network to use.
  * @param withdrawAmount - The amount of Bitcoin to withdraw from the Vault.
  * @param vaultTransactionID - The ID of the Vault Funding Transaction.
@@ -267,7 +265,6 @@ export async function createDepositTransaction(
  * @returns A Withdraw Transaction.
  */
 export async function createWithdrawTransaction(
-  // bitcoinBlockchainURL: string,
   bitcoinCoreRpcConnection: BitcoinCoreRpcConnection,
   bitcoinNetwork: Network,
   withdrawAmount: bigint,
@@ -377,6 +374,7 @@ export async function createWithdrawTransaction(
  * @param nativeSegwitPublicKey - The public key corresponding to the native segwit inputs.
  * @param masterFingerprint - The master fingerprint of the wallet.
  * @param psbt - The PSBT to update.
+ * @param bitcoinCoreRpcConnection - The Bitcoin Core RPC Connection object.
  * @returns The updated PSBT.
  * @throws An error if there is an issue adding the UTXO Ledger props or the BIP32 derivation.
  */
@@ -385,7 +383,6 @@ export async function updateNativeSegwitInputs(
   nativeSegwitPublicKey: Buffer,
   masterFingerprint: string,
   psbt: Psbt,
-  // bitcoinBlockchainAPIURL: string
   bitcoincoreRpcConnection: BitcoinCoreRpcConnection
 ): Promise<Psbt> {
   try {
@@ -471,20 +468,18 @@ export function getTaprootInputsToSign(
  * This function updates the PSBT with the transaction hexes of the inputs that correspond to the given input signing configuration.
  * @param inputsToUpdate - An array of BitcoinInputSigningConfig objects.
  * @param psbt - The PSBT to update.
+ * @param bitcoinCoreRpcConnection - The Bitcoin Core RPC Connection object.
  * @returns The updated PSBT.
  */
 async function addNativeSegwitUTXOLedgerProps(
   psbt: Psbt,
   inputSigningConfiguration: BitcoinInputSigningConfig[],
-  // bitcoinBlockchainAPIURL: string
   bitcoincoreRpcConnection: BitcoinCoreRpcConnection
 ): Promise<Psbt> {
   const client = bitcoincoreRpcConnection.getClient();
   const inputTransactionHexes = await Promise.all(
     psbt.txInputs.map(async input =>
-      // await fetch(`${bitcoinBlockchainAPIURL}/tx/${reverseBytes(input.hash).toString('hex')}/hex`)
-      // .text()
-      (await client.getRawTransaction(reverseBytes(input.hash).toString('hex'), true)).toString()
+      (await client.getRawTransaction(reverseBytes(input.hash).toString('hex'))).toString()
     )
   );
 

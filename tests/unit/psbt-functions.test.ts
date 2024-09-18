@@ -3,13 +3,18 @@ import { p2wpkh } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { regtest } from 'bitcoinjs-lib/src/networks';
 
-import * as bitcoinFunctions from '../../src/functions/bitcoin/bitcoin-functions';
 import {
   createTaprootMultisigPayment,
   deriveUnhardenedKeyPairFromRootPrivateKey,
 } from '../../src/functions/bitcoin/bitcoin-functions';
+import * as bitcoinRequestFunctions from '../../src/functions/bitcoin/bitcoin-request-functions';
+import { BitcoinCoreRpcConnection } from '../../src/functions/bitcoin/bitcoincore-rpc-connection';
 import { createFundingTransaction } from '../../src/functions/bitcoin/psbt-functions';
-import { TEST_REGTEST_BITCOIN_BLOCKCHAIN_API } from '../mocks/api.test.constants';
+import {
+  TEST_REGTEST_BITCOINCORE_RPC_PASSWORD,
+  TEST_REGTEST_BITCOINCORE_RPC_URL,
+  TEST_REGTEST_BITCOINCORE_RPC_USERNAME,
+} from '../mocks/api.test.constants';
 import { TEST_REGTEST_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1 } from '../mocks/attestor.test.constants';
 import {
   TEST_BITCOIN_REGTEST_NATIVE_SEGWIT_PUBLIC_KEY_1,
@@ -48,11 +53,16 @@ describe('PSBT Functions', () => {
   describe('createFundingTransaction', () => {
     it('should successfully create a valid funding transaction', async () => {
       jest
-        .spyOn(bitcoinFunctions, 'getUTXOs')
+        .spyOn(bitcoinRequestFunctions, 'getUTXOs')
         .mockImplementationOnce(async () => TEST_BITCOIN_REGTEST_NATIVE_SEGWIT_UTXOS_1);
 
+      const bitcoincoreRpcConnection = new BitcoinCoreRpcConnection(
+        TEST_REGTEST_BITCOINCORE_RPC_URL,
+        TEST_REGTEST_BITCOINCORE_RPC_USERNAME,
+        TEST_REGTEST_BITCOINCORE_RPC_PASSWORD
+      );
       const depositTransaction = await createFundingTransaction(
-        TEST_REGTEST_BITCOIN_BLOCKCHAIN_API,
+        bitcoincoreRpcConnection,
         regtest,
         99008600n,
         multisigPayment,
