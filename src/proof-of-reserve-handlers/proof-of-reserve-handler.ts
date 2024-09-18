@@ -1,7 +1,6 @@
 import { Network } from 'bitcoinjs-lib';
 
 import { deriveUnhardenedPublicKey } from '../functions/bitcoin/bitcoin-functions.js';
-import { fetchBitcoinBlockchainBlockHeight } from '../functions/bitcoin/bitcoin-request-functions.js';
 import { BitcoinCoreRpcConnection } from '../functions/bitcoin/bitcoincore-rpc-connection.js';
 import { verifyVaultDeposit } from '../functions/proof-of-reserve/proof-of-reserve-functions.js';
 import { RawVault } from '../models/ethereum-models.js';

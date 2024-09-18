@@ -15,6 +15,12 @@
     "noUnusedParameters": false,
     "declaration": true,
     "allowSyntheticDefaultImports": true,
+    "typeRoots": ["./node_modules/@types", "./src/types/"],
+    "types": ["bitcoin-core"],
+    "paths": {
+      "bitcoin-core": ["src/types/bitcoin-core"]
+    }
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/types/**/*"],
+
 }
