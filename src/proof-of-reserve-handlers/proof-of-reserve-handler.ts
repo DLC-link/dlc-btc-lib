@@ -22,10 +22,6 @@ export class ProofOfReserveHandler {
   }
 
   async calculateProofOfReserve(vaults: RawVault[]): Promise<number> {
-    const bitcoinBlockchainBlockHeight = await fetchBitcoinBlockchainBlockHeight(
-      this.bitcoinCoreRpcConnection
-    );
-
     const derivedAttestorGroupPublicKey = deriveUnhardenedPublicKey(
       this.attestorGroupPublicKey,
       this.bitcoinNetwork
@@ -36,7 +32,6 @@ export class ProofOfReserveHandler {
         verifyVaultDeposit(
           vault,
           derivedAttestorGroupPublicKey,
-          bitcoinBlockchainBlockHeight,
           this.bitcoinCoreRpcConnection,
           this.bitcoinNetwork
         )
