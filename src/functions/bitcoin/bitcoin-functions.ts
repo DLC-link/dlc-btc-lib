@@ -481,3 +481,25 @@ export function ecdsaPublicKeyToSchnorr(publicKey: Buffer): Buffer {
     throw new Error('Invalid Public Key Length');
   return publicKey.subarray(1);
 }
+
+export function getBitcoinAddressFromExtendedPublicKey(
+  bitcoinExtendedPublicKey: string,
+  bitcoinNetwork: Network,
+  bitcoinAddressIndex: number,
+  paymentType: 'wpkh' | 'tr'
+): string {
+  const derivedPublicKey = deriveUnhardenedPublicKey(
+    bitcoinExtendedPublicKey,
+    bitcoinNetwork,
+    bitcoinAddressIndex
+  );
+
+  const bitcoinAddress =
+    paymentType === 'wpkh'
+      ? p2wpkh(derivedPublicKey, bitcoinNetwork).address
+      : p2tr(ecdsaPublicKeyToSchnorr(derivedPublicKey), undefined, bitcoinNetwork).address;
+
+  if (!bitcoinAddress) throw new Error('Could not create Bitcoin Address');
+
+  return bitcoinAddress;
+}
