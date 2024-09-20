@@ -36,6 +36,6 @@ export class ProofOfReserveHandler {
         )
       )
     );
-    return verifiedDeposits.reduce((a, b) => a + b, 0);
+    return verifiedDeposits.reduce((a, b) => a + b, 0) * 100_000_000;
   }
 }

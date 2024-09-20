@@ -147,8 +147,8 @@ export async function createDepositTransaction(
     bitcoinCoreRpcConnection
   );
 
-  const vaultTransactionOutputIndex = vaultTransaction.vout.findIndex(output =>
-    output.scriptPubKey.addresses.includes(multisigAddress)
+  const vaultTransactionOutputIndex = vaultTransaction.vout.findIndex(
+    output => output.scriptPubKey.address === multisigAddress
   );
 
   if (vaultTransactionOutputIndex === -1) {
@@ -292,8 +292,8 @@ export async function createWithdrawTransaction(
     bitcoinCoreRpcConnection
   );
 
-  const fundingTransactionOutputIndex = fundingTransaction.vout.findIndex(output =>
-    output.scriptPubKey.addresses.includes(multisigAddress)
+  const fundingTransactionOutputIndex = fundingTransaction.vout.findIndex(
+    output => output.scriptPubKey.address === multisigAddress
   );
 
   if (fundingTransactionOutputIndex === -1) {

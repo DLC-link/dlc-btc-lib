@@ -15,7 +15,6 @@ declare module 'bitcoin-core' {
       command<T = any>(method: string, ...params: any[]): Promise<T>;
       getBlockCount(): Promise<number>;
       getBlock(blockhash: string): Promise<FetchedBlock>;
-      getRawTransaction(txid: string): Promise<string>;
       sendRawTransaction(hex: string): Promise<string>;
       getBalance(bitcoinAddress: string): Promise<number>;
       listUnspent(): Promise<{ txid: string; vout: number; address: string; amount: number }[]>;
@@ -23,6 +22,7 @@ declare module 'bitcoin-core' {
       validateAddress(userAddress: string): Promise<{ isvalid: boolean }>;
       getMempoolInfo(): Promise<{ size: number; bytes: number; usage: number }>;
       getBlockchainInfo(): Promise<{ blocks: number; headers: number; bestblockhash: string }>;
+      getRawTransaction(txid: string): Promise<FetchedRawTransaction>;
       // Add any additional method definitions you need
     }
 
@@ -69,6 +69,15 @@ declare module 'bitcoin-core' {
     };
 
     export interface FetchedRawTransaction extends DecodedRawTransaction {
+      txid: string;
+      hash: string;
+      version: number;
+      size: number;
+      vsize: number;
+      weight: number;
+      locktime: number;
+      vin: TxIn[];
+      vout: TxOut[];
       hex: string;
       blockhash: string;
       confirmations: number;
@@ -79,24 +88,28 @@ declare module 'bitcoin-core' {
     export type TxIn = {
       txid: string;
       vout: number;
-      scriptSig: {
-        asm: string;
-        hex: string;
-      };
+      scriptSig: ScriptSig;
       txinwitness?: string[];
       sequence: number;
+    };
+
+    type ScriptSig = {
+      asm: string;
+      hex: string;
     };
 
     export type TxOut = {
       value: number;
       n: number;
-      scriptPubKey: {
-        asm: string;
-        hex: string;
-        reqSigs: number;
-        type: string;
-        addresses: string[];
-      };
+      scriptPubKey: ScriptPubKey;
+    };
+
+    type ScriptPubKey = {
+      asm: string;
+      hex: string;
+      reqSigs: number;
+      type: string;
+      address: string;
     };
 
     export type UTXO = {

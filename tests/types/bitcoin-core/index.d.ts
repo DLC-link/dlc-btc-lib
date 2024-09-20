@@ -56,6 +56,15 @@ declare module 'bitcoin-core' {
   };
 
   export interface FetchedRawTransaction extends DecodedRawTransaction {
+    txid: string;
+    hash: string;
+    version: number;
+    size: number;
+    vsize: number;
+    weight: number;
+    locktime: number;
+    vin: TxIn[];
+    vout: TxOut[];
     hex: string;
     blockhash: string;
     confirmations: number;
@@ -82,7 +91,7 @@ declare module 'bitcoin-core' {
       hex: string;
       reqSigs: number;
       type: string;
-      addresses: string[];
+      address: string;
     };
   };
 

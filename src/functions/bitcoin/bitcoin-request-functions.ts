@@ -18,14 +18,10 @@ export async function fetchBitcoinTransaction(
 ): Promise<FetchedRawTransaction> {
   try {
     const client = bitcoinCoreRpcConnection.getClient();
-    const response = await client.getRawTransaction(txID);
-    if (typeof response === 'string') {
-      console.log('Error or message:', response);
-      throw new Error(`Error fetching Bitcoin Transaction: ${response}`);
-    } else {
-      console.log('FetchedRawTransaction:', response);
-      return response;
-    }
+    console.log('Fetching Raw Transaction in verbose mode:', txID);
+    const result = await client.command('getrawtransaction', txID, true);
+    console.log('Raw Transaction:', result);
+    return result; // figure out HOW to make it so that we have Satoshis values in vout/vin
   } catch (error) {
     throw new Error(`Error fetching Bitcoin Transaction: ${error}`);
   }

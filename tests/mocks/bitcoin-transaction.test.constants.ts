@@ -1113,7 +1113,7 @@ export const TEST_TESTNET_FUNDING_TRANSACTION_11: FetchedRawTransaction = {
         hex: '51206d7e5019c795d05fd3df81713069aa3a309e912a61555ab3ebd6e477f42c1f70',
         reqSigs: 0,
         type: 'v1_p2tr',
-        addresses: ['tb1pd4l9qxw8jhg9l57ls9cnq6d28gcfayf2v9244vlt6mj80apvracqgdt090'],
+        address: 'tb1pd4l9qxw8jhg9l57ls9cnq6d28gcfayf2v9244vlt6mj80apvracqgdt090',
       },
     },
     {
@@ -1124,7 +1124,7 @@ export const TEST_TESTNET_FUNDING_TRANSACTION_11: FetchedRawTransaction = {
         hex: '0014f28ec1a3e3df0240b98582ca7754e6948e9bf930',
         reqSigs: 0,
         type: 'v0_p2wpkh',
-        addresses: ['tb1q728vrglrmupypwv9st98w48xjj8fh7fs8mrdre'],
+        address: 'tb1q728vrglrmupypwv9st98w48xjj8fh7fs8mrdre',
       },
     },
     {
@@ -1135,10 +1135,11 @@ export const TEST_TESTNET_FUNDING_TRANSACTION_11: FetchedRawTransaction = {
         hex: '',
         reqSigs: 0,
         type: 'v1_p2tr',
-        addresses: ['tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq'],
+        address: 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq',
       },
     },
   ],
+  weight: 740,
 };
 
 // This is the same transaction with 6 confirmations
@@ -1177,7 +1178,7 @@ export const TEST_TESTNET_FUNDING_TRANSACTION_111: FetchedRawTransaction = {
         hex: '51206d7e5019c795d05fd3df81713069aa3a309e912a61555ab3ebd6e477f42c1f70',
         reqSigs: 0,
         type: 'v1_p2tr',
-        addresses: ['tb1pd4l9qxw8jhg9l57ls9cnq6d28gcfayf2v9244vlt6mj80apvracqgdt090'],
+        address: 'tb1pd4l9qxw8jhg9l57ls9cnq6d28gcfayf2v9244vlt6mj80apvracqgdt090',
       },
     },
     {
@@ -1188,7 +1189,7 @@ export const TEST_TESTNET_FUNDING_TRANSACTION_111: FetchedRawTransaction = {
         hex: '0014f28ec1a3e3df0240b98582ca7754e6948e9bf930',
         reqSigs: 0,
         type: 'v0_p2wpkh',
-        addresses: ['tb1q728vrglrmupypwv9st98w48xjj8fh7fs8mrdre'],
+        address: 'tb1q728vrglrmupypwv9st98w48xjj8fh7fs8mrdre',
       },
     },
     {
@@ -1199,10 +1200,11 @@ export const TEST_TESTNET_FUNDING_TRANSACTION_111: FetchedRawTransaction = {
         hex: '',
         reqSigs: 0,
         type: 'v1_p2tr',
-        addresses: ['tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq'],
+        address: 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq',
       },
     },
   ],
+  weight: 740,
 };
 
 export const TEST_TESTNET_FUNDING_TRANSACTION_11_BLOCK: FetchedBlock = {
@@ -1262,7 +1264,7 @@ export const TEST_TESTNET_FUNDING_TRANSACTION_12: FetchedRawTransaction = {
         hex: '',
         reqSigs: 0,
         type: 'v0_p2wpkhv',
-        addresses: ['tb1q728vrglrmupypwv9st98w48xjj8fh7fs8mrdre'],
+        address: 'tb1q728vrglrmupypwv9st98w48xjj8fh7fs8mrdre',
       },
     },
     {
@@ -1273,10 +1275,11 @@ export const TEST_TESTNET_FUNDING_TRANSACTION_12: FetchedRawTransaction = {
         hex: '',
         reqSigs: 0,
         type: 'v1_p2tr',
-        addresses: ['tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq'],
+        address: 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq',
       },
     },
   ],
+  weight: 740,
 };
 
 // This transaction's multisig output value does not match the vault's valueLocked field.
