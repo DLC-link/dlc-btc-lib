@@ -16,6 +16,7 @@ import { FetchedRawTransaction, TxOut } from 'bitcoin-core';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
+import * as R from 'ramda';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
 import { BitcoinInputSigningConfig, PaymentTypes } from '../../models/bitcoin-models.js';
@@ -133,9 +134,11 @@ export function createTaprootMultisigPayment(
  *
  * @returns The fee rate.
  */
-function checkFeeRate(feeRate: number | undefined): number {
-  if (!feeRate || feeRate < 2) {
-    return 2;
+function checkFeeRate(bitcoinNetwork: Network, feeRate: number | undefined): number | undefined {
+  if (!feeRate || R.isEmpty(feeRate) || feeRate < 2) {
+    if (bitcoinNetwork === regtest) {
+      return 2;
+    }
   }
   return feeRate;
 }
@@ -147,18 +150,29 @@ function checkFeeRate(feeRate: number | undefined): number {
  * @returns A promise that resolves to the hour fee rate.
  */
 export async function getFeeRate(
+  bitcoinNetwork: Network,
   bitcoincoreRpcConnection: BitcoinCoreRpcConnection,
+  bitcoinBlockchainFeeRecommendationAPI: string,
   feeRateMultiplier?: number
 ): Promise<number> {
   const client = bitcoincoreRpcConnection.getClient();
-  const fastestFeeEstimate = await client.estimateSmartFee(1);
-  if (!fastestFeeEstimate) {
+  try {
+    const response = await client.estimateSmartFee(1);
+    let feeData = response.feeRate;
+
+    if (response.errors) {
+      console.log('Error fetching fee estimate from Bitcoincore RPC: ', response.errors);
+      const apiResponse = await fetch(bitcoinBlockchainFeeRecommendationAPI);
+      feeData = await apiResponse.json();
+    }
+
+    const feeRate = checkFeeRate(bitcoinNetwork, feeData);
+    if (!feeRate) throw new Error('Fee Rate is not defined');
+    return feeRate * (feeRateMultiplier ?? 1);
+  } catch (error) {
+    console.error('Error getting Bitcoin Blockchain Fee Rate Response:', error);
     throw new Error('Error getting Bitcoin Blockchain Fee Rate Response');
   }
-  const feeRate = checkFeeRate(fastestFeeEstimate);
-  const multipliedFeeRate = feeRate * (feeRateMultiplier ?? 1);
-
-  return multipliedFeeRate;
 }
 
 /**

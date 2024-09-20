@@ -16,11 +16,12 @@
     "declaration": true,
     "allowSyntheticDefaultImports": true,
     "typeRoots": ["./node_modules/@types", "./src/types/"],
-    "types": ["bitcoin-core"],
+    "types": ["bitcoin-core", "jest"],
     "paths": {
       "bitcoin-core": ["src/types/bitcoin-core"]
-    }
+    },
   },
   "include": ["src/**/*.ts", "src/types/**/*"],
+  "exclude": ["node_modules"]
 
 }

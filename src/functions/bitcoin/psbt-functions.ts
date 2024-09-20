@@ -52,8 +52,6 @@ export async function createFundingTransaction(
     throw new Error('Deposit Payment is missing Address');
   }
 
-  // const client = bitcoincoreRpcAuth.getClient();
-
   logger.info('createFundingTransaction: Getting feeAddress');
   const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
   logger.info('feeAddress:', feeAddress);
@@ -64,6 +62,7 @@ export async function createFundingTransaction(
 
   logger.info('createFundingTransaction: Getting userUTXOs');
   const userUTXOs = await getUTXOs(depositPayment, bitcoinCoreRpcConnection);
+  console.log('User UTXOs:', userUTXOs);
 
   const psbtOutputs = [
     { address: multisigAddress, amount: depositAmount },
@@ -73,14 +72,15 @@ export async function createFundingTransaction(
     },
   ];
 
-  const selected = selectUTXO(userUTXOs, psbtOutputs, 'default', {
+  const opts = {
     changeAddress: depositAddress,
     feePerByte: feeRate,
     bip69: false,
     createTx: true,
     network: bitcoinNetwork,
     dust: 546n as unknown as number,
-  });
+  };
+  const selected = selectUTXO(userUTXOs, psbtOutputs, 'default', opts);
 
   if (!selected) {
     throw new Error(

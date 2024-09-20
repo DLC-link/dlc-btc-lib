@@ -1,10 +1,33 @@
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
+import { Bytes } from '@scure/btc-signer/utils';
+import { UTXO } from 'bitcoin-core';
 
-export interface UTXO {
+export class ModifiedUTXO {
+  payment: P2Ret | P2TROut;
   txid: string;
-  vout: number;
-  status: BitcoinTransactionStatus;
+  index: number;
   value: number;
+  witnessUtxo: WitnessUTXO;
+  redeemScript?: Uint8Array;
+
+  constructor(payment: P2Ret | P2TROut, utxo: UTXO) {
+    this.payment = payment;
+    this.txid = utxo.txid;
+    this.index = utxo.vout;
+    this.value = Math.round(utxo.amount * 100_000_000);
+    this.witnessUtxo = new WitnessUTXO(payment.script, BigInt(this.value));
+    this.redeemScript = payment.redeemScript;
+  }
+}
+
+export class WitnessUTXO {
+  script: Bytes;
+  amount: bigint;
+
+  constructor(script: Bytes, amount: bigint) {
+    this.script = script;
+    this.amount = amount;
+  }
 }
 
 export interface BitcoinInputSigningConfig {

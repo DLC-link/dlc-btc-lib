@@ -7,10 +7,18 @@ import {
   deriveUnhardenedPublicKey,
   ecdsaPublicKeyToSchnorr,
   finalizeUserInputs,
+  getFeeRate,
   getInputIndicesByScript,
   getScriptMatchingOutputFromTransaction,
   getUnspendableKeyCommittedToUUID,
 } from '../../src/functions/bitcoin/bitcoin-functions';
+import { BitcoinCoreRpcConnection } from '../../src/functions/bitcoin/bitcoincore-rpc-connection';
+import {
+  TEST_TESTNET_BITCOINCORE_RPC_PASSWORD,
+  TEST_TESTNET_BITCOINCORE_RPC_PORT,
+  TEST_TESTNET_BITCOINCORE_RPC_URL,
+  TEST_TESTNET_BITCOINCORE_RPC_USERNAME,
+} from '../mocks/api.test.constants';
 import {
   TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
   TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1,
@@ -175,6 +183,24 @@ describe('Bitcoin Functions', () => {
         hexToBytes(TEST_TAPROOT_MULTISIG_PAYMENT_SCRIPT_1)
       );
       expect(result).toStrictEqual([]);
+    });
+  });
+  // TODO: remove this, this is a temporary test!
+  describe('getFeeRate', () => {
+    it('should get the fee rate when in TESTNET', () => {
+      const bitcoincoreRpcConnectionTestnet = new BitcoinCoreRpcConnection(
+        TEST_TESTNET_BITCOINCORE_RPC_URL,
+        TEST_TESTNET_BITCOINCORE_RPC_USERNAME,
+        TEST_TESTNET_BITCOINCORE_RPC_PASSWORD,
+        TEST_TESTNET_BITCOINCORE_RPC_PORT
+      );
+      const result = getFeeRate(
+        testnet,
+        bitcoincoreRpcConnectionTestnet,
+        'https://mempool.space/testnet/api/v1/fees/recommended'
+      );
+      console.log('Fee rate: ', result);
+      expect(result).toBeDefined();
     });
   });
 });

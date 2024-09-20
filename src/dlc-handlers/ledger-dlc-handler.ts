@@ -2,7 +2,7 @@ import { bytesToHex } from '@noble/hashes/utils';
 import { Transaction } from '@scure/btc-signer';
 import { P2Ret, P2TROut, p2tr, p2wpkh } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
-import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
+import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { AppClient, DefaultWalletPolicy, WalletPolicy } from 'ledger-bitcoin';
 
 import {
@@ -50,7 +50,7 @@ export class LedgerDLCHandler {
   private bitcoinNetworkIndex: number;
   // private bitcoinBlockchainAPI: string;
   private bitcoincoreRpcConnection: BitcoinCoreRpcConnection;
-  // private bitcoinBlockchainFeeRecommendationAPI: string;
+  private bitcoinBlockchainFeeRecommendationAPI: string;
 
   constructor(
     ledgerApp: AppClient,
@@ -59,34 +59,29 @@ export class LedgerDLCHandler {
     walletAddressIndex: number,
     fundingPaymentType: 'wpkh' | 'tr',
     bitcoinNetwork: Network,
-    bitcoincoreRpcConnection: BitcoinCoreRpcConnection
-    // bitcoinBlockchainAPI?: string,
-    // bitcoinBlockchainFeeRecommendationAPI?: string
+    bitcoincoreRpcConnection: BitcoinCoreRpcConnection,
+    bitcoinBlockchainFeeRecommendationAPI?: string
   ) {
     switch (bitcoinNetwork) {
       case bitcoin:
         // this.bitcoinBlockchainAPI = 'https://mempool.space/api';
-        // this.bitcoinBlockchainFeeRecommendationAPI =
-        'https://mempool.space/api/v1/fees/recommended';
+        this.bitcoinBlockchainFeeRecommendationAPI =
+          'https://mempool.space/api/v1/fees/recommended';
         this.bitcoinNetworkIndex = 0;
         break;
       case testnet:
         // this.bitcoinBlockchainAPI = 'https://mempool.space/testnet/api';
-        // this.bitcoinBlockchainFeeRecommendationAPI =
-        'https://mempool.space/testnet/api/v1/fees/recommended';
+        this.bitcoinBlockchainFeeRecommendationAPI =
+          'https://mempool.space/testnet/api/v1/fees/recommended';
         this.bitcoinNetworkIndex = 1;
         break;
-        // case regtest:
-        //   if (
-        //     // bitcoinBlockchainAPI === undefined ||
-        //     // bitcoinBlockchainFeeRecommendationAPI === undefined
-        //   ) {
-        //     throw new Error(
-        //       'Regtest requires a Bitcoin Blockchain API and a Bitcoin Blockchain Fee Recommendation API'
-        //     );
-        //   }
-        // this.bitcoinBlockchainAPI = bitcoinBlockchainAPI;
-        // this.bitcoinBlockchainFeeRecommendationAPI = bitcoinBlockchainFeeRecommendationAPI;
+      case regtest:
+        if (!bitcoinBlockchainFeeRecommendationAPI) {
+          throw new Error(
+            'Regtest requires a Bitcoin Blockchain API and a Bitcoin Blockchain Fee Recommendation API'
+          );
+        }
+        this.bitcoinBlockchainFeeRecommendationAPI = bitcoinBlockchainFeeRecommendationAPI;
         this.bitcoinNetworkIndex = 1;
         break;
       default:
@@ -307,10 +302,19 @@ export class LedgerDLCHandler {
       );
 
       const feeRate =
-        customFeeRate ?? BigInt(await getFeeRate(this.bitcoincoreRpcConnection, feeRateMultiplier));
+        customFeeRate ??
+        BigInt(
+          await getFeeRate(
+            this.bitcoinNetwork,
+            this.bitcoincoreRpcConnection,
+            this.bitcoinBlockchainFeeRecommendationAPI,
+            feeRateMultiplier
+          )
+        );
 
       const addressBalance = await getBalanceByPayment(
-        fundingPayment,
+        fundingDerivedPublicKey,
+        this.fundingPaymentType,
         this.bitcoincoreRpcConnection
       );
 
@@ -319,7 +323,6 @@ export class LedgerDLCHandler {
       }
 
       const fundingTransaction = await createFundingTransaction(
-        // this.bitcoinBlockchainAPI,
         this.bitcoincoreRpcConnection,
         this.bitcoinNetwork,
         bitcoinAmount,
@@ -391,10 +394,17 @@ export class LedgerDLCHandler {
       );
 
       const feeRate =
-        customFeeRate ?? BigInt(await getFeeRate(this.bitcoincoreRpcConnection, feeRateMultiplier));
+        customFeeRate ??
+        BigInt(
+          await getFeeRate(
+            this.bitcoinNetwork,
+            this.bitcoincoreRpcConnection,
+            this.bitcoinBlockchainFeeRecommendationAPI,
+            feeRateMultiplier
+          )
+        );
 
       const withdrawTransaction = await createWithdrawTransaction(
-        // this.bitcoinBlockchainAPI,
         this.bitcoincoreRpcConnection,
         this.bitcoinNetwork,
         withdrawAmount,
@@ -452,10 +462,17 @@ export class LedgerDLCHandler {
       await this.createPayment(vault.uuid, attestorGroupPublicKey);
 
     const feeRate =
-      customFeeRate ?? BigInt(await getFeeRate(this.bitcoincoreRpcConnection, feeRateMultiplier));
+      customFeeRate ??
+      BigInt(
+        await getFeeRate(
+          this.bitcoinNetwork,
+          this.bitcoincoreRpcConnection,
+          this.bitcoinBlockchainFeeRecommendationAPI,
+          feeRateMultiplier
+        )
+      );
 
     const depositTransaction = await createDepositTransaction(
-      // this.bitcoinBlockchainAPI,
       this.bitcoincoreRpcConnection,
       this.bitcoinNetwork,
       depositAmount,

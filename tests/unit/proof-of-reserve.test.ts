@@ -5,6 +5,7 @@ import { BitcoinCoreRpcConnection } from '../../src/functions/bitcoin/bitcoincor
 import { verifyVaultDeposit } from '../../src/functions/proof-of-reserve/proof-of-reserve-functions.js';
 import {
   TEST_TESTNET_BITCOINCORE_RPC_PASSWORD,
+  TEST_TESTNET_BITCOINCORE_RPC_PORT,
   TEST_TESTNET_BITCOINCORE_RPC_URL,
   TEST_TESTNET_BITCOINCORE_RPC_USERNAME,
 } from '../mocks/api.test.constants.js';
@@ -23,7 +24,8 @@ describe('Proof of Reserve Calculation', () => {
   const bitcoincoreRpcConnectionTestnet = new BitcoinCoreRpcConnection(
     TEST_TESTNET_BITCOINCORE_RPC_URL,
     TEST_TESTNET_BITCOINCORE_RPC_USERNAME,
-    TEST_TESTNET_BITCOINCORE_RPC_PASSWORD
+    TEST_TESTNET_BITCOINCORE_RPC_PASSWORD,
+    TEST_TESTNET_BITCOINCORE_RPC_PORT
   );
 
   beforeEach(() => {

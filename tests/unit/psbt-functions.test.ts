@@ -12,6 +12,7 @@ import { BitcoinCoreRpcConnection } from '../../src/functions/bitcoin/bitcoincor
 import { createFundingTransaction } from '../../src/functions/bitcoin/psbt-functions';
 import {
   TEST_REGTEST_BITCOINCORE_RPC_PASSWORD,
+  TEST_REGTEST_BITCOINCORE_RPC_PORT,
   TEST_REGTEST_BITCOINCORE_RPC_URL,
   TEST_REGTEST_BITCOINCORE_RPC_USERNAME,
 } from '../mocks/api.test.constants';
@@ -59,7 +60,8 @@ describe('PSBT Functions', () => {
       const bitcoincoreRpcConnection = new BitcoinCoreRpcConnection(
         TEST_REGTEST_BITCOINCORE_RPC_URL,
         TEST_REGTEST_BITCOINCORE_RPC_USERNAME,
-        TEST_REGTEST_BITCOINCORE_RPC_PASSWORD
+        TEST_REGTEST_BITCOINCORE_RPC_PASSWORD,
+        TEST_REGTEST_BITCOINCORE_RPC_PORT
       );
       const depositTransaction = await createFundingTransaction(
         bitcoincoreRpcConnection,

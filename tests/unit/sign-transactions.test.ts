@@ -7,6 +7,7 @@ import { PrivateKeyDLCHandler } from '../../src/index.js';
 import {
   TEST_BITCOIN_BLOCKCHAIN_FEE_RECOMMENDATION_API,
   TEST_REGTEST_BITCOINCORE_RPC_PASSWORD,
+  TEST_REGTEST_BITCOINCORE_RPC_PORT,
   TEST_REGTEST_BITCOINCORE_RPC_URL,
   TEST_REGTEST_BITCOINCORE_RPC_USERNAME,
 } from '../mocks/api.test.constants.js';
@@ -24,7 +25,8 @@ describe('Create and Sign Vault related Transactions', () => {
     const bitcoincoreRpcConnection = new BitcoinCoreRpcConnection(
       TEST_REGTEST_BITCOINCORE_RPC_URL,
       TEST_REGTEST_BITCOINCORE_RPC_USERNAME,
-      TEST_REGTEST_BITCOINCORE_RPC_PASSWORD
+      TEST_REGTEST_BITCOINCORE_RPC_PASSWORD,
+      TEST_REGTEST_BITCOINCORE_RPC_PORT
     );
     dlcHandler = new PrivateKeyDLCHandler(
       TEST_BITCOIN_EXTENDED_PRIVATE_KEY,

@@ -19,8 +19,10 @@ declare module 'bitcoin-core' {
       sendRawTransaction(hex: string): Promise<string>;
       getBalance(bitcoinAddress: string): Promise<number>;
       listUnspent(): Promise<{ txid: string; vout: number; address: string; amount: number }[]>;
-      estimateSmartFee(blocks: number): Promise<number>;
+      estimateSmartFee(blocks: number): Promise<FeeRate>;
       validateAddress(userAddress: string): Promise<{ isvalid: boolean }>;
+      getMempoolInfo(): Promise<{ size: number; bytes: number; usage: number }>;
+      getBlockchainInfo(): Promise<{ blocks: number; headers: number; bestblockhash: string }>;
       // Add any additional method definitions you need
     }
 
@@ -60,6 +62,12 @@ declare module 'bitcoin-core' {
       vout: TxOut[];
     };
 
+    type FeeRate = {
+      errors: string[];
+      blocks: number;
+      feeRate: number;
+    };
+
     export interface FetchedRawTransaction extends DecodedRawTransaction {
       hex: string;
       blockhash: string;
@@ -94,7 +102,7 @@ declare module 'bitcoin-core' {
     export type UTXO = {
       txid: string;
       vout: number;
-      scriptPubkey: string;
+      scriptPubKey: Bytes;
       desc: string;
       amount: number;
       height: number;

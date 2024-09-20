@@ -1,6 +1,8 @@
+import { bytesToHex } from '@noble/hashes/utils';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { FetchedRawTransaction, UTXO } from 'bitcoin-core';
 
+import { ModifiedUTXO } from '../../models/bitcoin-models.js';
 import { BitcoinCoreRpcConnection } from './bitcoincore-rpc-connection.js';
 
 /**
@@ -87,15 +89,27 @@ export async function checkBitcoinTransactionConfirmations(
  * @param bitcoinCoreRpcConnection - The Bitcoin Core RPC Connection object.
  * @returns A Promise that resolves to the Balance of the User's Bitcoin Address.
  */
+// TODO: check where it's used and if we need it at all!
 export async function getBalanceByAddress(
+  taprootDerivedPublicKey: Buffer,
   bitcoinAddress: string,
   bitcoinCoreRpcConnection: BitcoinCoreRpcConnection
 ): Promise<number> {
   try {
     const client = bitcoinCoreRpcConnection.getClient();
-    const utxo = client.getBalance(bitcoinAddress);
-    console.log('UTXO:', utxo);
-    return utxo;
+    const pkString = bytesToHex(taprootDerivedPublicKey);
+
+    const descriptors = [{ desc: `tr(${pkString})` }];
+    const userUTXO = await client.command('scantxoutset', 'start', descriptors);
+
+    const totalAmount = userUTXO.total_amount;
+    if (!totalAmount) {
+      return userUTXO.unspents.reduce(
+        (acc: number, utxo: { amount: number }) => acc + Math.round(utxo.amount * 100_000_000),
+        0
+      );
+    }
+    return Math.round(totalAmount * 100_000_000);
   } catch (error) {
     throw new Error(`Error getting UTXOs: ${error}`);
   }
@@ -109,21 +123,25 @@ export async function getBalanceByAddress(
  * @returns A Promise that resolves to the Balance of the User's Bitcoin Address.
  */
 export async function getBalanceByPayment(
-  payment: P2Ret | P2TROut,
+  fundingDerivedPublicKey: Buffer,
+  paymentType: string,
   bitcoinCoreRpcConnection: BitcoinCoreRpcConnection
 ): Promise<number> {
   try {
     const client = bitcoinCoreRpcConnection.getClient();
-    const userAddress = payment.address;
-    if (!userAddress) {
-      throw new Error('Payment is missing Address');
+    const pkString = bytesToHex(fundingDerivedPublicKey);
+
+    const descriptors = [{ desc: `${paymentType}(${pkString})` }];
+    const userUTXO = await client.command('scantxoutset', 'start', descriptors);
+
+    const totalAmount = userUTXO.total_amount;
+    if (!totalAmount) {
+      return userUTXO.unspents.reduce(
+        (acc: number, utxo: { amount: number }) => acc + Math.round(utxo.amount * 100_000_000),
+        0
+      );
     }
-    console.log('Client:', client);
-    console.log('User Address:', userAddress);
-    // const utxo = await client.getBalance(userAddress);
-    const utxo = await client.command('getbalance', userAddress);
-    console.log('UTXO:', utxo);
-    return utxo;
+    return Math.round(totalAmount * 100_000_000);
   } catch (error) {
     throw new Error(`Error getting UTXOs: ${error}`);
   }
@@ -152,7 +170,7 @@ export async function getUTXOs(
         throw new Error(`Address ${userAddress} is not valid.`);
       }
 
-      const { scriptPubKey } = validationResult;
+      const scriptPubKey = validationResult.scriptPubKey;
 
       if (!scriptPubKey) {
         throw new Error(`Unable to get scriptPubKey for address ${userAddress}`);
@@ -166,23 +184,13 @@ export async function getUTXOs(
       ]);
 
       if (scanResult.success && scanResult.unspents.length > 0) {
-        console.log(`UTXOs for ${userAddress}:`);
-        const modifiedUTXOs = scanResult.unspents.forEach((utxo: any) => {
-          console.log('UTXO:', utxo);
-          async (utxo: UTXO) => {
-            return {
-              ...payment,
-              txid: utxo.txid,
-              index: utxo.vout,
-              value: utxo.amount,
-              witnessUtxo: {
-                script: payment.script,
-                amount: BigInt(utxo.amount),
-              },
-              redeemScript: payment.redeemScript,
-            };
-          };
-        });
+        const modifiedUTXOs = await Promise.all(
+          scanResult.unspents.map(async (utxo: UTXO) => {
+            console.log('ModifiedUTXO - UTXO:', utxo);
+            console.log('ModifiedUTXO - Payment:', utxo.amount);
+            return new ModifiedUTXO(payment, utxo);
+          })
+        );
 
         return modifiedUTXOs;
       } else {
