@@ -32,3 +32,10 @@ export class LedgerError extends Error {
     this.name = 'LedgerError';
   }
 }
+
+export class RippleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RippleError';
+  }
+}

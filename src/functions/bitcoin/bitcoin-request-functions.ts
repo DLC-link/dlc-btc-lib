@@ -17,7 +17,9 @@ export async function fetchBitcoinTransaction(
     const response = await fetch(bitcoinBlockchainAPITransactionEndpoint);
 
     if (!response.ok)
-      throw new Error(`Bitcoin Network Transaction Response was not OK: ${response.statusText}`);
+      throw new Error(
+        `Bitcoin Network Transaction Response was not OK: ${response.statusText} - btc tx id: ${txID}`
+      );
 
     return await response.json();
   } catch (error) {
