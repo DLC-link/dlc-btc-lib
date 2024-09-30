@@ -1,16 +1,27 @@
 import { BigNumber } from 'ethers';
-import xrpl, { AccountNFTsRequest, SubmittableTransaction } from 'xrpl';
+import xrpl, {
+  AccountNFTsRequest,
+  CheckCash,
+  CheckCreate,
+  SubmittableTransaction,
+  TxResponse,
+} from 'xrpl';
 import { NFTokenMintMetadata } from 'xrpl/dist/npm/models/transactions/NFTokenMint.js';
 
 import { RippleError } from '../models/errors.js';
 import { RawVault, VaultState } from '../models/ethereum-models.js';
 
+interface SignResponse {
+  tx_blob: string;
+  hash: string;
+}
+
 function encodeNftURI(vault: RawVault): string {
   const VERSION = parseInt('1', 16).toString().padStart(2, '0'); // 1 as hex
   const status = parseInt(vault.status.toString(), 16).toString().padStart(2, '0');
-  console.log(
-    `UUID: ${vault.uuid}, valueLocked: ${vault.valueLocked}, valueMinted: ${vault.valueMinted}`
-  );
+  // console.log(
+  //   `UUID: ${vault.uuid}, valueLocked: ${vault.valueLocked}, valueMinted: ${vault.valueMinted}`
+  // );
   let uuid = vault.uuid;
   if (uuid === '') {
     uuid = vault.uuid.padStart(64, '0');
@@ -70,9 +81,9 @@ function decodeNftURI(URI: string): RawVault {
     console.log(`URI which failed to Decode: ${URI}`);
     return {} as RawVault;
   }
-  console.log(
-    `Decoded URI: Version: ${VERSION}, status: ${status}, UUID: ${uuid}, valueLocked: ${valueLocked}, valueMinted: ${valueMinted}, fundingTxId: ${fundingTxId}, wdTxId: ${wdTxId}, btcMintFeeBasisPoints: ${btcMintFeeBasisPoints}, btcRedeemFeeBasisPoints: ${btcRedeemFeeBasisPoints}, btcFeeRecipient: ${btcFeeRecipient} , taprootPubKey: ${taprootPubKey}`
-  );
+  // console.log(
+  //   `Decoded URI: Version: ${VERSION}, status: ${status}, UUID: ${uuid}, valueLocked: ${valueLocked}, valueMinted: ${valueMinted}, fundingTxId: ${fundingTxId}, wdTxId: ${wdTxId}, btcMintFeeBasisPoints: ${btcMintFeeBasisPoints}, btcRedeemFeeBasisPoints: ${btcRedeemFeeBasisPoints}, btcFeeRecipient: ${btcFeeRecipient} , taprootPubKey: ${taprootPubKey}`
+  // );
   const baseVault = buildDefaultNftVault();
   return {
     ...baseVault,
@@ -465,5 +476,64 @@ export class RippleHandler {
       throw new RippleError(`Could not mint Ripple Vault: ${meta!.TransactionResult}`);
     }
     return meta!.nftoken_id!;
+  }
+
+  async createCheck(xrplDestinationAddress: string, dlcBTCAmount: string): Promise<string> {
+    if (!this.client.isConnected()) {
+      await this.client.connect();
+    }
+
+    const createCheckTransactionJSON: CheckCreate = {
+      TransactionType: 'CheckCreate',
+      Account: this.demo_wallet.classicAddress,
+      Destination: xrplDestinationAddress,
+      SendMax: {
+        currency: 'DLC',
+        value: dlcBTCAmount,
+        issuer: xrplDestinationAddress,
+      },
+    };
+
+    const updatedCreateCheckTransactionJSON: CheckCreate = await this.client.autofill(
+      createCheckTransactionJSON
+    );
+
+    const signCreateCheckTransactionResponse: SignResponse = this.demo_wallet.sign(
+      updatedCreateCheckTransactionJSON
+    );
+
+    const submitCreateCheckTransactionResponse: TxResponse<SubmittableTransaction> =
+      await this.client.submitAndWait(signCreateCheckTransactionResponse.tx_blob);
+
+    return submitCreateCheckTransactionResponse.result.hash;
+  }
+
+  async cashCheck(checkID: string, dlcBTCAmount: string): Promise<string> {
+    if (!this.client.isConnected()) {
+      await this.client.connect();
+    }
+
+    const cashCheckTransactionJSON: CheckCash = {
+      TransactionType: 'CheckCash',
+      Account: this.demo_wallet.classicAddress,
+      CheckID: checkID,
+      Amount: {
+        currency: 'DLC',
+        value: dlcBTCAmount,
+        issuer: this.demo_wallet.classicAddress,
+      },
+    };
+
+    const updatedCashCheckTransactionJSON: CheckCash =
+      await this.client.autofill(cashCheckTransactionJSON);
+
+    const signCashCheckTransactionResponse: SignResponse = this.demo_wallet.sign(
+      updatedCashCheckTransactionJSON
+    );
+
+    const submitCashCheckTransactionResponse: TxResponse<SubmittableTransaction> =
+      await this.client.submitAndWait(signCashCheckTransactionResponse.tx_blob);
+
+    return submitCashCheckTransactionResponse.result.hash;
   }
 }
