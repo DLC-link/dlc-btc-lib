@@ -60,7 +60,6 @@ function decodeNftURI(URI: string): RawVault {
   try {
     VERSION = parseInt(URI.slice(0, 2), 16);
     status = parseInt(URI.slice(2, 4), 16);
-    console.log(`Decoding URI: ${URI}`);
     uuid = URI.slice(4, 68);
     valueLocked = BigNumber.from(`0x${URI.slice(68, 84)}`);
     valueMinted = BigNumber.from(`0x${URI.slice(84, 100)}`);
