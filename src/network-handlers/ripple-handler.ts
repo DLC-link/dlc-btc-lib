@@ -49,7 +49,6 @@ function decodeNftURI(URI: string): RawVault {
   try {
     VERSION = parseInt(URI.slice(0, 2), 16);
     status = parseInt(URI.slice(2, 4), 16);
-    console.log(`Decoding URI: ${URI}`);
     uuid = URI.slice(4, 68);
     valueLocked = BigNumber.from(`0x${URI.slice(68, 84)}`);
     valueMinted = BigNumber.from(`0x${URI.slice(84, 100)}`);
@@ -70,9 +69,9 @@ function decodeNftURI(URI: string): RawVault {
     console.log(`URI which failed to Decode: ${URI}`);
     return {} as RawVault;
   }
-  console.log(
-    `Decoded URI: Version: ${VERSION}, status: ${status}, UUID: ${uuid}, valueLocked: ${valueLocked}, valueMinted: ${valueMinted}, fundingTxId: ${fundingTxId}, wdTxId: ${wdTxId}, btcMintFeeBasisPoints: ${btcMintFeeBasisPoints}, btcRedeemFeeBasisPoints: ${btcRedeemFeeBasisPoints}, btcFeeRecipient: ${btcFeeRecipient} , taprootPubKey: ${taprootPubKey}`
-  );
+  // console.log(
+  //   `Decoded URI: Version: ${VERSION}, status: ${status}, UUID: ${uuid}, valueLocked: ${valueLocked}, valueMinted: ${valueMinted}, fundingTxId: ${fundingTxId}, wdTxId: ${wdTxId}, btcMintFeeBasisPoints: ${btcMintFeeBasisPoints}, btcRedeemFeeBasisPoints: ${btcRedeemFeeBasisPoints}, btcFeeRecipient: ${btcFeeRecipient} , taprootPubKey: ${taprootPubKey}`
+  // );
   const baseVault = buildDefaultNftVault();
   return {
     ...baseVault,
