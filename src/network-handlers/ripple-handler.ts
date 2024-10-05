@@ -98,7 +98,7 @@ function decodeNftURI(URI: string): RawVault {
     status: status,
     valueLocked: valueLocked,
     valueMinted: valueMinted,
-    creator: 'rpCusJBGNdpjZ74kSrEvE2aQW9P4JrjSDq',
+    creator: 'rfvtbrXSxLsxVWDktR4sdzjJgv8EnMKFKG',
     fundingTxId: fundingTxId,
     wdTxId: wdTxId,
     btcMintFeeBasisPoints: btcMintFeeBasisPoints,
@@ -126,7 +126,7 @@ function buildDefaultNftVault(): RawVault {
     valueMinted: BigNumber.from(0),
     protocolContract: '',
     timestamp: BigNumber.from(0),
-    creator: 'rpCusJBGNdpjZ74kSrEvE2aQW9P4JrjSDq',
+    creator: 'rfvtbrXSxLsxVWDktR4sdzjJgv8EnMKFKG',
     status: 0,
     fundingTxId: '0'.repeat(64),
     closingTxId: '',
@@ -146,7 +146,7 @@ export class RippleHandler {
   private constructor() {
     this.client = new xrpl.Client('wss://s.altnet.rippletest.net:51233');
     this.issuerWallet = xrpl.Wallet.fromSeed('sEdVJZsxTCVMCvLzUHkXsdDPrvtj8Lo');
-    this.customerWallet = xrpl.Wallet.fromSeed('sEdSyBuZd8CHSs4Gdd2bgucAYQTJvMB');
+    this.customerWallet = xrpl.Wallet.fromSeed('sEdSKUhR1Hhwomo7CsUzAe2pv7nqUXT');
   }
 
   static fromWhatever(): RippleHandler {
@@ -532,6 +532,7 @@ export class RippleHandler {
 
   async getAndCashAllChecksAndUpdateNFT(): Promise<void> {
     const allChecks = (await this.getAllChecks()) as LedgerEntry.Check[];
+    console.log('All Checks:', allChecks);
     const allVaults = await this.getContractVaults();
 
     for (const check of allChecks) {
@@ -596,6 +597,8 @@ export class RippleHandler {
     if (!this.client.isConnected()) {
       await this.client.connect();
     }
+    if (checkID === '8FC923A16C90FB7316673D35CA228C82916B8E9F63EADC57BAA7C51C2E7716AA')
+      throw new Error('Invalid Check');
 
     console.log(`Cashing Check of Check ID ${checkID} for an amount of ${dlcBTCAmount}`);
 
