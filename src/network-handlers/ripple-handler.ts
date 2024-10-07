@@ -16,7 +16,7 @@ import xrpl, {
 import { NFTokenMintMetadata } from 'xrpl/dist/npm/models/transactions/NFTokenMint.js';
 
 import { RippleError } from '../models/errors.js';
-import { RawVault, VaultState } from '../models/ethereum-models.js';
+import { RawVault, SSFVaultUpdate, SSPVaultUpdate } from '../models/ethereum-models.js';
 import { shiftValue, unshiftValue } from '../utilities/index.js';
 
 interface SignResponse {
@@ -54,7 +54,7 @@ function encodeNftURI(vault: RawVault): string {
 }
 
 function decodeNftURI(URI: string): RawVault {
-  let VERSION = 0;
+  // let VERSION = 0;
   let uuid = '';
   let valueLocked = BigNumber.from(0);
   let valueMinted = BigNumber.from(0);
@@ -66,7 +66,7 @@ function decodeNftURI(URI: string): RawVault {
   let btcFeeRecipient = '';
   let taprootPubKey = '';
   try {
-    VERSION = parseInt(URI.slice(0, 2), 16);
+    // VERSION = parseInt(URI.slice(0, 2), 16);
     status = parseInt(URI.slice(2, 4), 16);
     uuid = URI.slice(4, 68);
     valueLocked = BigNumber.from(`0x${URI.slice(68, 84)}`);
@@ -98,7 +98,7 @@ function decodeNftURI(URI: string): RawVault {
     status: status,
     valueLocked: valueLocked,
     valueMinted: valueMinted,
-    creator: 'rfvtbrXSxLsxVWDktR4sdzjJgv8EnMKFKG',
+    creator: 'rfvtbrXSxLsxVWDktR4sdzjJgv8EnMKFKG', //this.customerWallet.classicAddress ?
     fundingTxId: fundingTxId,
     wdTxId: wdTxId,
     btcMintFeeBasisPoints: btcMintFeeBasisPoints,
@@ -141,16 +141,38 @@ function buildDefaultNftVault(): RawVault {
 export class RippleHandler {
   private client: xrpl.Client;
   private customerWallet: xrpl.Wallet;
+  private wallet: xrpl.Wallet;
   private issuerWallet: xrpl.Wallet;
 
-  private constructor() {
+  private constructor(seed: string) {
     this.client = new xrpl.Client('wss://s.altnet.rippletest.net:51233');
-    this.issuerWallet = xrpl.Wallet.fromSeed('sEdVJZsxTCVMCvLzUHkXsdDPrvtj8Lo');
+    this.wallet = xrpl.Wallet.fromSeed(seed);
+    this.issuerWallet = xrpl.Wallet.fromSeed('sEdVJZsxTCVMCvLzUHkXsdDPrvtj8Lo'); // address: ra9epzthPkNXykgfadCwu8D7mtajj8DVCP
     this.customerWallet = xrpl.Wallet.fromSeed('sEdSKUhR1Hhwomo7CsUzAe2pv7nqUXT');
   }
 
-  static fromWhatever(): RippleHandler {
-    return new RippleHandler();
+  static fromSeed(seed: string): RippleHandler {
+    return new RippleHandler(seed);
+  }
+
+  async submit(signatures: string[]): Promise<string> {
+    if (!this.client.isConnected()) {
+      await this.client.connect();
+    }
+    try {
+      const multisig_tx = xrpl.multisign(signatures);
+
+      const tx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+        await this.client.submitAndWait(multisig_tx);
+      const meta: NFTokenMintMetadata = tx.result.meta! as NFTokenMintMetadata;
+
+      if (meta.TransactionResult !== 'tesSUCCESS') {
+        throw new RippleError(`Could not burn temporary Ripple Vault: ${meta!.TransactionResult}`);
+      }
+      return tx.result.hash;
+    } catch (error) {
+      throw new RippleError(`Could not submit transaction: ${error}`);
+    }
   }
 
   async getNetworkInfo(): Promise<xrpl.ServerInfoResponse> {
@@ -174,38 +196,6 @@ export class RippleHandler {
       throw new RippleError(`Could not fetch Address Info: ${error}`);
     }
   }
-
-  //   static fromPrivateKey(
-  //     ethereumDeploymentPlans: EthereumDeploymentPlan[],
-  //     ethereumPrivateKey: string,
-  //     rpcEndpoint: string
-  //   ): EthereumHandler {
-  //     const provider = getProvider(rpcEndpoint);
-  //     const signer = new Wallet(ethereumPrivateKey, provider);
-  //     const ethereumContracts = getEthereumContracts(ethereumDeploymentPlans, signer);
-  //     return new EthereumHandler(ethereumContracts);
-  //   }
-
-  //   static fromSigner(
-  //     ethereumDeploymentPlans: EthereumDeploymentPlan[],
-  //     signer: providers.JsonRpcSigner
-  //   ): EthereumHandler {
-  //     const ethereumContracts = getEthereumContracts(ethereumDeploymentPlans, signer);
-  //     return new EthereumHandler(ethereumContracts);
-  //   }
-
-  //   getContracts(): DLCEthereumContracts {
-  //     return this.ethereumContracts;
-  //   }
-
-  //   async getAllUserVaults(): Promise<RawVault[]> {
-  //     try {
-  //       const userAddress = await this.ethereumContracts.dlcManagerContract.signer.getAddress();
-  //       return await getAllAddressVaults(this.ethereumContracts.dlcManagerContract, userAddress);
-  //     } catch (error) {
-  //       throw new EthereumHandlerError(`Could not fetch all User Vaults: ${error}`);
-  //     }
-  //   }
 
   async getRawVault(uuid: string): Promise<RawVault> {
     if (!this.client.isConnected()) {
@@ -233,26 +223,20 @@ export class RippleHandler {
     }
   }
 
-  async setupVault(): Promise<string> {
+  async setupVault(uuid: string): Promise<string> {
     if (!this.client.isConnected()) {
       await this.client.connect();
     }
     try {
       const newVault = buildDefaultNftVault();
-      const newVaultUUID = await this.mintNFT(newVault);
-
-      await this.burnNFT(newVaultUUID);
-
-      newVault.uuid = newVaultUUID;
-      await this.mintNFT(newVault);
-
-      return `0x${newVaultUUID}`;
+      newVault.uuid = uuid;
+      return await this.mintNFT(newVault);
     } catch (error) {
       throw new RippleError(`Could not setup Ripple Vault: ${error}`);
     }
   }
 
-  async withdraw(uuid: string, withdrawAmount: bigint) {
+  async withdraw(uuid: string, withdrawAmount: bigint): Promise<string[]> {
     // Things like withdraw and deposit should get the existing NFT vault
     // then burn the NFT, and mint a new one with the updated value
     // putting the UUID into the URI
@@ -264,133 +248,157 @@ export class RippleHandler {
       let nftUUID = uuid.substring(0, 2) === '0x' ? uuid.slice(2) : uuid;
       nftUUID = nftUUID.toUpperCase();
       const thisVault = await this.getRawVault(nftUUID);
-      await this.burnNFT(nftUUID);
+      const burnSig = await this.burnNFT(nftUUID, 1);
 
       thisVault.valueMinted = thisVault.valueMinted.sub(BigNumber.from(withdrawAmount));
-      await this.mintNFT(thisVault);
+      const mintSig = await this.mintNFT(thisVault, 2);
+      return [burnSig, mintSig];
     } catch (error) {
       throw new RippleError(`Unable to perform Withdraw for User: ${error}`);
     }
   }
 
   async setVaultStatusFunded(
-    uuid: string,
-    bitcoinTransactionID: string,
-    updatedValueMinted: bigint
+    burnNFTSignedTxBlobs: string[],
+    mintTokensSignedTxBlobs: string[], // this can be a set of empty string is no tokens are being minted
+    mintNFTSignedTxBlobs: string[]
   ): Promise<void> {
     if (!this.client.isConnected()) {
       await this.client.connect();
     }
     try {
-      let nftUUID = uuid.substring(0, 2) === '0x' ? uuid.slice(2) : uuid;
-      nftUUID = nftUUID.toUpperCase();
-
-      console.log(`Setting Vault status to FUNDED, vault: ${nftUUID}`);
-      const thisVault = await this.getRawVault(nftUUID);
-      await this.burnNFT(nftUUID);
-      const newVault = {
-        ...thisVault,
-        status: VaultState.FUNDED,
-        fundingTxId: bitcoinTransactionID,
-        wdTxId: '',
-        valueMinted: BigNumber.from(updatedValueMinted),
-        valueLocked: BigNumber.from(updatedValueMinted),
-      };
-      if (updatedValueMinted > 0 && thisVault.valueMinted.toNumber() < Number(updatedValueMinted)) {
-        const mintValue = unshiftValue(
-          new Decimal(Number(updatedValueMinted)).minus(thisVault.valueMinted.toNumber()).toNumber()
+      console.log('Doing the burn for SSF');
+      const burn_multisig_tx = xrpl.multisign(burnNFTSignedTxBlobs);
+      const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+        await this.client.submitAndWait(burn_multisig_tx);
+      const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
+      if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
+        throw new RippleError(
+          `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
         );
-        console.log(`Minting ${mintValue}`);
-        await this.mintToken(thisVault.creator, mintValue.toString());
       }
-      await this.mintNFT(newVault);
-      console.log(`Vault status set to FUNDED, vault: ${nftUUID}`);
+
+      // multisig mint
+      if (mintTokensSignedTxBlobs.every(sig => sig !== '')) {
+        console.log('Success! Now minting the actual tokens!! How fun $$');
+
+        const mint_token_multisig_tx = xrpl.multisign(mintTokensSignedTxBlobs);
+        const mintTokenTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+          await this.client.submitAndWait(mint_token_multisig_tx);
+        const mintTokenMeta: NFTokenMintMetadata = mintTokenTx.result.meta! as NFTokenMintMetadata;
+        if (mintTokenMeta!.TransactionResult !== 'tesSUCCESS') {
+          throw new RippleError(
+            `Could not mint tokens to user: ${mintTokenMeta!.TransactionResult}`
+          );
+        }
+      } else {
+        console.log('No need to mint tokens, because this was a withdraw flow SSF');
+      }
+
+      console.log('Success! Now Doing the mint for SSF');
+      // multisig mint
+      const mint_multisig_tx = xrpl.multisign(mintNFTSignedTxBlobs);
+      const mintTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+        await this.client.submitAndWait(mint_multisig_tx);
+      const mintMeta: NFTokenMintMetadata = mintTx.result.meta! as NFTokenMintMetadata;
+      if (mintMeta!.TransactionResult !== 'tesSUCCESS') {
+        throw new RippleError(
+          `Could not mint temporary Ripple Vault: ${mintMeta!.TransactionResult}`
+        );
+      }
     } catch (error) {
       throw new RippleError(`Unable to set Vault status to FUNDED: ${error}`);
+    }
+  }
+
+  async performCheckCashAndNftUpdate(
+    cashCheckSignedTxBlobs: string[],
+    burnNFTSignedTxBlobs: string[],
+    mintNFTSignedTxBlobs: string[]
+  ): Promise<void> {
+    if (!this.client.isConnected()) {
+      await this.client.connect();
+    }
+    try {
+      console.log('Doing the check cashing');
+      // multisig burn
+      const cash_check_tx = xrpl.multisign(cashCheckSignedTxBlobs);
+      const cashCheckTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+        await this.client.submitAndWait(cash_check_tx); // add timeouts
+      const cashCheckMeta: NFTokenMintMetadata = cashCheckTx.result.meta! as NFTokenMintMetadata;
+      if (cashCheckMeta!.TransactionResult !== 'tesSUCCESS') {
+        throw new RippleError(`Could not cash check: ${cashCheckMeta!.TransactionResult}`);
+      }
+
+      console.log('Doing the burn for SSP');
+      // multisig burn
+      const burn_multisig_tx = xrpl.multisign(burnNFTSignedTxBlobs);
+      const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+        await this.client.submitAndWait(burn_multisig_tx); // add timeouts
+      const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
+      if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
+        throw new RippleError(
+          `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
+        );
+      }
+
+      console.log('Success! Now Doing the mint for SSP');
+
+      // multisig mint
+      const mint_multisig_tx = xrpl.multisign(mintNFTSignedTxBlobs);
+      const mintTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+        await this.client.submitAndWait(mint_multisig_tx); // add timeouts
+      const mintMeta: NFTokenMintMetadata = mintTx.result.meta! as NFTokenMintMetadata;
+      if (mintMeta!.TransactionResult !== 'tesSUCCESS') {
+        throw new RippleError(
+          `Could not mint temporary Ripple Vault: ${mintMeta!.TransactionResult}`
+        );
+      }
+
+      console.log('Success! Done with the mint for SSP');
+    } catch (error) {
+      throw new RippleError(`Unable to set Vault status to PENDING: ${error}`);
     }
   }
 
   async setVaultStatusPending(
-    uuid: string,
-    bitcoinTransactionID: string,
-    updatedValueMinted: bigint,
-    userPubkey: string
+    burnNFTSignedTxBlobs: string[],
+    mintNFTSignedTxBlobs: string[]
   ): Promise<void> {
     if (!this.client.isConnected()) {
       await this.client.connect();
     }
     try {
-      let nftUUID = uuid.substring(0, 2) === '0x' ? uuid.slice(2) : uuid;
-      nftUUID = nftUUID.toUpperCase();
+      console.log('Doing the burn for SSP');
+      // multisig burn
+      const burn_multisig_tx = xrpl.multisign(burnNFTSignedTxBlobs);
+      const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+        await this.client.submitAndWait(burn_multisig_tx);
+      const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
+      if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
+        throw new RippleError(
+          `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
+        );
+      }
 
-      console.log(`Setting Vault status to Pending, vault: ${nftUUID}`);
-      const thisVault = await this.getRawVault(nftUUID);
-      await this.burnNFT(nftUUID);
-      const newVault = {
-        ...thisVault,
-        status: VaultState.PENDING,
-        wdTxId: bitcoinTransactionID,
-        taprootPubKey: userPubkey,
-      };
-      await this.mintNFT(newVault);
-      console.log(`Vault status set to Pending, vault: ${nftUUID}`);
+      console.log('Success! Now Doing the mint for SSP');
+
+      // multisig mint
+      const mint_multisig_tx = xrpl.multisign(mintNFTSignedTxBlobs);
+      const mintTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+        await this.client.submitAndWait(mint_multisig_tx);
+      const mintMeta: NFTokenMintMetadata = mintTx.result.meta! as NFTokenMintMetadata;
+      if (mintMeta!.TransactionResult !== 'tesSUCCESS') {
+        throw new RippleError(
+          `Could not mint temporary Ripple Vault: ${mintMeta!.TransactionResult}`
+        );
+      }
+
+      console.log('Success! Done with the mint for SSP');
     } catch (error) {
-      throw new RippleError(`Unable to set Vault status to FUNDED: ${error}`);
+      throw new RippleError(`Unable to set Vault status to PENDING: ${error}`);
     }
   }
-
-  //   async getUserDLCBTCBalance(): Promise<number | undefined> {
-  //     try {
-  //       const userAddress = await this.ethereumContracts.dlcManagerContract.signer.getAddress();
-  //       return await getAddressDLCBTCBalance(this.ethereumContracts.dlcBTCContract, userAddress);
-  //     } catch (error) {
-  //       throw new EthereumHandlerError(`Could not fetch User's dlcBTC balance: ${error}`);
-  //     }
-  //   }
-
-  //   async getDLCBTCTotalSupply(): Promise<number> {
-  //     try {
-  //       return await getDLCBTCTotalSupply(this.ethereumContracts.dlcBTCContract);
-  //     } catch (error) {
-  //       throw new EthereumHandlerError(`Could not fetch Total Supply of dlcBTC: ${error}`);
-  //     }
-  //   }
-
-  //   async getLockedBTCBalance(userVaults?: RawVault[]): Promise<number> {
-  //     try {
-  //       if (!userVaults) {
-  //         userVaults = await this.getAllUserVaults();
-  //       }
-  //       return await getLockedBTCBalance(userVaults);
-  //     } catch (error) {
-  //       throw new EthereumHandlerError(`Could not fetch Total Supply of Locked dlcBTC: ${error}`);
-  //     }
-  //   }
-
-  //   async getAttestorGroupPublicKey(): Promise<string> {
-  //     try {
-  //       return getAttestorGroupPublicKey(this.ethereumContracts.dlcManagerContract);
-  //     } catch (error) {
-  //       throw new EthereumHandlerError(`Could not fetch Attestor Public Key: ${error}`);
-  //     }
-  //   }
-
-  //   async isWhiteLisingEnabled(): Promise<boolean> {
-  //     try {
-  //       return await isWhitelistingEnabled(this.ethereumContracts.dlcManagerContract);
-  //     } catch (error) {
-  //       throw new EthereumHandlerError(`Could not fetch Whitelisting Status: ${error}`);
-  //     }
-  //   }
-
-  //   async isUserWhitelisted(): Promise<boolean> {
-  //     try {
-  //       const userAddress = await this.ethereumContracts.dlcManagerContract.signer.getAddress();
-  //       return await isUserWhitelisted(this.ethereumContracts.dlcManagerContract, userAddress);
-  //     } catch (error) {
-  //       throw new EthereumHandlerError(`Could not fetch User Whitelisting Status: ${error}`);
-  //     }
-  //   }
 
   async getContractVaults(): Promise<RawVault[]> {
     if (!this.client.isConnected()) {
@@ -405,12 +413,6 @@ export class RippleHandler {
       const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
       const allNFTs = nfts.result.account_nfts;
       const allVaults: RawVault[] = allNFTs.map(nft => lowercaseHexFields(decodeNftURI(nft.URI!)));
-
-      // allVaults.forEach((vault, index) => {
-      //   if (vault.uuid === '') {
-      //     vault.uuid = allNFTs[index].NFTokenID;
-      //   }
-      // });
 
       return allVaults;
     } catch (error) {
@@ -430,19 +432,10 @@ export class RippleHandler {
       };
 
       const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
-      let matchingNFT = nfts.result.account_nfts.find(
+      const matchingNFT = nfts.result.account_nfts.find(
         nft => decodeNftURI(nft.URI!).uuid.slice(2) === uuid
       );
-      if (!matchingNFT) {
-        console.log('Could not find matching NFT by URI, trying by NFTokenID');
-        // when first creating a vault, the tokenID is the UUID
-        matchingNFT = nfts.result.account_nfts.find(nft => nft.NFTokenID === uuid);
-        if (matchingNFT) {
-          console.log('Found matching NFT by NFTokenID');
-        }
-      } else {
-        console.log('Found matching NFT by URI');
-      }
+
       if (!matchingNFT) {
         throw new RippleError(`Vault for uuid: ${uuid} not found`);
       }
@@ -452,63 +445,110 @@ export class RippleHandler {
     }
   }
 
-  async burnNFT(nftUUID: string): Promise<void> {
+  async burnNFT(nftUUID: string, incrementBy: number = 0): Promise<string> {
     if (!this.client.isConnected()) {
       await this.client.connect();
     }
-    console.log(`Burning Ripple Vault, vault: ${nftUUID}`);
+    console.log(`Getting sig for Burning Ripple Vault, vault: ${nftUUID}`);
     const nftTokenId = await this.getNFTokenIdForVault(nftUUID);
     const burnTransactionJson: SubmittableTransaction = {
       TransactionType: 'NFTokenBurn',
       Account: this.issuerWallet.classicAddress,
       NFTokenID: nftTokenId,
     };
-    const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> = await this.client.submitAndWait(
-      burnTransactionJson,
-      { wallet: this.issuerWallet }
-    );
+    const preparedBurnTx = await this.client.autofill(burnTransactionJson, 3); // this hardcoded number should match the number of active signers
 
-    console.log('burnTx:', burnTx);
-    const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
-    if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
-      throw new RippleError(
-        `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
-      );
+    // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
+    // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
+    preparedBurnTx.LastLedgerSequence =
+      Math.ceil(preparedBurnTx.LastLedgerSequence! / 10000 + 1) * 10000; // Better way?!?
+
+    if (incrementBy > 0) {
+      preparedBurnTx.Sequence = preparedBurnTx.Sequence! + incrementBy;
     }
+
+    console.log('preparedBurnTx ', preparedBurnTx);
+
+    const sig = this.wallet.sign(preparedBurnTx, true);
+    // console.log('tx_one_sig: ', sig);
+    return sig.tx_blob;
   }
 
-  async mintNFT(vault: RawVault): Promise<string> {
+  async mintNFT(vault: RawVault, incrementBy: number = 0): Promise<string> {
     if (!this.client.isConnected()) {
       await this.client.connect();
     }
-    console.log(`Minting NFT with properties of Vault ${vault.uuid}`);
-
+    console.log(`Getting sig for Minting Ripple Vault, vault: ${JSON.stringify(vault, null, 2)}`);
     const newURI = encodeNftURI(vault);
-
-    const mintNFTTransactionJSON: SubmittableTransaction = {
+    console.log('newURI: ', newURI);
+    const mintTransactionJson: SubmittableTransaction = {
       TransactionType: 'NFTokenMint',
       Account: this.issuerWallet.classicAddress,
       URI: newURI,
       NFTokenTaxon: 0,
     };
+    const preparedMintTx = await this.client.autofill(mintTransactionJson, 3);
 
-    const mintNFTTransactionResponse: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-      await this.client.submitAndWait(mintNFTTransactionJSON, { wallet: this.issuerWallet });
-
-    const mintNFTTransactionResponseMetadata = mintNFTTransactionResponse.result
-      .meta as NFTokenMintMetadata;
-
-    if (mintNFTTransactionResponseMetadata!.TransactionResult !== 'tesSUCCESS') {
-      throw new RippleError(
-        `Could not mint NFT: ${mintNFTTransactionResponseMetadata.TransactionResult}`
-      );
+    // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
+    // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
+    preparedMintTx.LastLedgerSequence =
+      Math.ceil(preparedMintTx.LastLedgerSequence! / 10000 + 1) * 10000;
+    if (incrementBy > 0) {
+      preparedMintTx.Sequence = preparedMintTx.Sequence! + incrementBy;
     }
 
-    if (!mintNFTTransactionResponseMetadata.nftoken_id) {
-      throw new RippleError('Could not find NFT Token ID in NFTokenMint response metadata');
-    }
+    console.log('preparedMintTx ', preparedMintTx);
 
-    return mintNFTTransactionResponseMetadata.nftoken_id;
+    const sig = this.wallet.sign(preparedMintTx, true);
+    console.log('tx_one_sig: ', sig);
+    return sig.tx_blob;
+  }
+
+  async getSigUpdateVaultForSSP(uuid: string, updates: SSPVaultUpdate): Promise<string> {
+    if (!this.client.isConnected()) {
+      await this.client.connect();
+    }
+    try {
+      console.log(`Getting sig for getSigUpdateVaultForSSP, vault uuid: ${uuid}`);
+      const nftUUID = uuid;
+      const thisVault = await this.getRawVault(nftUUID);
+      console.log(`the vault, vault: `, thisVault);
+      const updatedVault = {
+        ...thisVault,
+        status: updates.status,
+        wdTxId: updates.wdTxId,
+        taprootPubKey: updates.taprootPubKey,
+      };
+      console.log(`the updated vault, vault: `, updatedVault);
+      return await this.mintNFT(updatedVault, 1);
+    } catch (error) {
+      throw new RippleError(`Could not update Vault: ${error}`);
+    }
+  }
+
+  async getSigUpdateVaultForSSF(
+    uuid: string,
+    updates: SSFVaultUpdate,
+    updateSequenceBy: number
+  ): Promise<string> {
+    if (!this.client.isConnected()) {
+      await this.client.connect();
+    }
+    try {
+      const nftUUID = uuid;
+      const thisVault = await this.getRawVault(nftUUID);
+      const updatedVault = {
+        ...thisVault,
+        status: updates.status,
+        fundingTxId: updates.fundingTxId,
+        wdTxId: updates.wdTxId,
+        valueMinted: BigNumber.from(updates.valueMinted),
+        valueLocked: BigNumber.from(updates.valueLocked),
+      };
+      return await this.mintNFT(updatedVault, updateSequenceBy);
+    } catch (error) {
+      throw new RippleError(`Could not update Vault: ${error}`);
+    }
   }
 
   async getAllChecks(): Promise<AccountObject[]> {
@@ -530,16 +570,16 @@ export class RippleHandler {
     return getAccountObjectsResponse.result.account_objects;
   }
 
-  async getAndCashAllChecksAndUpdateNFT(): Promise<void> {
+  async getAndCashAllChecksAndUpdateNFT(): Promise<string[]> {
     const allChecks = (await this.getAllChecks()) as LedgerEntry.Check[];
-    console.log('All Checks:', allChecks);
+    // console.log('All Checks:', allChecks);
     const allVaults = await this.getContractVaults();
 
     for (const check of allChecks) {
       try {
         const checkSendMax = check.SendMax as IssuedCurrencyAmount;
 
-        await this.cashCheck(check.index, checkSendMax.value);
+        const my_check_cash_sig = await this.cashCheck(check.index, checkSendMax.value);
 
         const vault = allVaults.find(
           vault => vault.uuid.toUpperCase().slice(2) === check.InvoiceID
@@ -549,11 +589,16 @@ export class RippleHandler {
             `Could not find Vault for Check with Invoice ID: ${check.InvoiceID}`
           );
         }
-        await this.withdraw(vault.uuid, BigInt(shiftValue(Number(checkSendMax.value))));
+        const two_more_sigs = await this.withdraw(
+          vault.uuid,
+          BigInt(shiftValue(Number(checkSendMax.value)))
+        );
+        return [my_check_cash_sig, ...two_more_sigs];
       } catch (error) {
-        console.error(`Error cashing Check: ${error}`);
+        console.error(`Error cashing Check: ${error} \n continuing`);
       }
     }
+    return [];
   }
 
   async createCheck(dlcBTCAmount: string, vaultUUID: string): Promise<string> {
@@ -572,11 +617,16 @@ export class RippleHandler {
         value: unshiftValue(Number(dlcBTCAmount)).toString(),
         issuer: this.issuerWallet.classicAddress,
       },
-      InvoiceID: vaultUUID.slice(2),
+      InvoiceID: vaultUUID,
     };
 
     const updatedCreateCheckTransactionJSON: CheckCreate = await this.client.autofill(
       createCheckTransactionJSON
+    );
+
+    console.log(
+      'Customer is about to sign the following sendCheck tx: ',
+      updatedCreateCheckTransactionJSON
     );
 
     const signCreateCheckTransactionResponse: SignResponse = this.customerWallet.sign(
@@ -597,7 +647,15 @@ export class RippleHandler {
     if (!this.client.isConnected()) {
       await this.client.connect();
     }
-    if (checkID === '8FC923A16C90FB7316673D35CA228C82916B8E9F63EADC57BAA7C51C2E7716AA')
+
+    //what's
+    if (
+      [
+        '8FC923A16C90FB7316673D35CA228C82916B8E9F63EADC57BAA7C51C2E7716AA',
+        '93BAA031806AE4902933C1EE9B66E7EBAF0F7A182314085BEFF99DF080A1CBCB',
+        'F51C7E3CCFD2EC8CA9A460A34C5BC185E9466031865E76736C0A60BC3F7C7316',
+      ].includes(checkID)
+    )
       throw new Error('Invalid Check');
 
     console.log(`Cashing Check of Check ID ${checkID} for an amount of ${dlcBTCAmount}`);
@@ -613,34 +671,50 @@ export class RippleHandler {
       },
     };
 
-    const updatedCashCheckTransactionJSON: CheckCash =
-      await this.client.autofill(cashCheckTransactionJSON);
+    const updatedCashCheckTransactionJSON: CheckCash = await this.client.autofill(
+      cashCheckTransactionJSON,
+      3 // hardcoded? not good? just fee related?
+    );
 
-    const signCashCheckTransactionResponse: SignResponse = this.issuerWallet.sign(
+    // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
+    // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
+    updatedCashCheckTransactionJSON.LastLedgerSequence =
+      Math.ceil(updatedCashCheckTransactionJSON.LastLedgerSequence! / 10000 + 1) * 10000;
+
+    console.log(
+      'Issuer is about to sign the following cashCheck tx: ',
       updatedCashCheckTransactionJSON
     );
 
-    const submitCashCheckTransactionResponse: TxResponse<SubmittableTransaction> =
-      await this.client.submitAndWait(signCashCheckTransactionResponse.tx_blob);
-
-    console.log(
-      `Response for submitted Cash Check of Check ID ${checkID} request: ${JSON.stringify(submitCashCheckTransactionResponse, null, 2)}`
+    const signCashCheckTransactionSig: SignResponse = this.wallet.sign(
+      updatedCashCheckTransactionJSON,
+      true
     );
 
-    return submitCashCheckTransactionResponse.result.hash;
+    return signCashCheckTransactionSig.tx_blob;
   }
 
-  async mintToken(xrplDestinationAddress: string, dlcBTCAmount: string): Promise<string> {
+  async mintTokens(
+    updatedValueMinted: number,
+    valueMinted: number,
+    incrementBy: number = 0
+  ): Promise<string> {
     if (!this.client.isConnected()) {
       await this.client.connect();
     }
 
-    console.log(`Minting ${dlcBTCAmount} dlcBTC to ${xrplDestinationAddress} address`);
+    if (updatedValueMinted === 0 || valueMinted >= updatedValueMinted) {
+      console.log('No need to mint tokens, because this is a withdraw SSF');
+      return '';
+    }
+    const mintValue = unshiftValue(new Decimal(updatedValueMinted).minus(valueMinted).toNumber());
+    const dlcBTCAmount = mintValue.toString();
+    console.log(`Minting ${dlcBTCAmount} dlcBTC to ${this.customerWallet.classicAddress} address`);
 
     const sendTokenTransactionJSON: Payment = {
       TransactionType: 'Payment',
       Account: this.issuerWallet.classicAddress,
-      Destination: xrplDestinationAddress,
+      Destination: this.customerWallet.classicAddress,
       DestinationTag: 1,
       Amount: {
         currency: 'DLC',
@@ -649,20 +723,31 @@ export class RippleHandler {
       },
     };
 
-    const updatedSendTokenTransactionJSON: Payment =
-      await this.client.autofill(sendTokenTransactionJSON);
+    const updatedSendTokenTransactionJSON: Payment = await this.client.autofill(
+      sendTokenTransactionJSON,
+      3
+    );
 
-    const signSendTokenTransactionResponse: SignResponse = this.issuerWallet.sign(
+    // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
+    // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
+    updatedSendTokenTransactionJSON.LastLedgerSequence =
+      Math.ceil(updatedSendTokenTransactionJSON.LastLedgerSequence! / 10000 + 1) * 10000;
+
+    if (incrementBy > 0) {
+      updatedSendTokenTransactionJSON.Sequence =
+        updatedSendTokenTransactionJSON.Sequence! + incrementBy;
+    }
+
+    console.log(
+      'Issuer is about to sign the following mintTokens tx: ',
       updatedSendTokenTransactionJSON
     );
 
-    const submitSendTokenTransactionResponse: TxResponse<SubmittableTransaction> =
-      await this.client.submitAndWait(signSendTokenTransactionResponse.tx_blob);
-
-    console.log(
-      `Response for submitted Payment to ${xrplDestinationAddress} address request: ${JSON.stringify(submitSendTokenTransactionResponse, null, 2)}`
+    const signSendTokenTransactionResponse: SignResponse = this.wallet.sign(
+      updatedSendTokenTransactionJSON,
+      true
     );
 
-    return submitSendTokenTransactionResponse.result.hash;
+    return signSendTokenTransactionResponse.tx_blob;
   }
 }
