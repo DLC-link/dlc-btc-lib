@@ -3,7 +3,9 @@ export type AttestorChainID =
   | 'evm-arbsepolia'
   | 'evm-localhost'
   | 'evm-hardhat-arb'
-  | 'evm-hardhat-eth';
+  | 'evm-hardhat-eth'
+  | 'ripple-xrpl-mainnet'
+  | 'ripple-xrpl-testnet';
 
 export interface FundingTXAttestorInfo {
   vaultUUID: string;
