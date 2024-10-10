@@ -5,16 +5,15 @@ import xrpl, {
   AccountObject,
   AccountObjectsResponse,
   CheckCash,
-  CheckCreate,
   IssuedCurrencyAmount,
   LedgerEntry,
   Payment,
   Request,
   SubmittableTransaction,
-  TxResponse,
 } from 'xrpl';
 import { NFTokenMintMetadata } from 'xrpl/dist/npm/models/transactions/NFTokenMint.js';
 
+import { decodeURI, encodeURI } from '../functions/ripple/ripple.functions.js';
 import { RippleError } from '../models/errors.js';
 import { RawVault, SSFVaultUpdate, SSPVaultUpdate } from '../models/ethereum-models.js';
 import { shiftValue, unshiftValue } from '../utilities/index.js';
@@ -22,90 +21,6 @@ import { shiftValue, unshiftValue } from '../utilities/index.js';
 interface SignResponse {
   tx_blob: string;
   hash: string;
-}
-
-function encodeNftURI(vault: RawVault): string {
-  const VERSION = parseInt('1', 16).toString().padStart(2, '0'); // 1 as hex
-  const status = parseInt(vault.status.toString(), 16).toString().padStart(2, '0');
-  // console.log(
-  //   `UUID: ${vault.uuid}, valueLocked: ${vault.valueLocked}, valueMinted: ${vault.valueMinted}`
-  // );
-  let uuid = vault.uuid;
-  if (uuid === '') {
-    uuid = vault.uuid.padStart(64, '0');
-  }
-  if (uuid.substring(0, 2) === '0x') {
-    uuid = uuid.slice(2);
-  }
-  // add padding so valueLocked and valueMinted are always 16 characters
-  const valueLockedPadded = vault.valueLocked._hex.substring(2).padStart(16, '0');
-  const valueMintedPadded = vault.valueMinted._hex.substring(2).padStart(16, '0');
-  const fundingTxId = vault.fundingTxId.padStart(64, '0');
-  const wdTxId = vault.wdTxId.padStart(64, '0');
-  const btcMintFeeBasisPoints = vault.btcMintFeeBasisPoints._hex.substring(2).padStart(2, '0');
-  const btcRedeemFeeBasisPoints = vault.btcRedeemFeeBasisPoints._hex.substring(2).padStart(2, '0');
-  const btcFeeRecipient = vault.btcFeeRecipient.padStart(66, '0');
-  const taprootPubKey = vault.taprootPubKey.padStart(64, '0');
-  console.log(
-    'built URI:',
-    `${VERSION}${status}${uuid}${valueLockedPadded}${valueMintedPadded}${fundingTxId}${wdTxId}${btcMintFeeBasisPoints}${btcRedeemFeeBasisPoints}${btcFeeRecipient}${taprootPubKey}`
-  );
-  return `${VERSION}${status}${uuid}${valueLockedPadded}${valueMintedPadded}${fundingTxId}${wdTxId}${btcMintFeeBasisPoints}${btcRedeemFeeBasisPoints}${btcFeeRecipient}${taprootPubKey}`;
-}
-
-function decodeNftURI(URI: string): RawVault {
-  // let VERSION = 0;
-  let uuid = '';
-  let valueLocked = BigNumber.from(0);
-  let valueMinted = BigNumber.from(0);
-  let status = 0;
-  let fundingTxId = '';
-  let wdTxId = '';
-  let btcMintFeeBasisPoints = BigNumber.from(0);
-  let btcRedeemFeeBasisPoints = BigNumber.from(0);
-  let btcFeeRecipient = '';
-  let taprootPubKey = '';
-  try {
-    // VERSION = parseInt(URI.slice(0, 2), 16);
-    status = parseInt(URI.slice(2, 4), 16);
-    uuid = URI.slice(4, 68);
-    valueLocked = BigNumber.from(`0x${URI.slice(68, 84)}`);
-    valueMinted = BigNumber.from(`0x${URI.slice(84, 100)}`);
-    fundingTxId = URI.slice(100, 164);
-    if (fundingTxId === '0'.repeat(64)) {
-      fundingTxId = '';
-    }
-    wdTxId = URI.slice(164, 228);
-    if (wdTxId === '0'.repeat(64)) {
-      wdTxId = '';
-    }
-    btcMintFeeBasisPoints = BigNumber.from(`0x${URI.slice(228, 230)}`);
-    btcRedeemFeeBasisPoints = BigNumber.from(`0x${URI.slice(230, 232)}`);
-    btcFeeRecipient = URI.slice(232, 298);
-    taprootPubKey = URI.slice(298, 362);
-  } catch (error) {
-    console.log(`Error decoding URI: ${error}`);
-    console.log(`URI which failed to Decode: ${URI}`);
-    return {} as RawVault;
-  }
-  // console.log(
-  //   `Decoded URI: Version: ${VERSION}, status: ${status}, UUID: ${uuid}, valueLocked: ${valueLocked}, valueMinted: ${valueMinted}, fundingTxId: ${fundingTxId}, wdTxId: ${wdTxId}, btcMintFeeBasisPoints: ${btcMintFeeBasisPoints}, btcRedeemFeeBasisPoints: ${btcRedeemFeeBasisPoints}, btcFeeRecipient: ${btcFeeRecipient} , taprootPubKey: ${taprootPubKey}`
-  // );
-  const baseVault = buildDefaultNftVault();
-  return {
-    ...baseVault,
-    uuid: `0x${uuid}`,
-    status: status,
-    valueLocked: valueLocked,
-    valueMinted: valueMinted,
-    creator: 'rfvtbrXSxLsxVWDktR4sdzjJgv8EnMKFKG', //this.customerWallet.classicAddress ?
-    fundingTxId: fundingTxId,
-    wdTxId: wdTxId,
-    btcMintFeeBasisPoints: btcMintFeeBasisPoints,
-    btcRedeemFeeBasisPoints: btcRedeemFeeBasisPoints,
-    btcFeeRecipient: btcFeeRecipient,
-    taprootPubKey: taprootPubKey,
-  };
 }
 
 function lowercaseHexFields(vault: RawVault): RawVault {
@@ -140,19 +55,17 @@ function buildDefaultNftVault(): RawVault {
 
 export class RippleHandler {
   private client: xrpl.Client;
-  private customerWallet: xrpl.Wallet;
   private wallet: xrpl.Wallet;
-  private issuerWallet: xrpl.Wallet;
+  private issuerAddress: string;
 
-  private constructor(seed: string) {
+  private constructor(seedPhrase: string, issuerAddress: string) {
     this.client = new xrpl.Client('wss://s.altnet.rippletest.net:51233');
-    this.wallet = xrpl.Wallet.fromSeed(seed);
-    this.issuerWallet = xrpl.Wallet.fromSeed('sEdVJZsxTCVMCvLzUHkXsdDPrvtj8Lo'); // address: ra9epzthPkNXykgfadCwu8D7mtajj8DVCP
-    this.customerWallet = xrpl.Wallet.fromSeed('sEdSKUhR1Hhwomo7CsUzAe2pv7nqUXT');
+    this.wallet = xrpl.Wallet.fromSeed(seedPhrase);
+    this.issuerAddress = issuerAddress;
   }
 
-  static fromSeed(seed: string): RippleHandler {
-    return new RippleHandler(seed);
+  static fromSeed(seedPhrase: string, issuerAddress: string): RippleHandler {
+    return new RippleHandler(seedPhrase, issuerAddress);
   }
 
   async submit(signatures: string[]): Promise<string> {
@@ -191,7 +104,7 @@ export class RippleHandler {
       await this.client.connect();
     }
     try {
-      return this.customerWallet.classicAddress;
+      return this.wallet.classicAddress;
     } catch (error) {
       throw new RippleError(`Could not fetch Address Info: ${error}`);
     }
@@ -204,7 +117,7 @@ export class RippleHandler {
     try {
       const getNFTsTransaction: AccountNFTsRequest = {
         command: 'account_nfts',
-        account: this.issuerWallet.classicAddress,
+        account: this.issuerAddress,
       };
       let nftUUID = uuid.substring(0, 2) === '0x' ? uuid.slice(2) : uuid;
       nftUUID = nftUUID.toUpperCase();
@@ -216,20 +129,21 @@ export class RippleHandler {
       } else if (matchingNFT.length > 1) {
         throw new RippleError(`Multiple Vaults with UUID: ${nftUUID} found`);
       }
-      const matchingVault: RawVault = decodeNftURI(matchingNFT[0].URI!);
+      const matchingVault: RawVault = decodeURI(matchingNFT[0].URI!);
       return lowercaseHexFields(matchingVault);
     } catch (error) {
       throw new RippleError(`Could not fetch Vault: ${error}`);
     }
   }
 
-  async setupVault(uuid: string): Promise<string> {
+  async setupVault(uuid: string, userAddress: string): Promise<string> {
     if (!this.client.isConnected()) {
       await this.client.connect();
     }
     try {
       const newVault = buildDefaultNftVault();
       newVault.uuid = uuid;
+      newVault.creator = userAddress;
       return await this.mintNFT(newVault);
     } catch (error) {
       throw new RippleError(`Could not setup Ripple Vault: ${error}`);
@@ -407,12 +321,12 @@ export class RippleHandler {
     try {
       const getNFTsTransaction: AccountNFTsRequest = {
         command: 'account_nfts',
-        account: this.issuerWallet.classicAddress,
+        account: this.issuerAddress,
       };
 
       const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
       const allNFTs = nfts.result.account_nfts;
-      const allVaults: RawVault[] = allNFTs.map(nft => lowercaseHexFields(decodeNftURI(nft.URI!)));
+      const allVaults: RawVault[] = allNFTs.map(nft => lowercaseHexFields(decodeURI(nft.URI!)));
 
       return allVaults;
     } catch (error) {
@@ -428,12 +342,12 @@ export class RippleHandler {
     try {
       const getNFTsTransaction: AccountNFTsRequest = {
         command: 'account_nfts',
-        account: this.issuerWallet.classicAddress,
+        account: this.issuerAddress,
       };
 
       const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
       const matchingNFT = nfts.result.account_nfts.find(
-        nft => decodeNftURI(nft.URI!).uuid.slice(2) === uuid
+        nft => decodeURI(nft.URI!).uuid.slice(2) === uuid
       );
 
       if (!matchingNFT) {
@@ -453,7 +367,7 @@ export class RippleHandler {
     const nftTokenId = await this.getNFTokenIdForVault(nftUUID);
     const burnTransactionJson: SubmittableTransaction = {
       TransactionType: 'NFTokenBurn',
-      Account: this.issuerWallet.classicAddress,
+      Account: this.issuerAddress,
       NFTokenID: nftTokenId,
     };
     const preparedBurnTx = await this.client.autofill(burnTransactionJson, 3); // this hardcoded number should match the number of active signers
@@ -479,11 +393,11 @@ export class RippleHandler {
       await this.client.connect();
     }
     console.log(`Getting sig for Minting Ripple Vault, vault: ${JSON.stringify(vault, null, 2)}`);
-    const newURI = encodeNftURI(vault);
+    const newURI = encodeURI(vault);
     console.log('newURI: ', newURI);
     const mintTransactionJson: SubmittableTransaction = {
       TransactionType: 'NFTokenMint',
-      Account: this.issuerWallet.classicAddress,
+      Account: this.issuerAddress,
       URI: newURI,
       NFTokenTaxon: 0,
     };
@@ -558,7 +472,7 @@ export class RippleHandler {
 
     const getAccountObjectsRequestJSON: Request = {
       command: 'account_objects',
-      account: this.issuerWallet.classicAddress,
+      account: this.issuerAddress,
       ledger_index: 'validated',
       type: 'check',
     };
@@ -601,48 +515,6 @@ export class RippleHandler {
     return [];
   }
 
-  async createCheck(dlcBTCAmount: string, vaultUUID: string): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
-    console.log(`Creating Check for Vault ${vaultUUID} with an amount of ${dlcBTCAmount}`);
-
-    const createCheckTransactionJSON: CheckCreate = {
-      TransactionType: 'CheckCreate',
-      Account: this.customerWallet.classicAddress,
-      Destination: this.issuerWallet.classicAddress,
-      DestinationTag: 1,
-      SendMax: {
-        currency: 'DLC',
-        value: unshiftValue(Number(dlcBTCAmount)).toString(),
-        issuer: this.issuerWallet.classicAddress,
-      },
-      InvoiceID: vaultUUID,
-    };
-
-    const updatedCreateCheckTransactionJSON: CheckCreate = await this.client.autofill(
-      createCheckTransactionJSON
-    );
-
-    console.log(
-      'Customer is about to sign the following sendCheck tx: ',
-      updatedCreateCheckTransactionJSON
-    );
-
-    const signCreateCheckTransactionResponse: SignResponse = this.customerWallet.sign(
-      updatedCreateCheckTransactionJSON
-    );
-
-    const submitCreateCheckTransactionResponse: TxResponse<SubmittableTransaction> =
-      await this.client.submitAndWait(signCreateCheckTransactionResponse.tx_blob);
-
-    console.log(
-      `Response for submitted Create Check for Vault ${vaultUUID} request: ${JSON.stringify(submitCreateCheckTransactionResponse, null, 2)}`
-    );
-
-    return submitCreateCheckTransactionResponse.result.hash;
-  }
-
   async cashCheck(checkID: string, dlcBTCAmount: string): Promise<string> {
     if (!this.client.isConnected()) {
       await this.client.connect();
@@ -662,12 +534,12 @@ export class RippleHandler {
 
     const cashCheckTransactionJSON: CheckCash = {
       TransactionType: 'CheckCash',
-      Account: this.issuerWallet.classicAddress,
+      Account: this.issuerAddress,
       CheckID: checkID,
       Amount: {
         currency: 'DLC',
         value: dlcBTCAmount,
-        issuer: this.issuerWallet.classicAddress,
+        issuer: this.issuerAddress,
       },
     };
 
@@ -696,6 +568,7 @@ export class RippleHandler {
 
   async mintTokens(
     updatedValueMinted: number,
+    destinationAddress: string,
     valueMinted: number,
     incrementBy: number = 0
   ): Promise<string> {
@@ -709,17 +582,17 @@ export class RippleHandler {
     }
     const mintValue = unshiftValue(new Decimal(updatedValueMinted).minus(valueMinted).toNumber());
     const dlcBTCAmount = mintValue.toString();
-    console.log(`Minting ${dlcBTCAmount} dlcBTC to ${this.customerWallet.classicAddress} address`);
+    console.log(`Minting ${dlcBTCAmount} dlcBTC to ${destinationAddress} address`);
 
     const sendTokenTransactionJSON: Payment = {
       TransactionType: 'Payment',
-      Account: this.issuerWallet.classicAddress,
-      Destination: this.customerWallet.classicAddress,
+      Account: this.issuerAddress,
+      Destination: destinationAddress,
       DestinationTag: 1,
       Amount: {
         currency: 'DLC',
         value: dlcBTCAmount,
-        issuer: this.issuerWallet.classicAddress,
+        issuer: this.issuerAddress,
       },
     };
 

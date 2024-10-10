@@ -5,7 +5,19 @@ import {
   WithdrawDepositTXAttestorInfo,
 } from '../../models/attestor.models.js';
 import { AttestorError } from '../../models/errors.js';
-import { sendRequest } from '../request/request.functions.js';
+import { sendGetRequest, sendRequest } from '../request/request.functions.js';
+
+export async function submitSetupXRPLVaultRequest(
+  coordinatorURL: string,
+  userXRPLAddress: string
+): Promise<void> {
+  const requestBody = JSON.stringify({ user_xrpl_address: userXRPLAddress });
+  return sendRequest(`${coordinatorURL}/app/setup-xrpl-vault`, requestBody);
+}
+
+export async function getAttestorExtendedGroupPublicKey(coordinatorURL: string): Promise<string> {
+  return sendGetRequest(`${coordinatorURL}/tss/get-extended-group-publickey`);
+}
 
 export async function submitFundingPSBT(
   attestorRootURLs: string[],
