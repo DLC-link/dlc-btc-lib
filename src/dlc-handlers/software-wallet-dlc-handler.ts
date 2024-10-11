@@ -10,7 +10,7 @@ import {
   getFeeRate,
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
-import { getBalanceByPayment } from '../functions/bitcoin/bitcoin-request-functions.js';
+import { getBalance } from '../functions/bitcoin/bitcoin-request-functions.js';
 import { BitcoinCoreRpcConnection } from '../functions/bitcoin/bitcoincore-rpc-connection.js';
 import {
   createDepositTransaction,
@@ -174,8 +174,8 @@ export class SoftwareWalletDLCHandler {
           )
         );
 
-      const addressBalance = await getBalanceByPayment(
-        Buffer.from(this.fundingDerivedPublicKey, 'hex'),
+      const addressBalance = await getBalance(
+        this.fundingDerivedPublicKey,
         this.fundingPaymentType,
         this.bitcoincoreRpcConnection
       );

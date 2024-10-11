@@ -15,7 +15,7 @@ import {
   getFeeRate,
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
-import { getBalanceByPayment } from '../functions/bitcoin/bitcoin-request-functions.js';
+import { getBalance } from '../functions/bitcoin/bitcoin-request-functions.js';
 import { BitcoinCoreRpcConnection } from '../functions/bitcoin/bitcoincore-rpc-connection.js';
 import {
   createDepositTransaction,
@@ -36,7 +36,6 @@ export class PrivateKeyDLCHandler {
   private fundingPaymentType: 'wpkh' | 'tr';
   private bitcoinNetwork: Network;
   private bitcoincoreRpcConnection: BitcoinCoreRpcConnection;
-  // private bitcoinBlockchainAPI: string;
   private bitcoinBlockchainFeeRecommendationAPI: string;
 
   constructor(
@@ -45,17 +44,14 @@ export class PrivateKeyDLCHandler {
     fundingPaymentType: 'wpkh' | 'tr',
     bitcoinNetwork: Network,
     bitcoincoreRpcConnection: BitcoinCoreRpcConnection,
-    // bitcoinBlockchainAPI?: string,
     bitcoinBlockchainFeeRecommendationAPI?: string
   ) {
     switch (bitcoinNetwork) {
       case bitcoin:
-        // this.bitcoinBlockchainAPI = 'https://mempool.space/api';
         this.bitcoinBlockchainFeeRecommendationAPI =
           'https://mempool.space/api/v1/fees/recommended';
         break;
       case testnet:
-        // this.bitcoinBlockchainAPI = 'https://mempool.space/testnet/api';
         this.bitcoinBlockchainFeeRecommendationAPI =
           'https://mempool.space/testnet/api/v1/fees/recommended';
         break;
@@ -214,8 +210,8 @@ export class PrivateKeyDLCHandler {
       attestorGroupPublicKey
     );
 
-    const addressBalance = await getBalanceByPayment(
-      this.derivedKeyPair.fundingDerivedKeyPair.publicKey,
+    const addressBalance = await getBalance(
+      bytesToHex(this.derivedKeyPair.fundingDerivedKeyPair.publicKey),
       this.fundingPaymentType,
       this.bitcoincoreRpcConnection
     );

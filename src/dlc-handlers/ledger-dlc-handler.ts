@@ -15,8 +15,7 @@ import {
   getInputIndicesByScript,
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
-import { getBalanceByPayment } from '../functions/bitcoin/bitcoin-request-functions.js';
-import { BitcoinCoreRpcConnection } from '../functions/bitcoin/bitcoincore-rpc-connection.js';
+import { getBalance } from '../functions/bitcoin/bitcoin-request-functions.js';
 import {
   addFundingSignaturesBasedOnPaymentType,
   addTaprooMultisigInputSignaturesToPSBT,
@@ -30,6 +29,7 @@ import {
 } from '../functions/bitcoin/psbt-functions.js';
 import { ExtendedPaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
+import { BitcoinCoreRpcConnection } from '../models/index.js';
 import { truncateAddress } from '../utilities/index.js';
 
 interface LedgerPolicyInformation {
@@ -48,7 +48,6 @@ export class LedgerDLCHandler {
   public payment: ExtendedPaymentInformation | undefined;
   private bitcoinNetwork: Network;
   private bitcoinNetworkIndex: number;
-  // private bitcoinBlockchainAPI: string;
   private bitcoincoreRpcConnection: BitcoinCoreRpcConnection;
   private bitcoinBlockchainFeeRecommendationAPI: string;
 
@@ -64,13 +63,11 @@ export class LedgerDLCHandler {
   ) {
     switch (bitcoinNetwork) {
       case bitcoin:
-        // this.bitcoinBlockchainAPI = 'https://mempool.space/api';
         this.bitcoinBlockchainFeeRecommendationAPI =
           'https://mempool.space/api/v1/fees/recommended';
         this.bitcoinNetworkIndex = 0;
         break;
       case testnet:
-        // this.bitcoinBlockchainAPI = 'https://mempool.space/testnet/api';
         this.bitcoinBlockchainFeeRecommendationAPI =
           'https://mempool.space/testnet/api/v1/fees/recommended';
         this.bitcoinNetworkIndex = 1;
@@ -312,8 +309,8 @@ export class LedgerDLCHandler {
           )
         );
 
-      const addressBalance = await getBalanceByPayment(
-        fundingDerivedPublicKey,
+      const addressBalance = await getBalance(
+        bytesToHex(fundingDerivedPublicKey),
         this.fundingPaymentType,
         this.bitcoincoreRpcConnection
       );

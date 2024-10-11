@@ -8,7 +8,7 @@ import {
   broadcastTransaction,
   fetchBitcoinBlockchainBlockHeight,
   fetchBitcoinTransaction,
-  getBalanceByPayment,
+  getBalance,
 } from '../bitcoin/bitcoin-request-functions.js';
 import {
   createDepositTransaction,
@@ -25,7 +25,7 @@ export {
   fetchBitcoinTransaction,
   finalizeUserInputs,
   getFeeAmount,
-  getBalanceByPayment,
+  getBalance,
   getFeeRecipientAddressFromPublicKey,
   getInputIndicesByScript,
 };

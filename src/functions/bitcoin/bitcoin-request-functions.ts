@@ -1,9 +1,8 @@
-import { bytesToHex } from '@noble/hashes/utils';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { FetchedRawTransaction, UTXO } from 'bitcoin-core';
+import { BitcoinCoreRpcConnection } from 'src/models/index.js';
 
 import { ModifiedUTXO } from '../../models/bitcoin-models.js';
-import { BitcoinCoreRpcConnection } from './bitcoincore-rpc-connection.js';
 
 /**
  * Fetches the Bitcoin Transaction from the Bitcoin Network.
@@ -20,8 +19,15 @@ export async function fetchBitcoinTransaction(
     const client = bitcoinCoreRpcConnection.getClient();
     console.log('Fetching Raw Transaction in verbose mode:', txID);
     const result = await client.command('getrawtransaction', txID, true);
+    // get vout and vin and convert the values to Satoshis
+    result.vout.forEach((vout: { value: number }) => {
+      vout.value = Math.round(vout.value * 100_000_000);
+    });
+    result.vin.forEach((vin: { value: number }) => {
+      vin.value = Math.round(vin.value * 100_000_000);
+    });
     console.log('Raw Transaction:', result);
-    return result; // figure out HOW to make it so that we have Satoshis values in vout/vin
+    return result;
   } catch (error) {
     throw new Error(`Error fetching Bitcoin Transaction: ${error}`);
   }
@@ -85,49 +91,15 @@ export async function checkBitcoinTransactionConfirmations(
  * @param bitcoinCoreRpcConnection - The Bitcoin Core RPC Connection object.
  * @returns A Promise that resolves to the Balance of the User's Bitcoin Address.
  */
-// TODO: check where it's used and if we need it at all!
-export async function getBalanceByAddress(
-  taprootDerivedPublicKey: Buffer,
-  bitcoinAddress: string,
-  bitcoinCoreRpcConnection: BitcoinCoreRpcConnection
-): Promise<number> {
-  try {
-    const client = bitcoinCoreRpcConnection.getClient();
-    const pkString = bytesToHex(taprootDerivedPublicKey);
-
-    const descriptors = [{ desc: `tr(${pkString})` }];
-    const userUTXO = await client.command('scantxoutset', 'start', descriptors);
-
-    const totalAmount = userUTXO.total_amount;
-    if (!totalAmount) {
-      return userUTXO.unspents.reduce(
-        (acc: number, utxo: { amount: number }) => acc + Math.round(utxo.amount * 100_000_000),
-        0
-      );
-    }
-    return Math.round(totalAmount * 100_000_000);
-  } catch (error) {
-    throw new Error(`Error getting UTXOs: ${error}`);
-  }
-}
-
-/**
- * Gets the Balance of a given Bitcoin Payment object's Address.
- *
- * @param payment - The Payment object to get the Balance of.
- * @param bitcoinCoreRpcConnection - The Bitcoin Core RPC Connection object.
- * @returns A Promise that resolves to the Balance of the User's Bitcoin Address.
- */
-export async function getBalanceByPayment(
-  fundingDerivedPublicKey: Buffer,
+export async function getBalance(
+  taprootDerivedPublicKey: string,
   paymentType: string,
   bitcoinCoreRpcConnection: BitcoinCoreRpcConnection
 ): Promise<number> {
   try {
     const client = bitcoinCoreRpcConnection.getClient();
-    const pkString = bytesToHex(fundingDerivedPublicKey);
 
-    const descriptors = [{ desc: `${paymentType}(${pkString})` }];
+    const descriptors = [{ desc: `${paymentType}(${taprootDerivedPublicKey})` }];
     const userUTXO = await client.command('scantxoutset', 'start', descriptors);
 
     const totalAmount = userUTXO.total_amount;
