@@ -122,8 +122,11 @@ export class RippleHandler {
       let nftUUID = uuid.substring(0, 2) === '0x' ? uuid.slice(2) : uuid;
       nftUUID = nftUUID.toUpperCase();
       const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
-      const nftTokenId = await this.getNFTokenIdForVault(nftUUID);
-      const matchingNFT = nfts.result.account_nfts.filter(nft => nft.NFTokenID === nftTokenId);
+
+      const matchingNFT = nfts.result.account_nfts.filter(
+        nft => decodeURI(nft.URI!).uuid.slice(2) === uuid
+      );
+
       if (matchingNFT.length === 0) {
         throw new RippleError(`Vault with UUID: ${nftUUID} not found`);
       } else if (matchingNFT.length > 1) {
@@ -285,38 +288,22 @@ export class RippleHandler {
         account: this.issuerAddress,
       };
 
+      // does this return all the NFTs? or only a max of 50 or so, and need pagination?
+      // https://xrpl.org/docs/references/protocol/ledger-data/ledger-entry-types/nftokenpage
       const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
       const allNFTs = nfts.result.account_nfts;
       const allVaults: RawVault[] = allNFTs.map(nft => lowercaseHexFields(decodeURI(nft.URI!)));
 
-      return allVaults;
+      const uniqueUUIDs = Array.from(new Set(allVaults.map(vault => vault.uuid)));
+      const uniqueVaults: RawVault[] = [];
+
+      uniqueUUIDs.forEach(async uuid => {
+        uniqueVaults.push(await this.getRawVault(uuid));
+      });
+
+      return uniqueVaults;
     } catch (error) {
       throw new RippleError(`Could not fetch All Vaults: ${error}`);
-    }
-  }
-
-  async getNFTokenIdForVault(uuid: string): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
-    console.log(`Getting NFTokenId for vault: ${uuid}`);
-    try {
-      const getNFTsTransaction: AccountNFTsRequest = {
-        command: 'account_nfts',
-        account: this.issuerAddress,
-      };
-
-      const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
-      const matchingNFT = nfts.result.account_nfts.find(
-        nft => decodeURI(nft.URI!).uuid.slice(2) === uuid
-      );
-
-      if (!matchingNFT) {
-        throw new RippleError(`Vault for uuid: ${uuid} not found`);
-      }
-      return matchingNFT.NFTokenID;
-    } catch (error) {
-      throw new RippleError(`Could not find NFTokenId for vault Vault: ${error}`);
     }
   }
 
