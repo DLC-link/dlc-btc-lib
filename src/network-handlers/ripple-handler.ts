@@ -127,7 +127,9 @@ export class RippleHandler {
       if (matchingNFT.length === 0) {
         throw new RippleError(`Vault with UUID: ${nftUUID} not found`);
       } else if (matchingNFT.length > 1) {
-        throw new RippleError(`Multiple Vaults with UUID: ${nftUUID} found`);
+        // we have multiple NFTs with the same UUID, this is not a problem
+        // let's just return the one with the highest nft_serial
+        matchingNFT.sort((a, b) => a.nft_serial - b.nft_serial);
       }
       const matchingVault: RawVault = decodeURI(matchingNFT[0].URI!);
       return lowercaseHexFields(matchingVault);
@@ -150,7 +152,7 @@ export class RippleHandler {
     }
   }
 
-  async withdraw(uuid: string, withdrawAmount: bigint): Promise<string[]> {
+  async withdraw(uuid: string, withdrawAmount: bigint): Promise<string> {
     // Things like withdraw and deposit should get the existing NFT vault
     // then burn the NFT, and mint a new one with the updated value
     // putting the UUID into the URI
@@ -162,18 +164,16 @@ export class RippleHandler {
       let nftUUID = uuid.substring(0, 2) === '0x' ? uuid.slice(2) : uuid;
       nftUUID = nftUUID.toUpperCase();
       const thisVault = await this.getRawVault(nftUUID);
-      const burnSig = await this.burnNFT(nftUUID, 1);
 
       thisVault.valueMinted = thisVault.valueMinted.sub(BigNumber.from(withdrawAmount));
-      const mintSig = await this.mintNFT(thisVault, 2);
-      return [burnSig, mintSig];
+      const mintSig = await this.mintNFT(thisVault);
+      return mintSig;
     } catch (error) {
       throw new RippleError(`Unable to perform Withdraw for User: ${error}`);
     }
   }
 
   async setVaultStatusFunded(
-    burnNFTSignedTxBlobs: string[],
     mintTokensSignedTxBlobs: string[], // this can be a set of empty string is no tokens are being minted
     mintNFTSignedTxBlobs: string[]
   ): Promise<void> {
@@ -181,17 +181,6 @@ export class RippleHandler {
       await this.client.connect();
     }
     try {
-      console.log('Doing the burn for SSF');
-      const burn_multisig_tx = xrpl.multisign(burnNFTSignedTxBlobs);
-      const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-        await this.client.submitAndWait(burn_multisig_tx);
-      const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
-      if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
-        throw new RippleError(
-          `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
-        );
-      }
-
       // multisig mint
       if (mintTokensSignedTxBlobs.every(sig => sig !== '')) {
         console.log('Success! Now minting the actual tokens!! How fun $$');
@@ -227,7 +216,6 @@ export class RippleHandler {
 
   async performCheckCashAndNftUpdate(
     cashCheckSignedTxBlobs: string[],
-    burnNFTSignedTxBlobs: string[],
     mintNFTSignedTxBlobs: string[]
   ): Promise<void> {
     if (!this.client.isConnected()) {
@@ -235,25 +223,13 @@ export class RippleHandler {
     }
     try {
       console.log('Doing the check cashing');
-      // multisig burn
+      // multisig cash check
       const cash_check_tx = xrpl.multisign(cashCheckSignedTxBlobs);
       const cashCheckTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
         await this.client.submitAndWait(cash_check_tx); // add timeouts
       const cashCheckMeta: NFTokenMintMetadata = cashCheckTx.result.meta! as NFTokenMintMetadata;
       if (cashCheckMeta!.TransactionResult !== 'tesSUCCESS') {
         throw new RippleError(`Could not cash check: ${cashCheckMeta!.TransactionResult}`);
-      }
-
-      console.log('Doing the burn for SSP');
-      // multisig burn
-      const burn_multisig_tx = xrpl.multisign(burnNFTSignedTxBlobs);
-      const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-        await this.client.submitAndWait(burn_multisig_tx); // add timeouts
-      const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
-      if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
-        throw new RippleError(
-          `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
-        );
       }
 
       console.log('Success! Now Doing the mint for SSP');
@@ -275,26 +251,11 @@ export class RippleHandler {
     }
   }
 
-  async setVaultStatusPending(
-    burnNFTSignedTxBlobs: string[],
-    mintNFTSignedTxBlobs: string[]
-  ): Promise<void> {
+  async setVaultStatusPending(mintNFTSignedTxBlobs: string[]): Promise<void> {
     if (!this.client.isConnected()) {
       await this.client.connect();
     }
     try {
-      console.log('Doing the burn for SSP');
-      // multisig burn
-      const burn_multisig_tx = xrpl.multisign(burnNFTSignedTxBlobs);
-      const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-        await this.client.submitAndWait(burn_multisig_tx);
-      const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
-      if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
-        throw new RippleError(
-          `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
-        );
-      }
-
       console.log('Success! Now Doing the mint for SSP');
 
       // multisig mint
@@ -359,36 +320,7 @@ export class RippleHandler {
     }
   }
 
-  async burnNFT(nftUUID: string, incrementBy: number = 0): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
-    console.log(`Getting sig for Burning Ripple Vault, vault: ${nftUUID}`);
-    const nftTokenId = await this.getNFTokenIdForVault(nftUUID);
-    const burnTransactionJson: SubmittableTransaction = {
-      TransactionType: 'NFTokenBurn',
-      Account: this.issuerAddress,
-      NFTokenID: nftTokenId,
-    };
-    const preparedBurnTx = await this.client.autofill(burnTransactionJson, 3); // this hardcoded number should match the number of active signers
-
-    // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
-    // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
-    preparedBurnTx.LastLedgerSequence =
-      Math.ceil(preparedBurnTx.LastLedgerSequence! / 10000 + 1) * 10000; // Better way?!?
-
-    if (incrementBy > 0) {
-      preparedBurnTx.Sequence = preparedBurnTx.Sequence! + incrementBy;
-    }
-
-    console.log('preparedBurnTx ', preparedBurnTx);
-
-    const sig = this.wallet.sign(preparedBurnTx, true);
-    // console.log('tx_one_sig: ', sig);
-    return sig.tx_blob;
-  }
-
-  async mintNFT(vault: RawVault, incrementBy: number = 0): Promise<string> {
+  async mintNFT(vault: RawVault, incrementBy: number = 1): Promise<string> {
     if (!this.client.isConnected()) {
       await this.client.connect();
     }
@@ -407,9 +339,8 @@ export class RippleHandler {
     // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
     preparedMintTx.LastLedgerSequence =
       Math.ceil(preparedMintTx.LastLedgerSequence! / 10000 + 1) * 10000;
-    if (incrementBy > 0) {
-      preparedMintTx.Sequence = preparedMintTx.Sequence! + incrementBy;
-    }
+
+    preparedMintTx.Sequence = preparedMintTx.Sequence! + incrementBy;
 
     console.log('preparedMintTx ', preparedMintTx);
 
@@ -503,11 +434,11 @@ export class RippleHandler {
             `Could not find Vault for Check with Invoice ID: ${check.InvoiceID}`
           );
         }
-        const two_more_sigs = await this.withdraw(
+        const mint_sig = await this.withdraw(
           vault.uuid,
           BigInt(shiftValue(Number(checkSendMax.value)))
         );
-        return [my_check_cash_sig, ...two_more_sigs];
+        return [my_check_cash_sig, mint_sig];
       } catch (error) {
         console.error(`Error cashing Check: ${error} \n continuing`);
       }
@@ -520,7 +451,7 @@ export class RippleHandler {
       await this.client.connect();
     }
 
-    //what's
+    // remove this??
     if (
       [
         '8FC923A16C90FB7316673D35CA228C82916B8E9F63EADC57BAA7C51C2E7716AA',
