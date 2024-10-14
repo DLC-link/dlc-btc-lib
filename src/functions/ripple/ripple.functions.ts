@@ -1,12 +1,16 @@
 import { Decimal } from 'decimal.js';
 import { BigNumber } from 'ethers';
 import {
+  AccountLinesRequest,
+  AccountLinesResponse,
   AccountNFToken,
   AccountNFTsRequest,
   CheckCreate,
   Client,
   SubmittableTransaction,
+  Transaction,
   TransactionMetadataBase,
+  TrustSet,
   TxResponse,
   Wallet,
   convertHexToString,
@@ -17,13 +21,11 @@ import { TRANSACTION_SUCCESS_CODE } from '../../constants/ripple.constants.js';
 import { RippleError } from '../../models/errors.js';
 import { RawVault } from '../../models/ethereum-models.js';
 import { SignResponse } from '../../models/ripple.model.js';
-import { unshiftValue } from '../../utilities/index.js';
+import { shiftValue, unshiftValue } from '../../utilities/index.js';
 
 function hexFieldsToLowercase(vault: RawVault): RawVault {
   return {
     ...vault,
-    creator: vault.creator.toLowerCase(),
-    protocolContract: vault.protocolContract.toLowerCase(),
     uuid: vault.uuid.toLowerCase(),
     fundingTxId: vault.fundingTxId.toLowerCase(),
     wdTxId: vault.wdTxId.toLowerCase(),
@@ -146,6 +148,42 @@ export function findNFTByUUID(rippleNFTs: AccountNFToken[], vaultUUID: string): 
   return rippleNFT;
 }
 
+export async function setTrustLine(
+  rippleClient: Client,
+  ownerAddress: string,
+  issuerAddress: string
+): Promise<TrustSet | undefined> {
+  await connectRippleClient(rippleClient);
+
+  const accountNonXRPBalancesRequest: AccountLinesRequest = {
+    command: 'account_lines',
+    account: ownerAddress,
+    ledger_index: 'validated',
+  };
+
+  const {
+    result: { lines },
+  }: AccountLinesResponse = await rippleClient.request(accountNonXRPBalancesRequest);
+
+  if (lines.some(line => line.currency === 'DLC' && line.account === issuerAddress)) {
+    console.log(`Trust Line already exists for Issuer: ${issuerAddress}`);
+    return;
+  }
+
+  const trustSetTransactionRequest: TrustSet = {
+    TransactionType: 'TrustSet',
+    Account: ownerAddress,
+    LimitAmount: {
+      currency: 'DLC',
+      issuer: issuerAddress,
+      value: '10000000000',
+    },
+  };
+
+  const updatedTrustSetTransactionRequest = await rippleClient.autofill(trustSetTransactionRequest);
+  return updatedTrustSetTransactionRequest;
+}
+
 export async function getRippleVault(
   rippleClient: Client,
   issuerAddress: string,
@@ -185,7 +223,8 @@ export async function getRippleVault(
 
 export async function getAllRippleVaults(
   rippleClient: Client,
-  issuerAddress: string
+  issuerAddress: string,
+  ownerAddress?: string
 ): Promise<RawVault[]> {
   try {
     await connectRippleClient(rippleClient);
@@ -199,20 +238,103 @@ export async function getAllRippleVaults(
       result: { account_nfts: rippleNFTs },
     } = await rippleClient.request(getAccountNFTsRequest);
 
-    return rippleNFTs.map(nft => hexFieldsToLowercase(decodeURI(nft.URI!)));
+    const rippleVaults = rippleNFTs.map(nft => hexFieldsToLowercase(decodeURI(nft.URI!)));
+
+    if (ownerAddress) {
+      return rippleVaults.filter(vault => vault.creator === ownerAddress);
+    } else {
+      return rippleVaults;
+    }
   } catch (error) {
     throw new RippleError(`Error getting Vaults: ${error}`);
   }
 }
 
-export async function createCheck(
+export async function signAndSubmitRippleTransaction(
   rippleClient: Client,
   rippleWallet: Wallet,
+  transaction: Transaction
+): Promise<TxResponse<SubmittableTransaction>> {
+  try {
+    const signResponse: SignResponse = rippleWallet.sign(transaction);
+
+    const submitResponse: TxResponse<SubmittableTransaction> = await rippleClient.submitAndWait(
+      signResponse.tx_blob
+    );
+
+    console.log(`Response for submitted Transaction Request:`, submitResponse);
+
+    checkRippleTransactionResult(submitResponse);
+
+    return submitResponse;
+  } catch (error) {
+    throw new RippleError(`Error signing and submitt Transaction: ${error}`);
+  }
+}
+
+export async function getLockedBTCBalance(
+  rippleClient: Client,
+  rippleWallet: Wallet,
+  issuerAddress: string
+): Promise<number> {
+  try {
+    await connectRippleClient(rippleClient);
+
+    const rippleVaults = await getAllRippleVaults(
+      rippleClient,
+      issuerAddress,
+      rippleWallet.classicAddress
+    );
+
+    const lockedBTCBalance = rippleVaults.reduce((accumulator, vault) => {
+      return accumulator + vault.valueLocked.toNumber();
+    }, 0);
+
+    return lockedBTCBalance;
+  } catch (error) {
+    throw new RippleError(`Error getting locked BTC balance: ${error}`);
+  }
+}
+
+export async function getDLCBTCBalance(
+  rippleClient: Client,
+  rippleWallet: Wallet,
+  issuerAddress: string
+): Promise<number> {
+  try {
+    await connectRippleClient(rippleClient);
+
+    const accountNonXRPBalancesRequest: AccountLinesRequest = {
+      command: 'account_lines',
+      account: rippleWallet.classicAddress,
+      ledger_index: 'validated',
+    };
+
+    const {
+      result: { lines },
+    }: AccountLinesResponse = await rippleClient.request(accountNonXRPBalancesRequest);
+
+    const dlcBTCBalance = lines.find(
+      line => line.currency === 'DLC' && line.account === issuerAddress
+    );
+    if (!dlcBTCBalance) {
+      return 0;
+    } else {
+      return shiftValue(new Decimal(dlcBTCBalance.balance).toNumber());
+    }
+  } catch (error) {
+    throw new RippleError(`Error getting BTC balance: ${error}`);
+  }
+}
+
+export async function createCheck(
+  rippleClient: Client,
+  ownerAddress: string,
   destinationAddress: string,
   destinationTag: number = 1,
   dlcBTCAmount: string,
   vaultUUID: string
-): Promise<string> {
+): Promise<Transaction> {
   try {
     await connectRippleClient(rippleClient);
 
@@ -223,7 +345,7 @@ export async function createCheck(
 
     const createCheckRequestJSON: CheckCreate = {
       TransactionType: 'CheckCreate',
-      Account: rippleWallet.classicAddress,
+      Account: ownerAddress,
       Destination: destinationAddress,
       DestinationTag: destinationTag,
       SendMax: {
@@ -237,21 +359,7 @@ export async function createCheck(
     const updatedCreateCheckRequestJSON: CheckCreate =
       await rippleClient.autofill(createCheckRequestJSON);
 
-    console.log(`Signing Create Check for Vault ${vaultUUID}:`, updatedCreateCheckRequestJSON);
-
-    const signCreateCheckResponse: SignResponse = rippleWallet.sign(updatedCreateCheckRequestJSON);
-
-    const submitCreateCheckResponse: TxResponse<SubmittableTransaction> =
-      await rippleClient.submitAndWait(signCreateCheckResponse.tx_blob);
-
-    console.log(
-      `Response for submitted Create Check for Vault ${vaultUUID} request:`,
-      submitCreateCheckResponse
-    );
-
-    checkRippleTransactionResult(submitCreateCheckResponse);
-
-    return submitCreateCheckResponse.result.hash;
+    return updatedCreateCheckRequestJSON;
   } catch (error) {
     throw new RippleError(`Error creating Check for Vault ${vaultUUID}: ${error}`);
   }
