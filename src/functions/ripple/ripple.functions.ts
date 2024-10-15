@@ -274,17 +274,13 @@ export async function signAndSubmitRippleTransaction(
 
 export async function getLockedBTCBalance(
   rippleClient: Client,
-  rippleWallet: Wallet,
+  userAddress: string,
   issuerAddress: string
 ): Promise<number> {
   try {
     await connectRippleClient(rippleClient);
 
-    const rippleVaults = await getAllRippleVaults(
-      rippleClient,
-      issuerAddress,
-      rippleWallet.classicAddress
-    );
+    const rippleVaults = await getAllRippleVaults(rippleClient, issuerAddress, userAddress);
 
     const lockedBTCBalance = rippleVaults.reduce((accumulator, vault) => {
       return accumulator + vault.valueLocked.toNumber();
@@ -298,7 +294,7 @@ export async function getLockedBTCBalance(
 
 export async function getDLCBTCBalance(
   rippleClient: Client,
-  rippleWallet: Wallet,
+  userAddress: string,
   issuerAddress: string
 ): Promise<number> {
   try {
@@ -306,7 +302,7 @@ export async function getDLCBTCBalance(
 
     const accountNonXRPBalancesRequest: AccountLinesRequest = {
       command: 'account_lines',
-      account: rippleWallet.classicAddress,
+      account: userAddress,
       ledger_index: 'validated',
     };
 
@@ -334,7 +330,7 @@ export async function createCheck(
   destinationTag: number = 1,
   dlcBTCAmount: string,
   vaultUUID: string
-): Promise<Transaction> {
+): Promise<CheckCreate> {
   try {
     await connectRippleClient(rippleClient);
 
