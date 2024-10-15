@@ -1,6 +1,6 @@
-import Xrp from '@ledgerhq/hw-app-xrp';
-import { encode } from 'ripple-binary-codec';
-import { CheckCreate, Client, Transaction, TrustSet } from 'xrpl';
+import { getAddress, signTransaction } from '@gemwallet/api';
+import { ResponseType } from '@gemwallet/api/_constants/index.js';
+import { CheckCreate, Client, TrustSet } from 'xrpl';
 
 import {
   checkRippleTransactionResult,
@@ -11,33 +11,24 @@ import {
   setTrustLine,
 } from '../functions/ripple/ripple.functions.js';
 
-export class LedgerXRPHandler {
-  private ledgerApp: Xrp.default;
-  private derivationPath: string;
+export class GemXRPHandler {
   private xrpClient: Client;
   private issuerAddress: string;
   private userAddress: string;
-  private publicKey: string;
 
-  constructor(
-    ledgerApp: Xrp.default,
-    derivationPath: string,
-    xrpClient: Client,
-    issuerAddress: string,
-    userAddress: string,
-    publicKey: string
-  ) {
-    this.ledgerApp = ledgerApp;
-    this.derivationPath = derivationPath;
+  constructor(xrpClient: Client, issuerAddress: string, userAddress: string) {
     this.xrpClient = xrpClient;
     this.issuerAddress = issuerAddress;
     this.userAddress = userAddress;
-    this.publicKey = publicKey;
   }
 
   public async getAddress(): Promise<string> {
-    const address = await this.ledgerApp.getAddress(this.derivationPath);
-    return address.address;
+    const getAddressResponse = await getAddress();
+
+    if (getAddressResponse.type === ResponseType.Reject || !getAddressResponse.result) {
+      throw new Error('Error getting Address');
+    }
+    return getAddressResponse.result.address;
   }
 
   public async setTrustLine(): Promise<void> {
@@ -55,21 +46,19 @@ export class LedgerXRPHandler {
       const updatedTrustLineRequest: TrustSet = {
         ...trustLineRequest,
         Flags: 2147483648,
-        SigningPubKey: this.publicKey.toUpperCase(),
       };
 
-      const encodedTrustLineRequest = encode(updatedTrustLineRequest);
+      const signTrustLineResponse = await signTransaction({ transaction: updatedTrustLineRequest });
 
-      const signature = await this.ledgerApp.signTransaction(
-        this.derivationPath,
-        encodedTrustLineRequest
-      );
-      console.log('Signature:', signature);
+      if (
+        signTrustLineResponse.type === ResponseType.Reject ||
+        !signTrustLineResponse.result ||
+        !signTrustLineResponse.result.signature
+      ) {
+        throw new Error('Error signing Trust Line');
+      }
 
-      const signedTrustLineRequest: TrustSet = {
-        ...updatedTrustLineRequest,
-        TxnSignature: signature,
-      };
+      const signedTrustLineRequest = signTrustLineResponse.result.signature;
 
       await connectRippleClient(this.xrpClient);
 
@@ -98,20 +87,21 @@ export class LedgerXRPHandler {
       const updatedCheckCreateRequest: CheckCreate = {
         ...checkCreateRequest,
         Flags: 2147483648,
-        SigningPubKey: this.publicKey.toUpperCase(),
       };
 
-      const encodedCheckCreateRequest = encode(updatedCheckCreateRequest);
+      const signCheckCreateResponse = await signTransaction({
+        transaction: updatedCheckCreateRequest,
+      });
 
-      const signature = await this.ledgerApp.signTransaction(
-        this.derivationPath,
-        encodedCheckCreateRequest
-      );
+      if (
+        signCheckCreateResponse.type === ResponseType.Reject ||
+        !signCheckCreateResponse.result ||
+        !signCheckCreateResponse.result.signature
+      ) {
+        throw new Error('Error signing Check Create');
+      }
 
-      const signedCheckCreateRequest: Transaction = {
-        ...updatedCheckCreateRequest,
-        TxnSignature: signature,
-      };
+      const signedCheckCreateRequest = signCheckCreateResponse.result.signature;
 
       await connectRippleClient(this.xrpClient);
 
