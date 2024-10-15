@@ -132,7 +132,7 @@ export class RippleHandler {
       } else if (matchingNFT.length > 1) {
         // we have multiple NFTs with the same UUID, this is not a problem
         // let's just return the one with the highest nft_serial
-        matchingNFT.sort((a, b) => a.nft_serial - b.nft_serial);
+        matchingNFT.sort((a, b) => b.nft_serial - a.nft_serial);
       }
       const matchingVault: RawVault = decodeURI(matchingNFT[0].URI!);
       return lowercaseHexFields(matchingVault);
@@ -288,17 +288,39 @@ export class RippleHandler {
         account: this.issuerAddress,
       };
 
-      // does this return all the NFTs? or only a max of 50 or so, and need pagination?
-      // https://xrpl.org/docs/references/protocol/ledger-data/ledger-entry-types/nftokenpage
+      // Fetch all NFTs from the issuer address
       const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
       const allNFTs = nfts.result.account_nfts;
-      const allVaults: RawVault[] = allNFTs.map(nft => lowercaseHexFields(decodeURI(nft.URI!)));
 
-      const uniqueUUIDs = Array.from(new Set(allVaults.map(vault => vault.uuid)));
-      const uniqueVaults: RawVault[] = [];
+      // Process NFTs to create a map of Vaults associated with their nft_serials
+      const vaultsWithSerials = allNFTs.map(nft => {
+        const vault = lowercaseHexFields(decodeURI(nft.URI!)) as RawVault;
+        return {
+          vault,
+          nft_serial: nft.nft_serial, // Keep the serial number from the NFT
+        };
+      });
 
-      uniqueUUIDs.forEach(async uuid => {
-        uniqueVaults.push(await this.getRawVault(uuid));
+      // Group vaults by UUID
+      const vaultsByUUID: { [key: string]: { vault: RawVault; nft_serial: number }[] } = {};
+
+      vaultsWithSerials.forEach(({ vault, nft_serial }) => {
+        const uuid = vault.uuid.startsWith('0x')
+          ? vault.uuid.slice(2).toUpperCase()
+          : vault.uuid.toUpperCase();
+        if (!vaultsByUUID[uuid]) {
+          vaultsByUUID[uuid] = [];
+        }
+        vaultsByUUID[uuid].push({ vault, nft_serial });
+      });
+
+      // Filter and sort vaults based on UUID and their nft_serial
+      const uniqueVaults: RawVault[] = Object.values(vaultsByUUID).map(vaultGroup => {
+        if (vaultGroup.length > 1) {
+          // Sort by serial number if multiple NFTs with the same UUID
+          vaultGroup.sort((a, b) => b.nft_serial - a.nft_serial);
+        }
+        return vaultGroup[0].vault; // Return the vault with the highest nft_serial
       });
 
       return uniqueVaults;

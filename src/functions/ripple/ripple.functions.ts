@@ -209,10 +209,10 @@ export async function getRippleVault(
 
     if (matchingNFTs.length === 0) {
       throw new RippleError(`Vault with UUID: ${formattedUUID} not found`);
-    }
-
-    if (matchingNFTs.length > 1) {
-      throw new RippleError(`Multiple Vaults found with UUID: ${formattedUUID}`);
+    } else if (matchingNFTs.length > 1) {
+      // Multiple NFTs with the same ID may exist. This is not an error because when a Vault is updated, a new NFT is minted, but the old one is not burned.
+      // In this case, we return the NFT with the lowest serial number, which is the oldest one.
+      matchingNFTs.sort((a, b) => b.nft_serial - a.nft_serial);
     }
 
     return hexFieldsToLowercase(decodeURI(matchingNFTs[0].URI!));
