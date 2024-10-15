@@ -58,14 +58,14 @@ export class RippleHandler {
   private wallet: xrpl.Wallet;
   private issuerAddress: string;
 
-  private constructor(seedPhrase: string, issuerAddress: string) {
-    this.client = new xrpl.Client('wss://s.altnet.rippletest.net:51233');
+  private constructor(seedPhrase: string, issuerAddress: string, websocketURL: string) {
+    this.client = new xrpl.Client(websocketURL);
     this.wallet = xrpl.Wallet.fromSeed(seedPhrase);
     this.issuerAddress = issuerAddress;
   }
 
-  static fromSeed(seedPhrase: string, issuerAddress: string): RippleHandler {
-    return new RippleHandler(seedPhrase, issuerAddress);
+  static fromSeed(seedPhrase: string, issuerAddress: string, websocketURL: string): RippleHandler {
+    return new RippleHandler(seedPhrase, issuerAddress, websocketURL);
   }
 
   async submit(signatures: string[]): Promise<string> {
