@@ -26,7 +26,7 @@ describe('Request Functions', () => {
         );
 
       await expect(sendRequest(TEST_REGTEST_ATTESTOR_APIS[0], 'requestBody')).rejects.toThrow(
-        new Error(`Response ${TEST_REGTEST_ATTESTOR_APIS[0]} was not OK: Bad Request`)
+        new Error(`Request to ${TEST_REGTEST_ATTESTOR_APIS[0]} failed: Bad Request - `)
       );
     });
 

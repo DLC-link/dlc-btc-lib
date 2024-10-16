@@ -57,15 +57,27 @@ export class RippleHandler {
   private client: xrpl.Client;
   private wallet: xrpl.Wallet;
   private issuerAddress: string;
+  private minSigners: number;
 
-  private constructor(seedPhrase: string, issuerAddress: string, websocketURL: string) {
+  private constructor(
+    seedPhrase: string,
+    issuerAddress: string,
+    websocketURL: string,
+    minSigners: number
+  ) {
     this.client = new xrpl.Client(websocketURL);
     this.wallet = xrpl.Wallet.fromSeed(seedPhrase);
     this.issuerAddress = issuerAddress;
+    this.minSigners = minSigners;
   }
 
-  static fromSeed(seedPhrase: string, issuerAddress: string, websocketURL: string): RippleHandler {
-    return new RippleHandler(seedPhrase, issuerAddress, websocketURL);
+  static fromSeed(
+    seedPhrase: string,
+    issuerAddress: string,
+    websocketURL: string,
+    minSigners: number
+  ): RippleHandler {
+    return new RippleHandler(seedPhrase, issuerAddress, websocketURL, minSigners);
   }
 
   async submit(signatures: string[]): Promise<string> {
@@ -370,7 +382,7 @@ export class RippleHandler {
       Account: this.issuerAddress,
       NFTokenID: nftTokenId,
     };
-    const preparedBurnTx = await this.client.autofill(burnTransactionJson, 3); // this hardcoded number should match the number of active signers
+    const preparedBurnTx = await this.client.autofill(burnTransactionJson, this.minSigners); // this hardcoded number should match the number of active signers
 
     // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
     // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
@@ -401,7 +413,7 @@ export class RippleHandler {
       URI: newURI,
       NFTokenTaxon: 0,
     };
-    const preparedMintTx = await this.client.autofill(mintTransactionJson, 3);
+    const preparedMintTx = await this.client.autofill(mintTransactionJson, this.minSigners);
 
     // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
     // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
@@ -545,7 +557,7 @@ export class RippleHandler {
 
     const updatedCashCheckTransactionJSON: CheckCash = await this.client.autofill(
       cashCheckTransactionJSON,
-      3 // hardcoded? not good? just fee related?
+      this.minSigners
     );
 
     // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
@@ -598,7 +610,7 @@ export class RippleHandler {
 
     const updatedSendTokenTransactionJSON: Payment = await this.client.autofill(
       sendTokenTransactionJSON,
-      3
+      this.minSigners
     );
 
     // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10

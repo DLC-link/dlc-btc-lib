@@ -1,4 +1,4 @@
-import Xrp from '@ledgerhq/hw-app-xrp';
+import * as Xrp from '@ledgerhq/hw-app-xrp';
 import { encode } from 'ripple-binary-codec';
 import { CheckCreate, Client, Transaction, TrustSet } from 'xrpl';
 
