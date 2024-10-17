@@ -536,6 +536,10 @@ export class RippleHandler {
     if (
       [
         '8FC923A16C90FB7316673D35CA228C82916B8E9F63EADC57BAA7C51C2E7716AA',
+        'AD2F46F345B07A070CBB0797D47D4D1A6CAA2BB541A0932014B909194665E4D5',
+        'DDF48640BF7DBC84FD08C1129999415CF5745095871FA6E50F1EAEB8AB032654',
+        'BA8B88BC1FD746F538AA6EFD1F1BFC982E3CCDD93EDDCFB4541EA608B355D778',
+        '48A7965799596CDA23C774778CD2D65E3E7C01648077539840A51ABD54791E32',
         '93BAA031806AE4902933C1EE9B66E7EBAF0F7A182314085BEFF99DF080A1CBCB',
         'F51C7E3CCFD2EC8CA9A460A34C5BC185E9466031865E76736C0A60BC3F7C7316',
       ].includes(checkID)
@@ -549,7 +553,7 @@ export class RippleHandler {
       Account: this.issuerAddress,
       CheckID: checkID,
       Amount: {
-        currency: 'DLC',
+        currency: 'BTC',
         value: dlcBTCAmount,
         issuer: this.issuerAddress,
       },
@@ -602,7 +606,7 @@ export class RippleHandler {
       Destination: destinationAddress,
       DestinationTag: 1,
       Amount: {
-        currency: 'DLC',
+        currency: 'BTC',
         value: dlcBTCAmount,
         issuer: this.issuerAddress,
       },
