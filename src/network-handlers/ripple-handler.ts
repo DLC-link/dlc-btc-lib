@@ -334,6 +334,7 @@ export class RippleHandler {
       const getNFTsTransaction: AccountNFTsRequest = {
         command: 'account_nfts',
         account: this.issuerAddress,
+        limit: 400,
       };
 
       const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
@@ -372,62 +373,70 @@ export class RippleHandler {
   }
 
   async burnNFT(nftUUID: string, incrementBy: number = 0): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
+    try {
+      if (!this.client.isConnected()) {
+        await this.client.connect();
+      }
+      console.log(`Getting sig for Burning Ripple Vault, vault: ${nftUUID}`);
+      const nftTokenId = await this.getNFTokenIdForVault(nftUUID);
+      const burnTransactionJson: SubmittableTransaction = {
+        TransactionType: 'NFTokenBurn',
+        Account: this.issuerAddress,
+        NFTokenID: nftTokenId,
+      };
+      const preparedBurnTx = await this.client.autofill(burnTransactionJson, this.minSigners); // this hardcoded number should match the number of active signers
+
+      // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
+      // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
+      preparedBurnTx.LastLedgerSequence =
+        Math.ceil(preparedBurnTx.LastLedgerSequence! / 10000 + 1) * 10000; // Better way?!?
+
+      if (incrementBy > 0) {
+        preparedBurnTx.Sequence = preparedBurnTx.Sequence! + incrementBy;
+      }
+
+      console.log('preparedBurnTx ', preparedBurnTx);
+
+      const sig = this.wallet.sign(preparedBurnTx, true);
+      // console.log('tx_one_sig: ', sig);
+      return sig.tx_blob;
+    } catch (error) {
+      throw new RippleError(`Could not burn Vault: ${error}`);
     }
-    console.log(`Getting sig for Burning Ripple Vault, vault: ${nftUUID}`);
-    const nftTokenId = await this.getNFTokenIdForVault(nftUUID);
-    const burnTransactionJson: SubmittableTransaction = {
-      TransactionType: 'NFTokenBurn',
-      Account: this.issuerAddress,
-      NFTokenID: nftTokenId,
-    };
-    const preparedBurnTx = await this.client.autofill(burnTransactionJson, this.minSigners); // this hardcoded number should match the number of active signers
-
-    // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
-    // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
-    preparedBurnTx.LastLedgerSequence =
-      Math.ceil(preparedBurnTx.LastLedgerSequence! / 10000 + 1) * 10000; // Better way?!?
-
-    if (incrementBy > 0) {
-      preparedBurnTx.Sequence = preparedBurnTx.Sequence! + incrementBy;
-    }
-
-    console.log('preparedBurnTx ', preparedBurnTx);
-
-    const sig = this.wallet.sign(preparedBurnTx, true);
-    // console.log('tx_one_sig: ', sig);
-    return sig.tx_blob;
   }
 
   async mintNFT(vault: RawVault, incrementBy: number = 0): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
+    try {
+      if (!this.client.isConnected()) {
+        await this.client.connect();
+      }
+      console.log(`Getting sig for Minting Ripple Vault, vault: ${JSON.stringify(vault, null, 2)}`);
+      const newURI = encodeURI(vault);
+      console.log('newURI: ', newURI);
+      const mintTransactionJson: SubmittableTransaction = {
+        TransactionType: 'NFTokenMint',
+        Account: this.issuerAddress,
+        URI: newURI,
+        NFTokenTaxon: 0,
+      };
+      const preparedMintTx = await this.client.autofill(mintTransactionJson, this.minSigners);
+
+      // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
+      // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
+      preparedMintTx.LastLedgerSequence =
+        Math.ceil(preparedMintTx.LastLedgerSequence! / 10000 + 1) * 10000;
+      if (incrementBy > 0) {
+        preparedMintTx.Sequence = preparedMintTx.Sequence! + incrementBy;
+      }
+
+      console.log('preparedMintTx ', preparedMintTx);
+
+      const sig = this.wallet.sign(preparedMintTx, true);
+      console.log('tx_one_sig: ', sig);
+      return sig.tx_blob;
+    } catch (error) {
+      throw new RippleError(`Could not mint Vault: ${error}`);
     }
-    console.log(`Getting sig for Minting Ripple Vault, vault: ${JSON.stringify(vault, null, 2)}`);
-    const newURI = encodeURI(vault);
-    console.log('newURI: ', newURI);
-    const mintTransactionJson: SubmittableTransaction = {
-      TransactionType: 'NFTokenMint',
-      Account: this.issuerAddress,
-      URI: newURI,
-      NFTokenTaxon: 0,
-    };
-    const preparedMintTx = await this.client.autofill(mintTransactionJson, this.minSigners);
-
-    // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
-    // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
-    preparedMintTx.LastLedgerSequence =
-      Math.ceil(preparedMintTx.LastLedgerSequence! / 10000 + 1) * 10000;
-    if (incrementBy > 0) {
-      preparedMintTx.Sequence = preparedMintTx.Sequence! + incrementBy;
-    }
-
-    console.log('preparedMintTx ', preparedMintTx);
-
-    const sig = this.wallet.sign(preparedMintTx, true);
-    console.log('tx_one_sig: ', sig);
-    return sig.tx_blob;
   }
 
   async getSigUpdateVaultForSSP(uuid: string, updates: SSPVaultUpdate): Promise<string> {
