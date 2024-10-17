@@ -148,7 +148,7 @@ export class RippleHandler {
     }
   }
 
-  async setupVault(uuid: string, userAddress: string): Promise<string> {
+  async setupVault(uuid: string, userAddress: string, timeStamp: number): Promise<string> {
     if (!this.client.isConnected()) {
       await this.client.connect();
     }
@@ -156,6 +156,7 @@ export class RippleHandler {
       const newVault = buildDefaultNftVault();
       newVault.uuid = uuid;
       newVault.creator = userAddress;
+      newVault.timestamp = BigNumber.from(timeStamp);
       return await this.mintNFT(newVault);
     } catch (error) {
       throw new RippleError(`Could not setup Ripple Vault: ${error}`);
