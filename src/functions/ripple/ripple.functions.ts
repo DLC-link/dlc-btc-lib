@@ -232,6 +232,7 @@ export async function getAllRippleVaults(
     const getAccountNFTsRequest: AccountNFTsRequest = {
       command: 'account_nfts',
       account: issuerAddress,
+      limit: 400,
     };
 
     const {
