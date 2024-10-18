@@ -5,8 +5,10 @@ import {
   AccountLinesResponse,
   AccountNFToken,
   AccountNFTsRequest,
+  AccountObjectsRequest,
   CheckCreate,
   Client,
+  LedgerEntry,
   SubmittableTransaction,
   Transaction,
   TransactionMetadataBase,
@@ -359,5 +361,36 @@ export async function createCheck(
     return updatedCreateCheckRequestJSON;
   } catch (error) {
     throw new RippleError(`Error creating Check for Vault ${vaultUUID}: ${error}`);
+  }
+}
+
+export async function getCheckByTXHash(
+  rippleClient: Client,
+  issuerAddress: string,
+  txHash: string
+): Promise<LedgerEntry.Check> {
+  try {
+    await connectRippleClient(rippleClient);
+
+    const getAccountObjectsRequest: AccountObjectsRequest = {
+      command: 'account_objects',
+      account: issuerAddress,
+      ledger_index: 'validated',
+      type: 'check',
+    };
+
+    const {
+      result: { account_objects },
+    } = await rippleClient.request(getAccountObjectsRequest);
+
+    const check = account_objects.find(accountObject => accountObject.PreviousTxnID === txHash);
+
+    if (!check) {
+      throw new RippleError(`Check with TX Hash: ${txHash} not found`);
+    }
+
+    return check as LedgerEntry.Check;
+  } catch (error) {
+    throw new RippleError(`Error getting Check by TX Hash: ${error}`);
   }
 }
