@@ -15,6 +15,11 @@ export async function submitSetupXRPLVaultRequest(
   return sendRequest(`${coordinatorURL}/app/setup-xrpl-vault`, requestBody);
 }
 
+export async function submitXRPLCheckToCash(coordinatorURL: string, txHash: string): Promise<void> {
+  const requestBody = JSON.stringify({ tx_hash: txHash });
+  return sendRequest(`${coordinatorURL}/app/cash-xrpl-check`, requestBody);
+}
+
 export async function getAttestorExtendedGroupPublicKey(coordinatorURL: string): Promise<string> {
   return sendGetRequest(`${coordinatorURL}/tss/get-extended-group-publickey`);
 }

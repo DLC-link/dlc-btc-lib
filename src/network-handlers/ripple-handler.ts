@@ -6,14 +6,19 @@ import xrpl, {
   AccountObjectsResponse,
   CheckCash,
   IssuedCurrencyAmount,
-  LedgerEntry,
   Payment,
   Request,
   SubmittableTransaction,
 } from 'xrpl';
 import { NFTokenMintMetadata } from 'xrpl/dist/npm/models/transactions/NFTokenMint.js';
 
-import { decodeURI, encodeURI } from '../functions/ripple/ripple.functions.js';
+import { XRPL_DLCBTC_CURRENCY_HEX } from '../constants/ripple.constants.js';
+import {
+  connectRippleClient,
+  decodeURI,
+  encodeURI,
+  getCheckByTXHash,
+} from '../functions/ripple/ripple.functions.js';
 import { RippleError } from '../models/errors.js';
 import { RawVault, SSFVaultUpdate, SSPVaultUpdate } from '../models/ethereum-models.js';
 import { shiftValue, unshiftValue } from '../utilities/index.js';
@@ -130,6 +135,7 @@ export class RippleHandler {
       const getNFTsTransaction: AccountNFTsRequest = {
         command: 'account_nfts',
         account: this.issuerAddress,
+        limit: 400,
       };
       let nftUUID = uuid.substring(0, 2) === '0x' ? uuid.slice(2) : uuid;
       nftUUID = nftUUID.toUpperCase();
@@ -357,6 +363,7 @@ export class RippleHandler {
       const getNFTsTransaction: AccountNFTsRequest = {
         command: 'account_nfts',
         account: this.issuerAddress,
+        limit: 400,
       };
 
       const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
@@ -506,55 +513,37 @@ export class RippleHandler {
     return getAccountObjectsResponse.result.account_objects;
   }
 
-  async getAndCashAllChecksAndUpdateNFT(): Promise<string[]> {
-    const allChecks = (await this.getAllChecks()) as LedgerEntry.Check[];
-    // console.log('All Checks:', allChecks);
-    const allVaults = await this.getContractVaults();
+  async getCashCheckAndWithdrawSignatures(txHash: string): Promise<string[]> {
+    try {
+      const check = await getCheckByTXHash(this.client, this.issuerAddress, txHash);
+      const invoiceID = check.InvoiceID;
 
-    for (const check of allChecks) {
-      try {
-        const checkSendMax = check.SendMax as IssuedCurrencyAmount;
-
-        const my_check_cash_sig = await this.cashCheck(check.index, checkSendMax.value);
-
-        const vault = allVaults.find(
-          vault => vault.uuid.toUpperCase().slice(2) === check.InvoiceID
-        );
-        if (!vault) {
-          throw new RippleError(
-            `Could not find Vault for Check with Invoice ID: ${check.InvoiceID}`
-          );
-        }
-        const two_more_sigs = await this.withdraw(
-          vault.uuid,
-          BigInt(shiftValue(Number(checkSendMax.value)))
-        );
-        return [my_check_cash_sig, ...two_more_sigs];
-      } catch (error) {
-        console.error(`Error cashing Check: ${error} \n continuing`);
+      if (!invoiceID) {
+        throw new RippleError(`Could not find Invoice ID for Check with TX Hash: ${txHash}`);
       }
+
+      const vault = await this.getRawVault(`0x${invoiceID}`.toLowerCase());
+
+      if (!vault) {
+        throw new RippleError(`Could not find Vault for Check with Invoice ID: ${check.InvoiceID}`);
+      }
+
+      const checkSendMax = check.SendMax as IssuedCurrencyAmount;
+
+      const checkCashSignatures = await this.cashCheck(check.index, checkSendMax.value);
+
+      const mintAndBurnSignatures = await this.withdraw(
+        vault.uuid,
+        BigInt(shiftValue(Number(checkSendMax.value)))
+      );
+      return [checkCashSignatures, ...mintAndBurnSignatures];
+    } catch (error) {
+      throw new RippleError(`Could not get Cash Check and Withdraw Signatures: ${error}`);
     }
-    return [];
   }
 
   async cashCheck(checkID: string, dlcBTCAmount: string): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
-
-    //what's
-    if (
-      [
-        '8FC923A16C90FB7316673D35CA228C82916B8E9F63EADC57BAA7C51C2E7716AA',
-        'AD2F46F345B07A070CBB0797D47D4D1A6CAA2BB541A0932014B909194665E4D5',
-        'DDF48640BF7DBC84FD08C1129999415CF5745095871FA6E50F1EAEB8AB032654',
-        'BA8B88BC1FD746F538AA6EFD1F1BFC982E3CCDD93EDDCFB4541EA608B355D778',
-        '48A7965799596CDA23C774778CD2D65E3E7C01648077539840A51ABD54791E32',
-        '93BAA031806AE4902933C1EE9B66E7EBAF0F7A182314085BEFF99DF080A1CBCB',
-        'F51C7E3CCFD2EC8CA9A460A34C5BC185E9466031865E76736C0A60BC3F7C7316',
-      ].includes(checkID)
-    )
-      throw new Error('Invalid Check');
+    await connectRippleClient(this.client);
 
     console.log(`Cashing Check of Check ID ${checkID} for an amount of ${dlcBTCAmount}`);
 
@@ -563,7 +552,7 @@ export class RippleHandler {
       Account: this.issuerAddress,
       CheckID: checkID,
       Amount: {
-        currency: 'BTC',
+        currency: XRPL_DLCBTC_CURRENCY_HEX,
         value: dlcBTCAmount,
         issuer: this.issuerAddress,
       },
@@ -616,7 +605,7 @@ export class RippleHandler {
       Destination: destinationAddress,
       DestinationTag: 1,
       Amount: {
-        currency: 'BTC',
+        currency: XRPL_DLCBTC_CURRENCY_HEX,
         value: dlcBTCAmount,
         issuer: this.issuerAddress,
       },

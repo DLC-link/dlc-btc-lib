@@ -5,8 +5,10 @@ import {
   AccountLinesResponse,
   AccountNFToken,
   AccountNFTsRequest,
+  AccountObjectsRequest,
   CheckCreate,
   Client,
+  LedgerEntry,
   SubmittableTransaction,
   Transaction,
   TransactionMetadataBase,
@@ -17,7 +19,10 @@ import {
   convertStringToHex,
 } from 'xrpl';
 
-import { TRANSACTION_SUCCESS_CODE } from '../../constants/ripple.constants.js';
+import {
+  TRANSACTION_SUCCESS_CODE,
+  XRPL_DLCBTC_CURRENCY_HEX,
+} from '../../constants/ripple.constants.js';
 import { RippleError } from '../../models/errors.js';
 import { RawVault } from '../../models/ethereum-models.js';
 import { SignResponse } from '../../models/ripple.model.js';
@@ -165,7 +170,9 @@ export async function setTrustLine(
     result: { lines },
   }: AccountLinesResponse = await rippleClient.request(accountNonXRPBalancesRequest);
 
-  if (lines.some(line => line.currency === 'BTC' && line.account === issuerAddress)) {
+  if (
+    lines.some(line => line.currency === XRPL_DLCBTC_CURRENCY_HEX && line.account === issuerAddress)
+  ) {
     console.log(`Trust Line already exists for Issuer: ${issuerAddress}`);
     return;
   }
@@ -174,7 +181,7 @@ export async function setTrustLine(
     TransactionType: 'TrustSet',
     Account: ownerAddress,
     LimitAmount: {
-      currency: 'BTC',
+      currency: XRPL_DLCBTC_CURRENCY_HEX,
       issuer: issuerAddress,
       value: '10000000000',
     },
@@ -312,7 +319,7 @@ export async function getDLCBTCBalance(
     }: AccountLinesResponse = await rippleClient.request(accountNonXRPBalancesRequest);
 
     const dlcBTCBalance = lines.find(
-      line => line.currency === 'BTC' && line.account === issuerAddress
+      line => line.currency === XRPL_DLCBTC_CURRENCY_HEX && line.account === issuerAddress
     );
     if (!dlcBTCBalance) {
       return 0;
@@ -346,7 +353,7 @@ export async function createCheck(
       Destination: destinationAddress,
       DestinationTag: destinationTag,
       SendMax: {
-        currency: 'BTC',
+        currency: XRPL_DLCBTC_CURRENCY_HEX,
         value: shiftedAmountAsNumber.toString(),
         issuer: destinationAddress,
       },
@@ -359,5 +366,36 @@ export async function createCheck(
     return updatedCreateCheckRequestJSON;
   } catch (error) {
     throw new RippleError(`Error creating Check for Vault ${vaultUUID}: ${error}`);
+  }
+}
+
+export async function getCheckByTXHash(
+  rippleClient: Client,
+  issuerAddress: string,
+  txHash: string
+): Promise<LedgerEntry.Check> {
+  try {
+    await connectRippleClient(rippleClient);
+
+    const getAccountObjectsRequest: AccountObjectsRequest = {
+      command: 'account_objects',
+      account: issuerAddress,
+      ledger_index: 'validated',
+      type: 'check',
+    };
+
+    const {
+      result: { account_objects },
+    } = await rippleClient.request(getAccountObjectsRequest);
+
+    const check = account_objects.find(accountObject => accountObject.PreviousTxnID === txHash);
+
+    if (!check) {
+      throw new RippleError(`Check with TX Hash: ${txHash} not found`);
+    }
+
+    return check as LedgerEntry.Check;
+  } catch (error) {
+    throw new RippleError(`Error getting Check by TX Hash: ${error}`);
   }
 }

@@ -2,6 +2,7 @@ import { getAddress, signTransaction } from '@gemwallet/api';
 import { ResponseType } from '@gemwallet/api/_constants/index.js';
 import { CheckCreate, Client, TrustSet } from 'xrpl';
 
+import { submitXRPLCheckToCash } from '../functions/attestor/attestor-request.functions.js';
 import {
   checkRippleTransactionResult,
   connectRippleClient,
@@ -73,7 +74,7 @@ export class GemXRPHandler {
     }
   }
 
-  public async createCheck(dlcBTCAmount: string, vaultUUID: string): Promise<void> {
+  public async createCheck(dlcBTCAmount: string, vaultUUID: string): Promise<CheckCreate> {
     try {
       const checkCreateRequest: CheckCreate = await createCheck(
         this.xrpClient,
@@ -89,8 +90,16 @@ export class GemXRPHandler {
         Flags: 2147483648,
       };
 
+      return updatedCheckCreateRequest;
+    } catch (error) {
+      throw new Error(`Error creating Check: ${error}`);
+    }
+  }
+
+  public async signAndSubmitCheck(checkCreateRequest: CheckCreate): Promise<string> {
+    try {
       const signCheckCreateResponse = await signTransaction({
-        transaction: updatedCheckCreateRequest,
+        transaction: checkCreateRequest,
       });
 
       if (
@@ -111,11 +120,20 @@ export class GemXRPHandler {
       console.log(`Response for submitted Transaction Request:`, submitCheckCreateRequestResponse);
 
       checkRippleTransactionResult(submitCheckCreateRequestResponse);
+
+      return submitCheckCreateRequestResponse.result.hash;
     } catch (error) {
-      throw new Error(`Error creating Check: ${error}`);
+      throw new Error(`Error signing and submitting Check: ${error}`);
     }
   }
 
+  public async sendCheckTXHash(coordinatorURL: string, checkTXHash: string): Promise<void> {
+    try {
+      await submitXRPLCheckToCash(coordinatorURL, checkTXHash);
+    } catch (error) {
+      throw new Error(`Error sending Check TX Hash to Attestors: ${error}`);
+    }
+  }
   public async getDLCBTCBalance(): Promise<number> {
     try {
       await connectRippleClient(this.xrpClient);

@@ -2,6 +2,7 @@ import * as Xrp from '@ledgerhq/hw-app-xrp';
 import { encode } from 'ripple-binary-codec';
 import { CheckCreate, Client, Transaction, TrustSet } from 'xrpl';
 
+import { submitXRPLCheckToCash } from '../functions/attestor/attestor-request.functions.js';
 import {
   checkRippleTransactionResult,
   connectRippleClient,
@@ -84,7 +85,7 @@ export class LedgerXRPHandler {
     }
   }
 
-  public async createCheck(dlcBTCAmount: string, vaultUUID: string): Promise<void> {
+  public async createCheck(dlcBTCAmount: string, vaultUUID: string): Promise<CheckCreate> {
     try {
       const checkCreateRequest: CheckCreate = await createCheck(
         this.xrpClient,
@@ -101,7 +102,15 @@ export class LedgerXRPHandler {
         SigningPubKey: this.publicKey.toUpperCase(),
       };
 
-      const encodedCheckCreateRequest = encode(updatedCheckCreateRequest);
+      return updatedCheckCreateRequest;
+    } catch (error) {
+      throw new Error(`Error creating Check: ${error}`);
+    }
+  }
+
+  public async signAndSubmitCheck(checkCreateRequest: CheckCreate): Promise<string> {
+    try {
+      const encodedCheckCreateRequest = encode(checkCreateRequest);
 
       const signature = await this.ledgerApp.signTransaction(
         this.derivationPath,
@@ -109,7 +118,7 @@ export class LedgerXRPHandler {
       );
 
       const signedCheckCreateRequest: Transaction = {
-        ...updatedCheckCreateRequest,
+        ...checkCreateRequest,
         TxnSignature: signature,
       };
 
@@ -121,8 +130,18 @@ export class LedgerXRPHandler {
       console.log(`Response for submitted Transaction Request:`, submitCheckCreateRequestResponse);
 
       checkRippleTransactionResult(submitCheckCreateRequestResponse);
+
+      return submitCheckCreateRequestResponse.result.hash;
     } catch (error) {
-      throw new Error(`Error creating Check: ${error}`);
+      throw new Error(`Error signing and submitting Check: ${error}`);
+    }
+  }
+
+  public async sendCheckTXHash(coordinatorURL: string, checkTXHash: string): Promise<void> {
+    try {
+      await submitXRPLCheckToCash(coordinatorURL, checkTXHash);
+    } catch (error) {
+      throw new Error(`Error sending Check TX Hash to Attestors: ${error}`);
     }
   }
 
