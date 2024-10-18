@@ -19,7 +19,10 @@ import {
   convertStringToHex,
 } from 'xrpl';
 
-import { TRANSACTION_SUCCESS_CODE } from '../../constants/ripple.constants.js';
+import {
+  TRANSACTION_SUCCESS_CODE,
+  XRPL_DLCBTC_CURRENCY_HEX,
+} from '../../constants/ripple.constants.js';
 import { RippleError } from '../../models/errors.js';
 import { RawVault } from '../../models/ethereum-models.js';
 import { SignResponse } from '../../models/ripple.model.js';
@@ -167,7 +170,9 @@ export async function setTrustLine(
     result: { lines },
   }: AccountLinesResponse = await rippleClient.request(accountNonXRPBalancesRequest);
 
-  if (lines.some(line => line.currency === 'BTC' && line.account === issuerAddress)) {
+  if (
+    lines.some(line => line.currency === XRPL_DLCBTC_CURRENCY_HEX && line.account === issuerAddress)
+  ) {
     console.log(`Trust Line already exists for Issuer: ${issuerAddress}`);
     return;
   }
@@ -176,7 +181,7 @@ export async function setTrustLine(
     TransactionType: 'TrustSet',
     Account: ownerAddress,
     LimitAmount: {
-      currency: 'BTC',
+      currency: XRPL_DLCBTC_CURRENCY_HEX,
       issuer: issuerAddress,
       value: '10000000000',
     },
@@ -314,7 +319,7 @@ export async function getDLCBTCBalance(
     }: AccountLinesResponse = await rippleClient.request(accountNonXRPBalancesRequest);
 
     const dlcBTCBalance = lines.find(
-      line => line.currency === 'BTC' && line.account === issuerAddress
+      line => line.currency === XRPL_DLCBTC_CURRENCY_HEX && line.account === issuerAddress
     );
     if (!dlcBTCBalance) {
       return 0;
@@ -348,7 +353,7 @@ export async function createCheck(
       Destination: destinationAddress,
       DestinationTag: destinationTag,
       SendMax: {
-        currency: 'BTC',
+        currency: XRPL_DLCBTC_CURRENCY_HEX,
         value: shiftedAmountAsNumber.toString(),
         issuer: destinationAddress,
       },

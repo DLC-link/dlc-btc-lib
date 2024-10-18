@@ -12,6 +12,7 @@ import xrpl, {
 } from 'xrpl';
 import { NFTokenMintMetadata } from 'xrpl/dist/npm/models/transactions/NFTokenMint.js';
 
+import { XRPL_DLCBTC_CURRENCY_HEX } from '../constants/ripple.constants.js';
 import {
   connectRippleClient,
   decodeURI,
@@ -134,6 +135,7 @@ export class RippleHandler {
       const getNFTsTransaction: AccountNFTsRequest = {
         command: 'account_nfts',
         account: this.issuerAddress,
+        limit: 400,
       };
       let nftUUID = uuid.substring(0, 2) === '0x' ? uuid.slice(2) : uuid;
       nftUUID = nftUUID.toUpperCase();
@@ -361,6 +363,7 @@ export class RippleHandler {
       const getNFTsTransaction: AccountNFTsRequest = {
         command: 'account_nfts',
         account: this.issuerAddress,
+        limit: 400,
       };
 
       const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
@@ -549,7 +552,7 @@ export class RippleHandler {
       Account: this.issuerAddress,
       CheckID: checkID,
       Amount: {
-        currency: 'BTC',
+        currency: XRPL_DLCBTC_CURRENCY_HEX,
         value: dlcBTCAmount,
         issuer: this.issuerAddress,
       },
@@ -602,7 +605,7 @@ export class RippleHandler {
       Destination: destinationAddress,
       DestinationTag: 1,
       Amount: {
-        currency: 'BTC',
+        currency: XRPL_DLCBTC_CURRENCY_HEX,
         value: dlcBTCAmount,
         issuer: this.issuerAddress,
       },
