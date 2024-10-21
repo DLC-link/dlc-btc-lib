@@ -17,7 +17,9 @@ import {
   connectRippleClient,
   decodeURI,
   encodeURI,
+  getAllRippleVaults,
   getCheckByTXHash,
+  getRippleVault,
 } from '../functions/ripple/ripple.functions.js';
 import { RippleError } from '../models/errors.js';
 import { RawVault, SSFVaultUpdate, SSPVaultUpdate } from '../models/ethereum-models.js';
@@ -26,17 +28,6 @@ import { shiftValue, unshiftValue } from '../utilities/index.js';
 interface SignResponse {
   tx_blob: string;
   hash: string;
-}
-
-function lowercaseHexFields(vault: RawVault): RawVault {
-  return {
-    ...vault,
-    uuid: vault.uuid.toLowerCase(),
-    fundingTxId: vault.fundingTxId.toLowerCase(),
-    wdTxId: vault.wdTxId.toLowerCase(),
-    btcFeeRecipient: vault.btcFeeRecipient.toLowerCase(),
-    taprootPubKey: vault.taprootPubKey.toLowerCase(),
-  };
 }
 
 function buildDefaultNftVault(): RawVault {
@@ -70,7 +61,7 @@ export class RippleHandler {
     websocketURL: string,
     minSigners: number
   ) {
-    this.client = new xrpl.Client(websocketURL);
+    this.client = new xrpl.Client(websocketURL, { timeout: 10000 });
     this.wallet = xrpl.Wallet.fromSeed(seedPhrase);
     this.issuerAddress = issuerAddress;
     this.minSigners = minSigners;
@@ -85,11 +76,18 @@ export class RippleHandler {
     return new RippleHandler(seedPhrase, issuerAddress, websocketURL, minSigners);
   }
 
-  async submit(signatures: string[]): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
+  async disconnectClient(): Promise<void> {
     try {
+      await this.client.disconnect();
+    } catch (error) {
+      throw new RippleError(`Could not disconnect client: ${error}`);
+    }
+  }
+
+  async submit(signatures: string[]): Promise<string> {
+    try {
+      await connectRippleClient(this.client);
+
       const multisig_tx = xrpl.multisign(signatures);
 
       const tx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
@@ -106,10 +104,9 @@ export class RippleHandler {
   }
 
   async getNetworkInfo(): Promise<xrpl.ServerInfoResponse> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
     try {
+      await connectRippleClient(this.client);
+
       return await this.client.request({ command: 'server_info' });
     } catch (error) {
       throw new RippleError(`Could not fetch Network Info: ${error}`);
@@ -117,10 +114,9 @@ export class RippleHandler {
   }
 
   async getAddress(): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
     try {
+      await connectRippleClient(this.client);
+
       return this.wallet.classicAddress;
     } catch (error) {
       throw new RippleError(`Could not fetch Address Info: ${error}`);
@@ -128,37 +124,19 @@ export class RippleHandler {
   }
 
   async getRawVault(uuid: string): Promise<RawVault> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
     try {
-      const getNFTsTransaction: AccountNFTsRequest = {
-        command: 'account_nfts',
-        account: this.issuerAddress,
-        limit: 400,
-      };
-      let nftUUID = uuid.substring(0, 2) === '0x' ? uuid.slice(2) : uuid;
-      nftUUID = nftUUID.toUpperCase();
-      const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
-      const nftTokenId = await this.getNFTokenIdForVault(nftUUID);
-      const matchingNFT = nfts.result.account_nfts.filter(nft => nft.NFTokenID === nftTokenId);
-      if (matchingNFT.length === 0) {
-        throw new RippleError(`Vault with UUID: ${nftUUID} not found`);
-      } else if (matchingNFT.length > 1) {
-        throw new RippleError(`Multiple Vaults with UUID: ${nftUUID} found`);
-      }
-      const matchingVault: RawVault = decodeURI(matchingNFT[0].URI!);
-      return lowercaseHexFields(matchingVault);
+      await connectRippleClient(this.client);
+
+      return await getRippleVault(this.client, this.issuerAddress, uuid);
     } catch (error) {
       throw new RippleError(`Could not fetch Vault: ${error}`);
     }
   }
 
   async setupVault(uuid: string, userAddress: string, timeStamp: number): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
     try {
+      await connectRippleClient(this.client);
+
       const newVault = buildDefaultNftVault();
       newVault.uuid = uuid;
       newVault.creator = userAddress;
@@ -173,10 +151,9 @@ export class RippleHandler {
     // Things like withdraw and deposit should get the existing NFT vault
     // then burn the NFT, and mint a new one with the updated value
     // putting the UUID into the URI
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
     try {
+      await connectRippleClient(this.client);
+
       console.log(`Performing Withdraw for User: ${uuid}`);
       let nftUUID = uuid.substring(0, 2) === '0x' ? uuid.slice(2) : uuid;
       nftUUID = nftUUID.toUpperCase();
@@ -196,10 +173,9 @@ export class RippleHandler {
     mintTokensSignedTxBlobs: string[], // this can be a set of empty string is no tokens are being minted
     mintNFTSignedTxBlobs: string[]
   ): Promise<void> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
     try {
+      await connectRippleClient(this.client);
+
       console.log('Doing the burn for SSF');
       const burn_multisig_tx = xrpl.multisign(burnNFTSignedTxBlobs);
       const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
@@ -249,10 +225,9 @@ export class RippleHandler {
     burnNFTSignedTxBlobs: string[],
     mintNFTSignedTxBlobs: string[]
   ): Promise<void> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
     try {
+      await connectRippleClient(this.client);
+
       console.log('Doing the check cashing');
       // multisig burn
       const cash_check_tx = xrpl.multisign(cashCheckSignedTxBlobs);
@@ -298,10 +273,9 @@ export class RippleHandler {
     burnNFTSignedTxBlobs: string[],
     mintNFTSignedTxBlobs: string[]
   ): Promise<void> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
     try {
+      await connectRippleClient(this.client);
+
       console.log('Doing the burn for SSP');
       // multisig burn
       const burn_multisig_tx = xrpl.multisign(burnNFTSignedTxBlobs);
@@ -334,32 +308,20 @@ export class RippleHandler {
   }
 
   async getContractVaults(): Promise<RawVault[]> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
     try {
-      const getNFTsTransaction: AccountNFTsRequest = {
-        command: 'account_nfts',
-        account: this.issuerAddress,
-        limit: 400,
-      };
+      await connectRippleClient(this.client);
 
-      const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
-      const allNFTs = nfts.result.account_nfts;
-      const allVaults: RawVault[] = allNFTs.map(nft => lowercaseHexFields(decodeURI(nft.URI!)));
-
-      return allVaults;
+      return await getAllRippleVaults(this.client, this.issuerAddress);
     } catch (error) {
       throw new RippleError(`Could not fetch All Vaults: ${error}`);
     }
   }
 
   async getNFTokenIdForVault(uuid: string): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
     console.log(`Getting NFTokenId for vault: ${uuid}`);
     try {
+      await connectRippleClient(this.client);
+
       const getNFTsTransaction: AccountNFTsRequest = {
         command: 'account_nfts',
         account: this.issuerAddress,
@@ -382,9 +344,8 @@ export class RippleHandler {
 
   async burnNFT(nftUUID: string, incrementBy: number = 0): Promise<string> {
     try {
-      if (!this.client.isConnected()) {
-        await this.client.connect();
-      }
+      await connectRippleClient(this.client);
+
       console.log(`Getting sig for Burning Ripple Vault, vault: ${nftUUID}`);
       const nftTokenId = await this.getNFTokenIdForVault(nftUUID);
       const burnTransactionJson: SubmittableTransaction = {
@@ -415,9 +376,8 @@ export class RippleHandler {
 
   async mintNFT(vault: RawVault, incrementBy: number = 0): Promise<string> {
     try {
-      if (!this.client.isConnected()) {
-        await this.client.connect();
-      }
+      await connectRippleClient(this.client);
+
       console.log(`Getting sig for Minting Ripple Vault, vault: ${JSON.stringify(vault, null, 2)}`);
       const newURI = encodeURI(vault);
       console.log('newURI: ', newURI);
@@ -448,10 +408,9 @@ export class RippleHandler {
   }
 
   async getSigUpdateVaultForSSP(uuid: string, updates: SSPVaultUpdate): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
     try {
+      await connectRippleClient(this.client);
+
       console.log(`Getting sig for getSigUpdateVaultForSSP, vault uuid: ${uuid}`);
       const nftUUID = uuid;
       const thisVault = await this.getRawVault(nftUUID);
@@ -474,10 +433,9 @@ export class RippleHandler {
     updates: SSFVaultUpdate,
     updateSequenceBy: number
   ): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
-    }
     try {
+      await connectRippleClient(this.client);
+
       const nftUUID = uuid;
       const thisVault = await this.getRawVault(nftUUID);
       const updatedVault = {
@@ -495,26 +453,30 @@ export class RippleHandler {
   }
 
   async getAllChecks(): Promise<AccountObject[]> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
+    try {
+      await connectRippleClient(this.client);
+
+      const getAccountObjectsRequestJSON: Request = {
+        command: 'account_objects',
+        account: this.issuerAddress,
+        ledger_index: 'validated',
+        type: 'check',
+      };
+
+      const getAccountObjectsResponse: AccountObjectsResponse = await this.client.request(
+        getAccountObjectsRequestJSON
+      );
+
+      return getAccountObjectsResponse.result.account_objects;
+    } catch (error) {
+      throw new RippleError(`Could not fetch Checks: ${error}`);
     }
-
-    const getAccountObjectsRequestJSON: Request = {
-      command: 'account_objects',
-      account: this.issuerAddress,
-      ledger_index: 'validated',
-      type: 'check',
-    };
-
-    const getAccountObjectsResponse: AccountObjectsResponse = await this.client.request(
-      getAccountObjectsRequestJSON
-    );
-
-    return getAccountObjectsResponse.result.account_objects;
   }
 
   async getCashCheckAndWithdrawSignatures(txHash: string): Promise<string[]> {
     try {
+      await connectRippleClient(this.client);
+
       const check = await getCheckByTXHash(this.client, this.issuerAddress, txHash);
       const invoiceID = check.InvoiceID;
 
@@ -543,42 +505,46 @@ export class RippleHandler {
   }
 
   async cashCheck(checkID: string, dlcBTCAmount: string): Promise<string> {
-    await connectRippleClient(this.client);
+    try {
+      await connectRippleClient(this.client);
 
-    console.log(`Cashing Check of Check ID ${checkID} for an amount of ${dlcBTCAmount}`);
+      console.log(`Cashing Check of Check ID ${checkID} for an amount of ${dlcBTCAmount}`);
 
-    const cashCheckTransactionJSON: CheckCash = {
-      TransactionType: 'CheckCash',
-      Account: this.issuerAddress,
-      CheckID: checkID,
-      Amount: {
-        currency: XRPL_DLCBTC_CURRENCY_HEX,
-        value: dlcBTCAmount,
-        issuer: this.issuerAddress,
-      },
-    };
+      const cashCheckTransactionJSON: CheckCash = {
+        TransactionType: 'CheckCash',
+        Account: this.issuerAddress,
+        CheckID: checkID,
+        Amount: {
+          currency: XRPL_DLCBTC_CURRENCY_HEX,
+          value: dlcBTCAmount,
+          issuer: this.issuerAddress,
+        },
+      };
 
-    const updatedCashCheckTransactionJSON: CheckCash = await this.client.autofill(
-      cashCheckTransactionJSON,
-      this.minSigners
-    );
+      const updatedCashCheckTransactionJSON: CheckCash = await this.client.autofill(
+        cashCheckTransactionJSON,
+        this.minSigners
+      );
 
-    // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
-    // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
-    updatedCashCheckTransactionJSON.LastLedgerSequence =
-      Math.ceil(updatedCashCheckTransactionJSON.LastLedgerSequence! / 10000 + 1) * 10000;
+      // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
+      // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
+      updatedCashCheckTransactionJSON.LastLedgerSequence =
+        Math.ceil(updatedCashCheckTransactionJSON.LastLedgerSequence! / 10000 + 1) * 10000;
 
-    console.log(
-      'Issuer is about to sign the following cashCheck tx: ',
-      updatedCashCheckTransactionJSON
-    );
+      console.log(
+        'Issuer is about to sign the following cashCheck tx: ',
+        updatedCashCheckTransactionJSON
+      );
 
-    const signCashCheckTransactionSig: SignResponse = this.wallet.sign(
-      updatedCashCheckTransactionJSON,
-      true
-    );
+      const signCashCheckTransactionSig: SignResponse = this.wallet.sign(
+        updatedCashCheckTransactionJSON,
+        true
+      );
 
-    return signCashCheckTransactionSig.tx_blob;
+      return signCashCheckTransactionSig.tx_blob;
+    } catch (error) {
+      throw new RippleError(`Could not cash Check: ${error}`);
+    }
   }
 
   async mintTokens(
@@ -587,55 +553,57 @@ export class RippleHandler {
     valueMinted: number,
     incrementBy: number = 0
   ): Promise<string> {
-    if (!this.client.isConnected()) {
-      await this.client.connect();
+    try {
+      await connectRippleClient(this.client);
+
+      if (updatedValueMinted === 0 || valueMinted >= updatedValueMinted) {
+        console.log('No need to mint tokens, because this is a withdraw SSF');
+        return '';
+      }
+      const mintValue = unshiftValue(new Decimal(updatedValueMinted).minus(valueMinted).toNumber());
+      const dlcBTCAmount = mintValue.toString();
+      console.log(`Minting ${dlcBTCAmount} dlcBTC to ${destinationAddress} address`);
+
+      const sendTokenTransactionJSON: Payment = {
+        TransactionType: 'Payment',
+        Account: this.issuerAddress,
+        Destination: destinationAddress,
+        DestinationTag: 1,
+        Amount: {
+          currency: XRPL_DLCBTC_CURRENCY_HEX,
+          value: dlcBTCAmount,
+          issuer: this.issuerAddress,
+        },
+      };
+
+      const updatedSendTokenTransactionJSON: Payment = await this.client.autofill(
+        sendTokenTransactionJSON,
+        this.minSigners
+      );
+
+      // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
+      // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
+      updatedSendTokenTransactionJSON.LastLedgerSequence =
+        Math.ceil(updatedSendTokenTransactionJSON.LastLedgerSequence! / 10000 + 1) * 10000;
+
+      if (incrementBy > 0) {
+        updatedSendTokenTransactionJSON.Sequence =
+          updatedSendTokenTransactionJSON.Sequence! + incrementBy;
+      }
+
+      console.log(
+        'Issuer is about to sign the following mintTokens tx: ',
+        updatedSendTokenTransactionJSON
+      );
+
+      const signSendTokenTransactionResponse: SignResponse = this.wallet.sign(
+        updatedSendTokenTransactionJSON,
+        true
+      );
+
+      return signSendTokenTransactionResponse.tx_blob;
+    } catch (error) {
+      throw new RippleError(`Could not mint tokens: ${error}`);
     }
-
-    if (updatedValueMinted === 0 || valueMinted >= updatedValueMinted) {
-      console.log('No need to mint tokens, because this is a withdraw SSF');
-      return '';
-    }
-    const mintValue = unshiftValue(new Decimal(updatedValueMinted).minus(valueMinted).toNumber());
-    const dlcBTCAmount = mintValue.toString();
-    console.log(`Minting ${dlcBTCAmount} dlcBTC to ${destinationAddress} address`);
-
-    const sendTokenTransactionJSON: Payment = {
-      TransactionType: 'Payment',
-      Account: this.issuerAddress,
-      Destination: destinationAddress,
-      DestinationTag: 1,
-      Amount: {
-        currency: XRPL_DLCBTC_CURRENCY_HEX,
-        value: dlcBTCAmount,
-        issuer: this.issuerAddress,
-      },
-    };
-
-    const updatedSendTokenTransactionJSON: Payment = await this.client.autofill(
-      sendTokenTransactionJSON,
-      this.minSigners
-    );
-
-    // set the LastLedgerSequence to equal LastLedgerSequence plus 5 and then rounded up to the nearest 10
-    // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
-    updatedSendTokenTransactionJSON.LastLedgerSequence =
-      Math.ceil(updatedSendTokenTransactionJSON.LastLedgerSequence! / 10000 + 1) * 10000;
-
-    if (incrementBy > 0) {
-      updatedSendTokenTransactionJSON.Sequence =
-        updatedSendTokenTransactionJSON.Sequence! + incrementBy;
-    }
-
-    console.log(
-      'Issuer is about to sign the following mintTokens tx: ',
-      updatedSendTokenTransactionJSON
-    );
-
-    const signSendTokenTransactionResponse: SignResponse = this.wallet.sign(
-      updatedSendTokenTransactionJSON,
-      true
-    );
-
-    return signSendTokenTransactionResponse.tx_blob;
   }
 }

@@ -199,30 +199,25 @@ export async function getRippleVault(
   try {
     await connectRippleClient(rippleClient);
 
-    let formattedUUID = vaultUUID.substring(0, 2) === '0x' ? vaultUUID.slice(2) : vaultUUID;
-    formattedUUID = formattedUUID.toUpperCase();
-    const getAccountNFTsRequest: AccountNFTsRequest = {
-      command: 'account_nfts',
-      account: issuerAddress,
-    };
+    // let formattedUUID = vaultUUID.substring(0, 2) === '0x' ? vaultUUID.slice(2) : vaultUUID;
+    // formattedUUID = formattedUUID.toUpperCase();
+    const formattedUUID = vaultUUID.substring(0, 2) === '0x' ? vaultUUID : `0x${vaultUUID}`;
 
-    const {
-      result: { account_nfts: rippleNFTs },
-    } = await rippleClient.request(getAccountNFTsRequest);
+    const allVaults = await getAllRippleVaults(rippleClient, issuerAddress);
 
-    const nftID = findNFTByUUID(rippleNFTs, formattedUUID).NFTokenID;
+    const matchingVaults = allVaults.filter(
+      vault => vault.uuid.toLowerCase() === formattedUUID.toLowerCase()
+    );
 
-    const matchingNFTs = rippleNFTs.filter(nft => nft.NFTokenID === nftID);
-
-    if (matchingNFTs.length === 0) {
+    if (matchingVaults.length === 0) {
       throw new RippleError(`Vault with UUID: ${formattedUUID} not found`);
     }
 
-    if (matchingNFTs.length > 1) {
+    if (matchingVaults.length > 1) {
       throw new RippleError(`Multiple Vaults found with UUID: ${formattedUUID}`);
     }
 
-    return hexFieldsToLowercase(decodeURI(matchingNFTs[0].URI!));
+    return matchingVaults[0];
   } catch (error) {
     throw new RippleError(`Error getting Vault ${vaultUUID}: ${error}`);
   }
@@ -236,17 +231,28 @@ export async function getAllRippleVaults(
   try {
     await connectRippleClient(rippleClient);
 
-    const getAccountNFTsRequest: AccountNFTsRequest = {
-      command: 'account_nfts',
-      account: issuerAddress,
-      limit: 400,
-    };
+    let marker: any = undefined;
+    const limit = 100;
+    let allRippleNFTs: any[] = [];
 
-    const {
-      result: { account_nfts: rippleNFTs },
-    } = await rippleClient.request(getAccountNFTsRequest);
+    do {
+      const getAccountNFTsRequest: AccountNFTsRequest = {
+        command: 'account_nfts',
+        account: issuerAddress,
+        limit,
+        marker,
+      };
 
-    const rippleVaults = rippleNFTs.map(nft => hexFieldsToLowercase(decodeURI(nft.URI!)));
+      const {
+        result: { account_nfts: rippleNFTs, marker: newMarker },
+      } = await rippleClient.request(getAccountNFTsRequest);
+
+      allRippleNFTs = allRippleNFTs.concat(rippleNFTs);
+
+      marker = newMarker;
+    } while (marker);
+
+    const rippleVaults = allRippleNFTs.map(nft => hexFieldsToLowercase(decodeURI(nft.URI!)));
 
     if (ownerAddress) {
       return rippleVaults.filter(vault => vault.creator === ownerAddress);
