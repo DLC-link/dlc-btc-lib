@@ -133,7 +133,13 @@ export class RippleHandler {
     }
   }
 
-  async setupVault(uuid: string, userAddress: string, timeStamp: number): Promise<string> {
+  async setupVault(
+    uuid: string,
+    userAddress: string,
+    timeStamp: number,
+    btcMintFeeBasisPoints: number,
+    btcRedeemFeeBasisPoints: number
+  ): Promise<string> {
     try {
       await connectRippleClient(this.client);
 
@@ -141,6 +147,8 @@ export class RippleHandler {
       newVault.uuid = uuid;
       newVault.creator = userAddress;
       newVault.timestamp = BigNumber.from(timeStamp);
+      newVault.btcMintFeeBasisPoints = BigNumber.from(btcMintFeeBasisPoints);
+      newVault.btcRedeemFeeBasisPoints = BigNumber.from(btcRedeemFeeBasisPoints);
       return await this.mintNFT(newVault);
     } catch (error) {
       throw new RippleError(`Could not setup Ripple Vault: ${error}`);
