@@ -1,3 +1,4 @@
+import * as ellipticCurveCryptography from '@bitcoinerlab/secp256k1';
 import { hexToBytes } from '@noble/hashes/utils';
 import {
   Address,
@@ -17,7 +18,6 @@ import { Network } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
 import * as R from 'ramda';
-import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
 import { BitcoinInputSigningConfig, PaymentTypes } from '../../models/bitcoin-models.js';
 import {

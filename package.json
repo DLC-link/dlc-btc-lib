@@ -59,6 +59,7 @@
     "typescript-eslint": "^7.7.0"
   },
   "dependencies": {
+    "@bitcoinerlab/secp256k1": "^1.1.1",
     "@ledgerhq/hw-app-btc": "^10.2.4",
     "@noble/hashes": "^1.4.0",
     "@scure/base": "^1.1.6",
@@ -71,6 +72,7 @@
     "decimal.js": "^10.4.3",
     "ethers": "5.7.2",
     "ledger-bitcoin": "^0.2.3",
+    "noble-secp256k1": "^1.2.14",
     "prompts": "^2.4.2",
     "ramda": "^0.30.1",
     "scure": "^1.6.0",
