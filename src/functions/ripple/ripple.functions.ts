@@ -10,6 +10,7 @@ import {
   Client,
   LedgerEntry,
   SubmittableTransaction,
+  TicketCreate,
   Transaction,
   TransactionMetadataBase,
   TrustSet,
@@ -17,6 +18,7 @@ import {
   Wallet,
   convertHexToString,
   convertStringToHex,
+  multisign,
 } from 'xrpl';
 
 import {
@@ -403,5 +405,40 @@ export async function getCheckByTXHash(
     return check as LedgerEntry.Check;
   } catch (error) {
     throw new RippleError(`Error getting Check by TX Hash: ${error}`);
+  }
+}
+
+export async function createTicket(
+  xrplClient: Client,
+  accountAddress: string,
+  ticketAmount: number,
+  signerQuorum?: number
+): Promise<TicketCreate> {
+  const createTicketRequest: TicketCreate = {
+    TransactionType: 'TicketCreate',
+    Account: accountAddress,
+    TicketCount: ticketAmount,
+  };
+
+  const updatedCreateTicketRequest = await xrplClient.autofill(createTicketRequest, signerQuorum);
+  return updatedCreateTicketRequest;
+}
+
+export async function signTransaction(
+  xrplWallet: Wallet,
+  transaction: SubmittableTransaction
+): Promise<SignResponse> {
+  try {
+    return xrplWallet.sign(transaction);
+  } catch (error) {
+    throw new RippleError(`Error signing Create Ticket: ${error}`);
+  }
+}
+
+export function multiSignTransaction(signedTransactions: string[]): string {
+  try {
+    return multisign(signedTransactions);
+  } catch (error) {
+    throw new RippleError(`Error multi-signing Transaction: ${error}`);
   }
 }

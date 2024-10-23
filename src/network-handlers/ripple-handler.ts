@@ -5,27 +5,34 @@ import xrpl, {
   AccountObject,
   AccountObjectsResponse,
   CheckCash,
+  CreatedNode,
   IssuedCurrencyAmount,
   Payment,
   Request,
   SubmittableTransaction,
+  TicketCreate,
+  TransactionMetadata,
 } from 'xrpl';
 import { NFTokenMintMetadata } from 'xrpl/dist/npm/models/transactions/NFTokenMint.js';
 
 import { XRPL_DLCBTC_CURRENCY_HEX } from '../constants/ripple.constants.js';
 import {
+  checkRippleTransactionResult,
   connectRippleClient,
+  createTicket,
   decodeURI,
   encodeURI,
   getAllRippleVaults,
   getCheckByTXHash,
   getRippleVault,
+  multiSignTransaction,
+  signTransaction,
 } from '../functions/ripple/ripple.functions.js';
 import { RippleError } from '../models/errors.js';
 import { RawVault, SSFVaultUpdate, SSPVaultUpdate } from '../models/ethereum-models.js';
 import { shiftValue, unshiftValue } from '../utilities/index.js';
 
-interface SignResponse {
+export interface SignResponse {
   tx_blob: string;
   hash: string;
 }
@@ -130,6 +137,59 @@ export class RippleHandler {
       return await getRippleVault(this.client, this.issuerAddress, uuid);
     } catch (error) {
       throw new RippleError(`Could not fetch Vault: ${error}`);
+    }
+  }
+
+  async createTicket(ticketAmount: number): Promise<TicketCreate> {
+    try {
+      await connectRippleClient(this.client);
+
+      return await createTicket(this.client, this.issuerAddress, ticketAmount, this.minSigners);
+    } catch (error) {
+      throw new RippleError(`Could not create Ticket: ${error}`);
+    }
+  }
+
+  async signTransaction(transaction: SubmittableTransaction): Promise<string> {
+    try {
+      const signedTransaction = await signTransaction(this.wallet, transaction);
+      return signedTransaction.tx_blob;
+    } catch (error) {
+      throw new RippleError(`Could not sign Transaction: ${error}`);
+    }
+  }
+
+  async submitCreateTicketTransaction(signedTransactionBlobs: string[]): Promise<string[]> {
+    try {
+      await connectRippleClient(this.client);
+
+      const multisignedTransaction = multiSignTransaction(signedTransactionBlobs);
+
+      const submitCreateTicketTransactionResponse =
+        await this.client.submitAndWait(multisignedTransaction);
+
+      checkRippleTransactionResult(submitCreateTicketTransactionResponse);
+
+      let meta = submitCreateTicketTransactionResponse.result.meta;
+
+      if (!meta) {
+        throw new RippleError('Transaction Metadata not found');
+      }
+
+      if (typeof meta === 'string') {
+        throw new RippleError(`Could not read Transaction Result of: ${meta}`);
+      }
+
+      meta = meta as TransactionMetadata<TicketCreate>;
+
+      const affectedNodes = meta.AffectedNodes;
+      const createdNodes = affectedNodes
+        .filter((node): node is CreatedNode => 'CreatedNode' in node)
+        .map(node => node.CreatedNode);
+
+      return createdNodes.map(node => node.NewFields.TicketSequence) as string[];
+    } catch (error) {
+      throw new RippleError(`Could not submit Ticket Transaction: ${error}`);
     }
   }
 
