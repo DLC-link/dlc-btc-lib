@@ -1,6 +1,7 @@
 import { equals, filter, isEmpty, isNotNil, join, map, prop } from 'ramda';
 
 import {
+  AttestorChainID,
   FundingTXAttestorInfo,
   WithdrawDepositTXAttestorInfo,
 } from '../../models/attestor.models.js';
@@ -9,14 +10,22 @@ import { sendGetRequest, sendRequest } from '../request/request.functions.js';
 
 export async function submitSetupXRPLVaultRequest(
   coordinatorURL: string,
-  userXRPLAddress: string
+  userXRPLAddress: string,
+  attestorChainID: AttestorChainID
 ): Promise<void> {
-  const requestBody = JSON.stringify({ user_xrpl_address: userXRPLAddress });
+  const requestBody = JSON.stringify({
+    user_xrpl_address: userXRPLAddress,
+    chain: attestorChainID,
+  });
   return sendRequest(`${coordinatorURL}/app/setup-xrpl-vault`, requestBody);
 }
 
-export async function submitXRPLCheckToCash(coordinatorURL: string, txHash: string): Promise<void> {
-  const requestBody = JSON.stringify({ tx_hash: txHash });
+export async function submitXRPLCheckToCash(
+  coordinatorURL: string,
+  txHash: string,
+  attestorChainID: AttestorChainID
+): Promise<void> {
+  const requestBody = JSON.stringify({ tx_hash: txHash, chain: attestorChainID });
   return sendRequest(`${coordinatorURL}/app/cash-xrpl-check`, requestBody);
 }
 
