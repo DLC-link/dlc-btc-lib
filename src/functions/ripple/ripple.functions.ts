@@ -130,11 +130,12 @@ export function getRippleWallet(seedPhrase: string): Wallet {
   return Wallet.fromSeed(seedPhrase);
 }
 
-export async function connectRippleClient(rippleClient: Client): Promise<void> {
+export async function connectRippleClient(rippleClient: Client): Promise<boolean> {
   if (rippleClient.isConnected()) {
-    return;
+    return false;
   }
   await rippleClient.connect();
+  return true;
 }
 
 export function formatRippleVaultUUID(vaultUUID: string): string {
@@ -199,8 +200,6 @@ export async function getRippleVault(
   try {
     await connectRippleClient(rippleClient);
 
-    // let formattedUUID = vaultUUID.substring(0, 2) === '0x' ? vaultUUID.slice(2) : vaultUUID;
-    // formattedUUID = formattedUUID.toUpperCase();
     const formattedUUID = vaultUUID.substring(0, 2) === '0x' ? vaultUUID : `0x${vaultUUID}`;
 
     const allVaults = await getAllRippleVaults(rippleClient, issuerAddress);
