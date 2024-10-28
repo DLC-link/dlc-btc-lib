@@ -55,16 +55,6 @@ jobs:
       - name: Typecheck
         run: yarn lint:typecheck
 
-  lint-commit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Commit Message
-        uses: wagoid/commitlint-github-action@v4
-
   test-unit:
     needs: build
     runs-on: ubuntu-latest
