@@ -218,8 +218,6 @@ export class RippleHandler {
           );
         }
 
-        console.log('mintTokensSignedTxBlobs: ', mintTokensSignedTxBlobs);
-
         // multisig mint
         if (mintTokensSignedTxBlobs && mintTokensSignedTxBlobs.every(sig => sig !== '')) {
           console.log('Success! Now minting the actual tokens!! How fun $$');
@@ -308,8 +306,6 @@ export class RippleHandler {
     burnNFTSignedTxBlobs: string[],
     mintNFTSignedTxBlobs: string[]
   ): Promise<void> {
-    console.log('burnNFTSignedTxBlobs: ', burnNFTSignedTxBlobs);
-    console.log('mintNFTSignedTxBlobs: ', mintNFTSignedTxBlobs);
     return await this.withConnectionMgmt(async () => {
       try {
         console.log('Doing the burn for SSP');
@@ -439,7 +435,6 @@ export class RippleHandler {
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse> {
     return await this.withConnectionMgmt(async () => {
-      console.log('AUTO FILL VALUES: ', autoFillValues);
       try {
         console.log(
           `Getting sig for Minting Ripple Vault, vault: ${JSON.stringify(vault, null, 2)}`
