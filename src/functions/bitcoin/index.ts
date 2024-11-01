@@ -1,5 +1,6 @@
 import {
   finalizeUserInputs,
+  getBitcoinAddressFromExtendedPublicKey,
   getFeeAmount,
   getFeeRecipientAddressFromPublicKey,
   getInputIndicesByScript,
@@ -28,4 +29,5 @@ export {
   getBalance,
   getFeeRecipientAddressFromPublicKey,
   getInputIndicesByScript,
+  getBitcoinAddressFromExtendedPublicKey,
 };

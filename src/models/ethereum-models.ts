@@ -100,6 +100,22 @@ export class JSONFriendlyRawVault {
   }
 }
 
+export interface SSPVaultUpdate {
+    status: number;
+    wdTxId: string;
+    taprootPubKey: string;
+}
+
+export interface SSFVaultUpdate {
+    status: number;
+    fundingTxId: string;
+    wdTxId: string;
+    valueMinted: bigint;
+    valueLocked: bigint;
+}
+
+
+
 interface EthereumContract {
   name: string;
   address: string;
