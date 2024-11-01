@@ -27,6 +27,15 @@ export class BitcoinCoreRpcConnection {
     });
   }
 
+  public static default(): BitcoinCoreRpcConnection {
+    return new BitcoinCoreRpcConnection('localhost', 'bitcoin', 'local321', 8332);
+  }
+
+  static fromJSON(json: string): BitcoinCoreRpcConnection {
+    const { host, username, password, port } = JSON.parse(json);
+    return new BitcoinCoreRpcConnection(host, username, password, port);
+  }
+
   public getClient(): Client {
     return this.client;
   }

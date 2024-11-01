@@ -34,7 +34,7 @@ export class SoftwareWalletDLCHandler {
     taprootDerivedPublicKey: string,
     fundingPaymentType: 'wpkh' | 'tr',
     bitcoinNetwork: Network,
-    bitcoincoreRpcConnection: BitcoinCoreRpcConnection,
+    // bitcoincoreRpcConnection: BitcoinCoreRpcConnection,
     bitcoinBlockchainFeeRecommendationAPI?: string
   ) {
     switch (bitcoinNetwork) {
@@ -47,10 +47,12 @@ export class SoftwareWalletDLCHandler {
           'https://mempool.space/testnet/api/v1/fees/recommended';
         break;
       case regtest:
-        if (!bitcoinBlockchainFeeRecommendationAPI) {
-          throw new Error('Regtest requires a Bitcoin Blockchain Fee Recommendation API');
-        }
-        this.bitcoinBlockchainFeeRecommendationAPI = bitcoinBlockchainFeeRecommendationAPI;
+        this.bitcoinBlockchainFeeRecommendationAPI =
+          'https://devnet.dlc.link/electrs/fee-estimates';
+        // if (!bitcoinBlockchainFeeRecommendationAPI) {
+        //   throw new Error('Regtest requires a Bitcoin Blockchain Fee Recommendation API');
+        // }
+        // this.bitcoinBlockchainFeeRecommendationAPI = bitcoinBlockchainFeeRecommendationAPI;
         break;
       default:
         throw new Error('Invalid Bitcoin Network');
@@ -59,6 +61,10 @@ export class SoftwareWalletDLCHandler {
     this.bitcoinNetwork = bitcoinNetwork;
     this.fundingDerivedPublicKey = fundingDerivedPublicKey;
     this.taprootDerivedPublicKey = taprootDerivedPublicKey;
+    this.bitcoincoreRpcConnection = BitcoinCoreRpcConnection.default();
+  }
+
+  public setBitcoinCoreRpcConnection(bitcoincoreRpcConnection: BitcoinCoreRpcConnection): void {
     this.bitcoincoreRpcConnection = bitcoincoreRpcConnection;
   }
 
@@ -107,11 +113,39 @@ export class SoftwareWalletDLCHandler {
     }
   }
 
+  static fromJSON(json: any): SoftwareWalletDLCHandler {
+    // const btcConn = BitcoinCoreRpcConnection.fromJSON(json.bitcoincoreRpcConnection);
+    // console.log('Bitcoin core connection from JSON: ' + btcConn);
+
+    // const bitcoincoreRpcConnection = BitcoinCoreRpcConnection.fromJSON(
+    //   json.bitcoincoreRpcConnection
+    // );
+    const jsonString = JSON.parse(json);
+
+    console.log('fundingDerivedPublicKey: ' + jsonString.fundingDerivedPublicKey);
+
+    return new SoftwareWalletDLCHandler(
+      jsonString.fundingDerivedPublicKey,
+      jsonString.taprootDerivedPublicKey,
+      jsonString.fundingPaymentType,
+      // json.bitcoinNetwork,
+      // bitcoincoreRpcConnection,
+      regtest, // todo: create network from JSON
+      // new BitcoinCoreRpcConnection('electrs-btc2.dlc.link', 'devnet2', 'devnet2', 18443), // todo: create it from JSON
+      jsonString.bitcoinBlockchainFeeRecommendationAPI
+    );
+  }
+
   private async createPayments(
     vaultUUID: string,
     attestorGroupPublicKey: string
   ): Promise<PaymentInformation> {
     try {
+      console.log('vaultUUID: ' + vaultUUID);
+      console.log('attestorGroupPublicKey: ' + attestorGroupPublicKey);
+      console.log('fundingDerivedPublicKey: ' + this.fundingDerivedPublicKey);
+
+      console;
       const fundingPayment =
         this.fundingPaymentType === 'wpkh'
           ? p2wpkh(Buffer.from(this.fundingDerivedPublicKey, 'hex'), this.bitcoinNetwork)
@@ -120,6 +154,8 @@ export class SoftwareWalletDLCHandler {
               undefined,
               this.bitcoinNetwork
             );
+
+      console.log('fundingPayment for set payment: ' + JSON.stringify(fundingPayment));
 
       const unspendablePublicKey = getUnspendableKeyCommittedToUUID(vaultUUID, this.bitcoinNetwork);
       const unspendableDerivedPublicKey = deriveUnhardenedPublicKey(
@@ -139,7 +175,11 @@ export class SoftwareWalletDLCHandler {
         this.bitcoinNetwork
       );
 
+      console.log('multisigPayment for set payment: ' + JSON.stringify(multisigPayment));
+
       this.setPayment(fundingPayment, multisigPayment);
+
+      console.log('this SoftwareWalletDlcHandler payment: ' + JSON.stringify(this.payment));
 
       return {
         fundingPayment,
@@ -163,22 +203,23 @@ export class SoftwareWalletDLCHandler {
         attestorGroupPublicKey
       );
 
-      const feeRate =
-        customFeeRate ??
-        BigInt(
-          await getFeeRate(
-            this.bitcoinNetwork,
-            this.bitcoincoreRpcConnection,
-            this.bitcoinBlockchainFeeRecommendationAPI,
-            feeRateMultiplier
-          )
-        );
+      const fetchedFeeRate = await getFeeRate(
+        this.bitcoinNetwork,
+        this.bitcoincoreRpcConnection,
+        this.bitcoinBlockchainFeeRecommendationAPI,
+        feeRateMultiplier
+      );
+      console.log('INSIDE createFundingPSBT - fetchedFeeRate : ', fetchedFeeRate);
+      const feeRate = customFeeRate ?? BigInt(fetchedFeeRate);
+
+      console.log('INSIDE createFundingPSBT - feeRate as BigInt : ', feeRate);
 
       const addressBalance = await getBalance(
         this.fundingDerivedPublicKey,
         this.fundingPaymentType,
         this.bitcoincoreRpcConnection
       );
+      console.log('INSIDE createFundingPSBT - addressBalance : ', addressBalance);
 
       if (BigInt(addressBalance) < vault.valueLocked.toBigInt()) {
         throw new Error('Insufficient Funds');

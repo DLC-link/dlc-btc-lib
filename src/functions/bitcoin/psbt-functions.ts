@@ -142,11 +142,12 @@ export async function createDepositTransaction(
   const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(depositAmount), Number(feeBasisPoints));
 
+  console.log('CREATE DEPOSIT TX: vaultTransaction');
   const vaultTransaction = await fetchBitcoinTransaction(
     vaultTransactionID,
     bitcoinCoreRpcConnection
   );
-
+  console.log('CREATE DEPOSIT TX: vaultTransaction: ', vaultTransaction);
   const vaultTransactionOutputIndex = vaultTransaction.vout.findIndex(
     output => output.scriptPubKey.address === multisigAddress
   );
@@ -159,8 +160,9 @@ export async function createDepositTransaction(
     vaultTransaction.vout[vaultTransactionOutputIndex].value
   );
 
+  console.log('CREATE DEPOSIT TX: userUTXOs');
   const userUTXOs = await getUTXOs(depositPayment, bitcoinCoreRpcConnection);
-
+  console.log('CREATE DEPOSIT TX: userUTXOs: ', userUTXOs);
   const additionalDepositOutputs = [
     {
       address: feeAddress,
@@ -172,6 +174,7 @@ export async function createDepositTransaction(
     },
   ];
 
+  console.log('CREATE DEPOSIT TX: selectUTXO');
   const additionalDepositSelected = selectUTXO(userUTXOs, additionalDepositOutputs, 'default', {
     changeAddress: depositAddress,
     feePerByte: feeRate,
@@ -181,14 +184,17 @@ export async function createDepositTransaction(
     dust: 546n as unknown as number,
   });
 
+  console.log('CREATE DEPOSIT TX: selectUTXO: ', additionalDepositSelected);
   if (!additionalDepositSelected) {
     throw new Error(
       'Failed to select Inputs for the Additional Deposit Transaction. Ensure sufficient funds are available.'
     );
   }
 
+  console.log('CREATE DEPOSIT TX: vaultInput');
   const vaultInput = {
     txid: hexToBytes(vaultTransactionID),
+    // txid: vaultTransactionID,
     index: vaultTransactionOutputIndex,
     witnessUtxo: {
       amount: BigInt(vaultTransactionOutputValue),
@@ -197,19 +203,94 @@ export async function createDepositTransaction(
     ...multisigPayment,
   };
 
+  console.log('CREATE DEPOSIT TX: vaultInput: ', vaultInput);
+  console.log('CREATE DEPOSIT TX: depositInputPromises');
+  // const depositInputPromises = additionalDepositSelected.inputs
+  //   .map(async input => {
+  //     const txID = input.txid; //Uint8Array
+  //     if (!txID) {
+  //       throw new Error('Could not get Transaction ID from Input');
+  //     }
+  //     return userUTXOs.find((utxo: any) => {
+  //       console.log(
+  //         'INSIDE THE LOOP: comparing \n ======== txID: ' +
+  //           txID +
+  //           '\n ======== utxo.txid: ' +
+  //           hexToBytes(utxo.txid) +
+  //           '\n ======== utxo.index: ' +
+  //           utxo.index +
+  //           '\n ======== input.index: ' +
+  //           input.index
+  //       );
+  //       Buffer.from(hexToBytes(utxo.txid)).equals(Buffer.from(txID)) &&
+  //         // hexToBytes(utxo.txid) === // hex string
+  //         //   txID
+  //         utxo.index === input.index;
+  //     });
+  //   })
+  //   .filter(utxo => utxo !== undefined);
+  // console.log('CREATE DEPOSIT TX: depositInputPromises: ', depositInputPromises);
+
+  // const depositInputs = await Promise.all(depositInputPromises);
+  // console.log('CREATE DEPOSIT TX: depositInputs: ', depositInputs);
+  // depositInputs.push(vaultInput);
+  // console.log('CREATE DEPOSIT TX: depositInputs with vaultInput: ', depositInputs);
+
+  // +++++DEBUG START+++++
   const depositInputPromises = additionalDepositSelected.inputs
     .map(async input => {
-      const txID = input.txid;
+      const txID = input.txid; // Uint8Array
       if (!txID) {
         throw new Error('Could not get Transaction ID from Input');
       }
-      return userUTXOs.find((utxo: any) => utxo.txid === txID && utxo.index === input.index);
+      const result = userUTXOs.find((utxo: any) => {
+        const utxoTxidBytes = hexToBytes(utxo.txid);
+        console.log(
+          'INSIDE THE LOOP: comparing \n ======== txID: ' +
+            txID +
+            '\n ======== utxo.txid: ' +
+            utxoTxidBytes +
+            '\n ======== utxo.index: ' +
+            utxo.index +
+            '\n ======== input.index: ' +
+            input.index
+        );
+        // This condition must be within parentheses for the `&&` to work properly
+        return Buffer.from(utxoTxidBytes).equals(Buffer.from(txID)) && utxo.index === input.index;
+      });
+
+      if (result === undefined) {
+        console.log('No match found for input:', input);
+      } else {
+        console.log('Match found:', result);
+      }
+
+      return result;
     })
     .filter(utxo => utxo !== undefined);
 
   const depositInputs = await Promise.all(depositInputPromises);
+  console.log('CREATE DEPOSIT TX: depositInputs: ', depositInputs);
   depositInputs.push(vaultInput);
+  console.log('CREATE DEPOSIT TX: depositInputs with vaultInput: ', depositInputs);
 
+  // Promise.all(depositInputPromises)
+  //   .then(results => {
+  //     console.log('All Results:', results);
+  //     return results.filter(utxo => utxo !== undefined);
+  //   })
+  //   .then(filteredResults => {
+  //     // Use filteredResults here
+  //     console.log('Filtered Results:', filteredResults);
+  //     return filteredResults;
+  //   })
+  //   .catch(error => {
+  //     console.error('Error processing deposit inputs:', error);
+  //   });
+
+  // +++++DEBUG END+++++
+
+  console.log('CREATE DEPOSIT TX: depositOutputs');
   const depositOutputs = [
     {
       address: feeAddress,
@@ -221,6 +302,8 @@ export async function createDepositTransaction(
     },
   ];
 
+  console.log('CREATE DEPOSIT TX: depositOutputs: ', depositOutputs);
+  console.log('CREATE DEPOSIT TX: depositSelected');
   const depositSelected = selectUTXO(depositInputs, depositOutputs, 'all', {
     changeAddress: depositAddress,
     feePerByte: feeRate,
@@ -236,6 +319,7 @@ export async function createDepositTransaction(
     );
   }
 
+  console.log('CREATE DEPOSIT TX: depositSelected: ', depositSelected);
   const depositTransaction = depositSelected.tx;
 
   if (!depositTransaction) throw new Error('Could not create Deposit Transaction');
@@ -317,6 +401,7 @@ export async function createWithdrawTransaction(
   const inputs = [
     {
       txid: hexToBytes(vaultTransactionID),
+      // txid: vaultTransactionID,
       index: fundingTransactionOutputIndex,
       witnessUtxo: {
         amount: BigInt(fundingTransaction.vout[fundingTransactionOutputIndex].value),

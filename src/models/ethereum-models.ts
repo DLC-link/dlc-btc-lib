@@ -42,6 +42,64 @@ export interface RawVault {
   taprootPubKey: string;
 }
 
+export class JSONFriendlyRawVault {
+  uuid: string;
+  protocolContract: string;
+  timestamp: string;
+  valueLocked: string;
+  valueMinted: string;
+  creator: string;
+  status: number;
+  fundingTxId: string;
+  closingTxId: string;
+  wdTxId: string;
+  btcFeeRecipient: string;
+  btcMintFeeBasisPoints: string;
+  btcRedeemFeeBasisPoints: string;
+  taprootPubKey: string;
+
+  constructor(vault: RawVault) {
+    this.uuid = vault.uuid.toString();
+    this.protocolContract = vault.protocolContract.toString();
+    this.creator = vault.creator.toString();
+    this.status = vault.status;
+    this.fundingTxId = vault.fundingTxId;
+    this.closingTxId = vault.closingTxId;
+    this.btcFeeRecipient = vault.btcFeeRecipient;
+    this.taprootPubKey = vault.taprootPubKey;
+    this.wdTxId = vault.wdTxId;
+    this.timestamp = vault.timestamp.toJSON();
+    this.valueLocked = vault.valueLocked.toJSON();
+    this.valueMinted = vault.valueMinted.toJSON();
+    this.btcMintFeeBasisPoints = vault.btcMintFeeBasisPoints.toJSON();
+    this.btcRedeemFeeBasisPoints = vault.btcRedeemFeeBasisPoints.toJSON();
+  }
+
+  static rawVaultFromJSON(jsonVault: any): RawVault {
+    console.log('[rawVaultFromJSON]: json string: ' + jsonVault);
+    const jsonVaultObj = JSON.parse(jsonVault);
+    console.log('jsonVault.uuid: ' + jsonVaultObj.uuid);
+    console.log('timestamp from JSON: ' + jsonVaultObj.timestamp);
+    console.log('timestamp hex from JSON: ' + jsonVaultObj.timestamp.hex);
+    return {
+      uuid: jsonVaultObj.uuid,
+      protocolContract: jsonVaultObj.protocolContract,
+      timestamp: BigNumber.from(jsonVaultObj.timestamp.hex),
+      valueLocked: BigNumber.from(jsonVaultObj.valueLocked.hex),
+      valueMinted: BigNumber.from(jsonVaultObj.valueMinted.hex),
+      creator: jsonVaultObj.creator,
+      status: jsonVaultObj.status,
+      fundingTxId: jsonVaultObj.fundingTxId,
+      closingTxId: jsonVaultObj.closingTxId,
+      wdTxId: jsonVaultObj.wdTxId,
+      btcFeeRecipient: jsonVaultObj.btcFeeRecipient,
+      btcMintFeeBasisPoints: BigNumber.from(jsonVaultObj.btcMintFeeBasisPoints.hex),
+      btcRedeemFeeBasisPoints: BigNumber.from(jsonVaultObj.btcRedeemFeeBasisPoints.hex),
+      taprootPubKey: jsonVaultObj.taprootPubKey,
+    };
+  }
+}
+
 interface EthereumContract {
   name: string;
   address: string;

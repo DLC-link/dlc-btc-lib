@@ -304,7 +304,7 @@ export class PrivateKeyDLCHandler {
         } catch (error: any) {
           // this can happen if there are no p2wpkh inputs to sign
         }
-        finalizeUserInputs(psbt, this.getPayment().fundingPayment);
+        finalizeUserInputs(psbt, this.getPayment().fundingPayment.script);
         break;
       case 'withdraw':
         psbt.sign(this.getPrivateKey('taproot'));

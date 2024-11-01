@@ -265,7 +265,8 @@ export async function withdraw(
     const transaction = await dlcManagerContract.withdraw(vaultUUID, withdrawAmount);
     return await transaction.wait();
   } catch (error) {
-    throw new EthereumError(`Could not Withdraw: ${error}`);
+    const errorMessage = JSON.stringify(error);
+    throw new EthereumError(`Could not Withdraw: ${errorMessage}`);
   }
 }
 
