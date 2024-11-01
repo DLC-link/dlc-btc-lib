@@ -135,6 +135,7 @@ export function createTaprootMultisigPayment(
  * @returns The fee rate.
  */
 function checkFeeRate(bitcoinNetwork: Network, feeRate: number | undefined): number | undefined {
+  console.log('Checking Fee Rate: ', feeRate);
   if (!feeRate || R.isEmpty(feeRate) || feeRate < 2) {
     if (bitcoinNetwork === regtest) {
       return 2;
@@ -155,20 +156,33 @@ export async function getFeeRate(
   bitcoinBlockchainFeeRecommendationAPI: string,
   feeRateMultiplier?: number
 ): Promise<number> {
+  console.log('GETTING FEE RATES');
   const client = bitcoincoreRpcConnection.getClient();
+  console.log('GETTING FEE RATES - got bitcoin RPC client');
   try {
+    console.log('Fetching fee estimate using the Bitcoin RPC client: ', client);
     const response = await client.estimateSmartFee(1);
     let feeData = response.feeRate;
 
     if (response.errors) {
       console.log('Error fetching fee estimate from Bitcoincore RPC: ', response.errors);
+      console.log(
+        'Fetching fee estimate from fee recommendation API: ',
+        bitcoinBlockchainFeeRecommendationAPI
+      );
       const apiResponse = await fetch(bitcoinBlockchainFeeRecommendationAPI);
       feeData = await apiResponse.json();
+      console.log('Fee estimate from fee recommendation API: ', feeData);
     }
 
     const feeRate = checkFeeRate(bitcoinNetwork, feeData);
     if (!feeRate) throw new Error('Fee Rate is not defined');
-    return feeRate * (feeRateMultiplier ?? 1);
+    console.log('Checked Fee Rate: ', feeRate);
+    console.log('feeRateMultiplier: ', feeRateMultiplier);
+    return (
+      feeRate *
+      (feeRateMultiplier !== undefined && !Number.isNaN(feeRateMultiplier) ? feeRateMultiplier : 1)
+    );
   } catch (error) {
     console.error('Error getting Bitcoin Blockchain Fee Rate Response:', error);
     throw new Error('Error getting Bitcoin Blockchain Fee Rate Response');
@@ -186,6 +200,11 @@ export function getFeeRecipientAddressFromPublicKey(
   bitcoinNetwork: Network
 ): string {
   const feePublicKeyBuffer = Buffer.from(feePublicKey, 'hex');
+  console.log('INSIDE getFeeRecipientAddressFromPublicKey - feePublicKey: ', feePublicKey);
+  console.log(
+    'INSIDE getFeeRecipientAddressFromPublicKey - feePublicKeyBuffer: ',
+    feePublicKeyBuffer
+  );
   const { address } = p2wpkh(feePublicKeyBuffer, bitcoinNetwork);
   if (!address) throw new Error('Could not create Fee Address from Public Key');
   return address;
@@ -398,11 +417,15 @@ export function getInputIndicesByScript(script: Uint8Array, transaction: Transac
   });
 }
 
-export function finalizeUserInputs(transaction: Transaction, userPayment: P2TROut | P2Ret): void {
+export function finalizeUserInputs(transaction: Transaction, script: Uint8Array): void {
+  console.log('Finalizing User Inputs - transaction: ', transaction);
   createRangeFromLength(transaction.inputsLength).forEach(index => {
     const inputScript = transaction.getInput(index).witnessUtxo?.script;
-    if (inputScript && compareUint8Arrays(inputScript, userPayment.script))
+    console.log('Finalizing User Inputs - inputScript: ', inputScript);
+    if (inputScript && compareUint8Arrays(inputScript, script)) {
+      console.log('Finalizing User Inputs - inside the "IF"');
       transaction.finalizeIdx(index);
+    }
   });
 }
 
