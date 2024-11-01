@@ -405,6 +405,7 @@ export class RippleHandler {
           NFTokenID: nftTokenId,
         };
 
+        // even if autofills are provided, we still need to use autofill to have all the fields filled in
         const preparedBurnTx = await this.client.autofill(burnTransactionJson, this.minSigners);
         if (autoFillValues) {
           preparedBurnTx.Fee = autoFillValues.Fee;
@@ -463,8 +464,8 @@ export class RippleHandler {
           NFTokenTaxon: 0,
         };
 
+        // even if autofills are provided, we still need to use autofill to have all the fields filled in
         const preparedMintTx = await this.client.autofill(mintTransactionJson, this.minSigners);
-
         if (autoFillValues) {
           preparedMintTx.Fee = autoFillValues.Fee;
           preparedMintTx.LastLedgerSequence = autoFillValues.LastLedgerSequence;
@@ -485,7 +486,6 @@ export class RippleHandler {
         console.log('preparedMintTx ', preparedMintTx);
 
         const mintTransactionSignature = this.wallet.sign(preparedMintTx, true).tx_blob;
-        console.log('mintTransactionSignature: ', mintTransactionSignature);
         return {
           tx_blob: mintTransactionSignature,
           autoFillValues: {
@@ -518,7 +518,7 @@ export class RippleHandler {
           wdTxId: updates.wdTxId,
           taprootPubKey: updates.taprootPubKey,
         };
-        console.log(`the updated vault, vault: `, updatedVault);
+        console.log(`the updated vault: `, updatedVault);
         return await this.mintNFT(updatedVault, 1, autoFillValues);
       } catch (error) {
         throw new RippleError(`Could not update Vault: ${error}`);
@@ -633,6 +633,7 @@ export class RippleHandler {
           },
         };
 
+        // even if autofills are provided, we still need to use autofill to have all the fields filled in
         const preparedCashCheckTx = await this.client.autofill(
           cashCheckTransactionJSON,
           this.minSigners
@@ -704,6 +705,7 @@ export class RippleHandler {
           },
         };
 
+        // even if autofills are provided, we still need to use autofill to have all the fields filled in
         const preparedSendTokenTx = await this.client.autofill(
           sendTokenTransactionJSON,
           this.minSigners
