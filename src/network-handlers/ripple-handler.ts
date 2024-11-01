@@ -4,6 +4,7 @@ import {
   AutoFillValues,
   MultisignatureTransactionResponse,
   SignResponse,
+  XRPLSignatures,
 } from 'src/models/ripple.model.js';
 import xrpl, {
   AccountNFTsRequest,
@@ -97,10 +98,12 @@ export class RippleHandler {
     }
   }
 
-  async submit(signatures: string[]): Promise<string> {
+  async submit(xrplSignatures: XRPLSignatures[]): Promise<string> {
     return await this.withConnectionMgmt(async () => {
       try {
-        const multisig_tx = xrpl.multisign(signatures);
+        const multisig_tx = xrpl.multisign(
+          xrplSignatures.find(sig => sig.signatureType === 'mintNFT')!.signatures
+        );
 
         const tx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
           await this.client.submitAndWait(multisig_tx);
@@ -152,8 +155,8 @@ export class RippleHandler {
     timeStamp: number,
     btcMintFeeBasisPoints: number,
     btcRedeemFeeBasisPoints: number,
-    autoFillValues?: AutoFillValues
-  ): Promise<MultisignatureTransactionResponse> {
+    autoFillValues?: AutoFillValues[]
+  ): Promise<MultisignatureTransactionResponse[]> {
     return await this.withConnectionMgmt(async () => {
       try {
         const newVault = buildDefaultNftVault();
@@ -162,7 +165,14 @@ export class RippleHandler {
         newVault.timestamp = BigNumber.from(timeStamp);
         newVault.btcMintFeeBasisPoints = BigNumber.from(btcMintFeeBasisPoints);
         newVault.btcRedeemFeeBasisPoints = BigNumber.from(btcRedeemFeeBasisPoints);
-        return await this.mintNFT(newVault, undefined, autoFillValues);
+
+        return [
+          await this.mintNFT(
+            newVault,
+            undefined,
+            autoFillValues?.find(sig => sig.signatureType === 'mintNFT')
+          ),
+        ];
       } catch (error) {
         throw new RippleError(`Could not setup Ripple Vault: ${error}`);
       }
@@ -200,15 +210,13 @@ export class RippleHandler {
     });
   }
 
-  async setVaultStatusFunded(
-    burnNFTSignedTxBlobs: string[],
-    mintTokensSignedTxBlobs: string[] | null,
-    mintNFTSignedTxBlobs: string[]
-  ): Promise<void> {
+  async setVaultStatusFunded(xrplSignatures: XRPLSignatures[]): Promise<void> {
     return await this.withConnectionMgmt(async () => {
       try {
         console.log('Doing the burn for SSF');
-        const burn_multisig_tx = xrpl.multisign(burnNFTSignedTxBlobs);
+        const burn_multisig_tx = xrpl.multisign(
+          xrplSignatures.find(sig => sig.signatureType === 'burnNFT')!.signatures
+        );
         const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
           await this.client.submitAndWait(burn_multisig_tx);
         const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
@@ -218,11 +226,13 @@ export class RippleHandler {
           );
         }
 
-        // multisig mint
-        if (mintTokensSignedTxBlobs && mintTokensSignedTxBlobs.every(sig => sig !== '')) {
+        const mintTokensSignedTxBlobs = xrplSignatures.find(
+          sig => sig.signatureType === 'mintToken'
+        )!;
+        if (mintTokensSignedTxBlobs) {
           console.log('Success! Now minting the actual tokens!! How fun $$');
 
-          const mint_token_multisig_tx = xrpl.multisign(mintTokensSignedTxBlobs);
+          const mint_token_multisig_tx = xrpl.multisign(mintTokensSignedTxBlobs.signatures);
           const mintTokenTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
             await this.client.submitAndWait(mint_token_multisig_tx);
           const mintTokenMeta: NFTokenMintMetadata = mintTokenTx.result
@@ -238,7 +248,9 @@ export class RippleHandler {
 
         console.log('Success! Now Doing the mint for SSF');
         // multisig mint
-        const mint_multisig_tx = xrpl.multisign(mintNFTSignedTxBlobs);
+        const mint_multisig_tx = xrpl.multisign(
+          xrplSignatures.find(sig => sig.signatureType === 'mintNFT')!.signatures
+        );
         const mintTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
           await this.client.submitAndWait(mint_multisig_tx);
         const mintMeta: NFTokenMintMetadata = mintTx.result.meta! as NFTokenMintMetadata;
@@ -253,16 +265,14 @@ export class RippleHandler {
     });
   }
 
-  async performCheckCashAndNftUpdate(
-    cashCheckSignedTxBlobs: string[],
-    burnNFTSignedTxBlobs: string[],
-    mintNFTSignedTxBlobs: string[]
-  ): Promise<void> {
+  async performCheckCashAndNftUpdate(xrplSignatures: XRPLSignatures[]): Promise<void> {
     return await this.withConnectionMgmt(async () => {
       try {
         console.log('Doing the check cashing');
         // multisig burn
-        const cash_check_tx = xrpl.multisign(cashCheckSignedTxBlobs);
+        const cash_check_tx = xrpl.multisign(
+          xrplSignatures.find(sig => sig.signatureType === 'cashCheck')!.signatures
+        );
         const cashCheckTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
           await this.client.submitAndWait(cash_check_tx); // add timeouts
         const cashCheckMeta: NFTokenMintMetadata = cashCheckTx.result.meta! as NFTokenMintMetadata;
@@ -272,7 +282,9 @@ export class RippleHandler {
 
         console.log('Doing the burn for SSP');
         // multisig burn
-        const burn_multisig_tx = xrpl.multisign(burnNFTSignedTxBlobs);
+        const burn_multisig_tx = xrpl.multisign(
+          xrplSignatures.find(sig => sig.signatureType === 'burnNFT')!.signatures
+        );
         const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
           await this.client.submitAndWait(burn_multisig_tx); // add timeouts
         const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
@@ -285,7 +297,9 @@ export class RippleHandler {
         console.log('Success! Now Doing the mint for SSP');
 
         // multisig mint
-        const mint_multisig_tx = xrpl.multisign(mintNFTSignedTxBlobs);
+        const mint_multisig_tx = xrpl.multisign(
+          xrplSignatures.find(sig => sig.signatureType === 'mintNFT')!.signatures
+        );
         const mintTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
           await this.client.submitAndWait(mint_multisig_tx); // add timeouts
         const mintMeta: NFTokenMintMetadata = mintTx.result.meta! as NFTokenMintMetadata;
@@ -302,15 +316,14 @@ export class RippleHandler {
     });
   }
 
-  async setVaultStatusPending(
-    burnNFTSignedTxBlobs: string[],
-    mintNFTSignedTxBlobs: string[]
-  ): Promise<void> {
+  async setVaultStatusPending(xrplSignatures: XRPLSignatures[]): Promise<void> {
     return await this.withConnectionMgmt(async () => {
       try {
         console.log('Doing the burn for SSP');
         // multisig burn
-        const burn_multisig_tx = xrpl.multisign(burnNFTSignedTxBlobs);
+        const burn_multisig_tx = xrpl.multisign(
+          xrplSignatures.find(sig => sig.signatureType === 'burnNFT')!.signatures
+        );
         const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
           await this.client.submitAndWait(burn_multisig_tx);
         const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
@@ -323,7 +336,9 @@ export class RippleHandler {
         console.log('Success! Now Doing the mint for SSP');
 
         // multisig mint
-        const mint_multisig_tx = xrpl.multisign(mintNFTSignedTxBlobs);
+        const mint_multisig_tx = xrpl.multisign(
+          xrplSignatures.find(sig => sig.signatureType === 'mintNFT')!.signatures
+        );
         const mintTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
           await this.client.submitAndWait(mint_multisig_tx);
         const mintMeta: NFTokenMintMetadata = mintTx.result.meta! as NFTokenMintMetadata;

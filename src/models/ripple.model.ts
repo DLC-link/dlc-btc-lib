@@ -12,6 +12,11 @@ export interface AutoFillValues {
 
 export type SignatureType = 'cashCheck' | 'burnNFT' | 'mintNFT' | 'mintToken';
 
+export interface XRPLSignatures {
+  signatureType: SignatureType;
+  signatures: string[];
+}
+
 export interface MultisignatureTransactionResponse {
   tx_blob: string;
   autoFillValues: AutoFillValues;
