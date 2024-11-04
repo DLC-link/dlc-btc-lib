@@ -51,37 +51,68 @@ function buildDefaultNftVault(): RawVault {
 }
 
 export class RippleHandler {
-  private client: xrpl.Client;
-  private wallet: xrpl.Wallet;
-  private issuerAddress: string;
-  private minSigners: number;
+  private static _instance: RippleHandler | null = null;
+  private client: xrpl.Client | null = null;
+  private wallet: xrpl.Wallet | null = null;
+  private issuerAddress: string | null = null;
+  private minSigners: number | null = null;
+  private initialized: boolean = false;
 
-  private constructor(
+  private constructor() {}
+
+  public static getInstance(): RippleHandler {
+    if (!RippleHandler._instance) {
+      RippleHandler._instance = new RippleHandler();
+    }
+    return RippleHandler._instance;
+  }
+
+  public initialize(
     seedPhrase: string,
     issuerAddress: string,
     websocketURL: string,
     minSigners: number
-  ) {
+  ): void {
+    if (this.initialized) {
+      throw new RippleError('RippleHandler has already been initialized');
+    }
+
     this.client = new xrpl.Client(websocketURL, { timeout: 10000 });
     this.wallet = xrpl.Wallet.fromSeed(seedPhrase);
     this.issuerAddress = issuerAddress;
     this.minSigners = minSigners;
+    this.initialized = true;
   }
 
-  static fromSeed(
+  private checkInitialized(): void {
+    if (
+      !this.initialized ||
+      !this.client ||
+      !this.wallet ||
+      !this.issuerAddress ||
+      this.minSigners === null
+    ) {
+      throw new RippleError('RippleHandler has not been initialized. Call initialize() first.');
+    }
+  }
+
+  public static createInstance(
     seedPhrase: string,
     issuerAddress: string,
     websocketURL: string,
     minSigners: number
   ): RippleHandler {
-    return new RippleHandler(seedPhrase, issuerAddress, websocketURL, minSigners);
+    const instance = RippleHandler.getInstance();
+    instance.initialize(seedPhrase, issuerAddress, websocketURL, minSigners);
+    return instance;
   }
 
   async withConnectionMgmt<T>(callback: () => Promise<T>): Promise<T> {
+    this.checkInitialized();
     console.log('Connecting to the async service...');
-    const newConnection = !this.client.isConnected();
+    const newConnection = !this.client!.isConnected();
     try {
-      await connectRippleClient(this.client);
+      await connectRippleClient(this.client!);
       console.log('calling the callback service...');
       const result = await callback();
       return result;
@@ -93,12 +124,13 @@ export class RippleHandler {
         // only disconnect if we connected in this function, otherwise leave the connection open
         // This is to prevent closing a connection from an internally used function when the connection is still needed by the caller
         // For example, getSigUpdateVaultForSSP calls getRawVault internally, and both need the connection, so we can't close the connection when getRawVault finishes
-        await this.client.disconnect();
+        await this.client!.disconnect();
       }
     }
   }
 
   async submit(xrplSignatures: XRPLSignatures[]): Promise<string> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         const multisig_tx = xrpl.multisign(
@@ -106,7 +138,7 @@ export class RippleHandler {
         );
 
         const tx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(multisig_tx);
+          await this.client!.submitAndWait(multisig_tx);
         const meta: NFTokenMintMetadata = tx.result.meta! as NFTokenMintMetadata;
 
         if (meta.TransactionResult !== 'tesSUCCESS') {
@@ -122,9 +154,10 @@ export class RippleHandler {
   }
 
   async getNetworkInfo(): Promise<xrpl.ServerInfoResponse> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
-        return await this.client.request({ command: 'server_info' });
+        return await this.client!.request({ command: 'server_info' });
       } catch (error) {
         throw new RippleError(`Could not fetch Network Info: ${error}`);
       }
@@ -132,17 +165,19 @@ export class RippleHandler {
   }
 
   async getAddress(): Promise<string> {
+    this.checkInitialized();
     try {
-      return this.wallet.classicAddress;
+      return this.wallet!.classicAddress;
     } catch (error) {
       throw new RippleError(`Could not fetch Address Info: ${error}`);
     }
   }
 
   async getRawVault(uuid: string): Promise<RawVault> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
-        return await getRippleVault(this.client, this.issuerAddress, uuid);
+        return await getRippleVault(this.client!, this.issuerAddress!, uuid);
       } catch (error) {
         throw new RippleError(`Could not fetch Vault: ${error}`);
       }
@@ -157,6 +192,7 @@ export class RippleHandler {
     btcRedeemFeeBasisPoints: number,
     autoFillValues?: AutoFillValues[]
   ): Promise<MultisignatureTransactionResponse[]> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         const newVault = buildDefaultNftVault();
@@ -184,6 +220,7 @@ export class RippleHandler {
     withdrawAmount: bigint,
     autoFillValues: AutoFillValues[]
   ): Promise<MultisignatureTransactionResponse[]> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         console.log(`Performing Withdraw from Vault: ${uuid}`);
@@ -211,6 +248,7 @@ export class RippleHandler {
   }
 
   async setVaultStatusFunded(xrplSignatures: XRPLSignatures[]): Promise<void> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         console.log('Doing the burn for SSF');
@@ -218,7 +256,7 @@ export class RippleHandler {
           xrplSignatures.find(sig => sig.signatureType === 'burnNFT')!.signatures
         );
         const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(burn_multisig_tx);
+          await this.client!.submitAndWait(burn_multisig_tx);
         const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
         if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
           throw new RippleError(
@@ -234,7 +272,7 @@ export class RippleHandler {
 
           const mint_token_multisig_tx = xrpl.multisign(mintTokensSignedTxBlobs.signatures);
           const mintTokenTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-            await this.client.submitAndWait(mint_token_multisig_tx);
+            await this.client!.submitAndWait(mint_token_multisig_tx);
           const mintTokenMeta: NFTokenMintMetadata = mintTokenTx.result
             .meta! as NFTokenMintMetadata;
           if (mintTokenMeta!.TransactionResult !== 'tesSUCCESS') {
@@ -252,7 +290,7 @@ export class RippleHandler {
           xrplSignatures.find(sig => sig.signatureType === 'mintNFT')!.signatures
         );
         const mintTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(mint_multisig_tx);
+          await this.client!.submitAndWait(mint_multisig_tx);
         const mintMeta: NFTokenMintMetadata = mintTx.result.meta! as NFTokenMintMetadata;
         if (mintMeta!.TransactionResult !== 'tesSUCCESS') {
           throw new RippleError(
@@ -266,6 +304,7 @@ export class RippleHandler {
   }
 
   async performCheckCashAndNftUpdate(xrplSignatures: XRPLSignatures[]): Promise<void> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         console.log('Doing the check cashing');
@@ -274,7 +313,7 @@ export class RippleHandler {
           xrplSignatures.find(sig => sig.signatureType === 'cashCheck')!.signatures
         );
         const cashCheckTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(cash_check_tx); // add timeouts
+          await this.client!.submitAndWait(cash_check_tx); // add timeouts
         const cashCheckMeta: NFTokenMintMetadata = cashCheckTx.result.meta! as NFTokenMintMetadata;
         if (cashCheckMeta!.TransactionResult !== 'tesSUCCESS') {
           throw new RippleError(`Could not cash check: ${cashCheckMeta!.TransactionResult}`);
@@ -286,7 +325,7 @@ export class RippleHandler {
           xrplSignatures.find(sig => sig.signatureType === 'burnNFT')!.signatures
         );
         const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(burn_multisig_tx); // add timeouts
+          await this.client!.submitAndWait(burn_multisig_tx); // add timeouts
         const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
         if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
           throw new RippleError(
@@ -301,7 +340,7 @@ export class RippleHandler {
           xrplSignatures.find(sig => sig.signatureType === 'mintNFT')!.signatures
         );
         const mintTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(mint_multisig_tx); // add timeouts
+          await this.client!.submitAndWait(mint_multisig_tx); // add timeouts
         const mintMeta: NFTokenMintMetadata = mintTx.result.meta! as NFTokenMintMetadata;
         if (mintMeta!.TransactionResult !== 'tesSUCCESS') {
           throw new RippleError(
@@ -317,6 +356,7 @@ export class RippleHandler {
   }
 
   async setVaultStatusPending(xrplSignatures: XRPLSignatures[]): Promise<void> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         console.log('Doing the burn for SSP');
@@ -325,7 +365,7 @@ export class RippleHandler {
           xrplSignatures.find(sig => sig.signatureType === 'burnNFT')!.signatures
         );
         const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(burn_multisig_tx);
+          await this.client!.submitAndWait(burn_multisig_tx);
         const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
         if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
           throw new RippleError(
@@ -340,7 +380,7 @@ export class RippleHandler {
           xrplSignatures.find(sig => sig.signatureType === 'mintNFT')!.signatures
         );
         const mintTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(mint_multisig_tx);
+          await this.client!.submitAndWait(mint_multisig_tx);
         const mintMeta: NFTokenMintMetadata = mintTx.result.meta! as NFTokenMintMetadata;
         if (mintMeta!.TransactionResult !== 'tesSUCCESS') {
           throw new RippleError(
@@ -356,9 +396,10 @@ export class RippleHandler {
   }
 
   async getContractVaults(): Promise<RawVault[]> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
-        return await getAllRippleVaults(this.client, this.issuerAddress);
+        return await getAllRippleVaults(this.client!, this.issuerAddress!);
       } catch (error) {
         throw new RippleError(`Could not fetch All Vaults: ${error}`);
       }
@@ -366,16 +407,17 @@ export class RippleHandler {
   }
 
   async getNFTokenIdForVault(uuid: string): Promise<string> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       console.log(`Getting NFTokenId for vault: ${uuid}`);
       try {
         const getNFTsTransaction: AccountNFTsRequest = {
           command: 'account_nfts',
-          account: this.issuerAddress,
+          account: this.issuerAddress!,
           limit: 400,
         };
 
-        const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
+        const nfts: xrpl.AccountNFTsResponse = await this.client!.request(getNFTsTransaction);
         const matchingNFT = nfts.result.account_nfts.find(
           nft => decodeURI(nft.URI!).uuid.slice(2) === uuid
         );
@@ -395,18 +437,19 @@ export class RippleHandler {
     incrementBy: number = 0,
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         console.log(`Getting sig for Burning Ripple Vault, vault: ${nftUUID}`);
         const nftTokenId = await this.getNFTokenIdForVault(nftUUID);
         const burnTransactionJson: SubmittableTransaction = {
           TransactionType: 'NFTokenBurn',
-          Account: this.issuerAddress,
+          Account: this.issuerAddress!,
           NFTokenID: nftTokenId,
         };
 
         // even if autofills are provided, we still need to use autofill to have all the fields filled in
-        const preparedBurnTx = await this.client.autofill(burnTransactionJson, this.minSigners);
+        const preparedBurnTx = await this.client!.autofill(burnTransactionJson, this.minSigners!);
         if (autoFillValues) {
           preparedBurnTx.Fee = autoFillValues.Fee;
           preparedBurnTx.LastLedgerSequence = autoFillValues.LastLedgerSequence;
@@ -427,7 +470,7 @@ export class RippleHandler {
 
         console.log('preparedBurnTx ', preparedBurnTx);
 
-        const burnTransactionSignature = this.wallet.sign(preparedBurnTx, true).tx_blob;
+        const burnTransactionSignature = this.wallet!.sign(preparedBurnTx, true).tx_blob;
         console.log('burnTransactionSignature: ', burnTransactionSignature);
 
         return {
@@ -450,6 +493,7 @@ export class RippleHandler {
     incrementBy: number = 0,
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         console.log(
@@ -459,13 +503,13 @@ export class RippleHandler {
         console.log('newURI: ', newURI);
         const mintTransactionJson: SubmittableTransaction = {
           TransactionType: 'NFTokenMint',
-          Account: this.issuerAddress,
+          Account: this.issuerAddress!,
           URI: newURI,
           NFTokenTaxon: 0,
         };
 
         // even if autofills are provided, we still need to use autofill to have all the fields filled in
-        const preparedMintTx = await this.client.autofill(mintTransactionJson, this.minSigners);
+        const preparedMintTx = await this.client!.autofill(mintTransactionJson, this.minSigners!);
         if (autoFillValues) {
           preparedMintTx.Fee = autoFillValues.Fee;
           preparedMintTx.LastLedgerSequence = autoFillValues.LastLedgerSequence;
@@ -485,7 +529,7 @@ export class RippleHandler {
 
         console.log('preparedMintTx ', preparedMintTx);
 
-        const mintTransactionSignature = this.wallet.sign(preparedMintTx, true).tx_blob;
+        const mintTransactionSignature = this.wallet!.sign(preparedMintTx, true).tx_blob;
         return {
           tx_blob: mintTransactionSignature,
           autoFillValues: {
@@ -506,6 +550,7 @@ export class RippleHandler {
     updates: SSPVaultUpdate,
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         console.log(`Getting sig for getSigUpdateVaultForSSP, vault uuid: ${uuid}`);
@@ -532,6 +577,7 @@ export class RippleHandler {
     updateSequenceBy: number,
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         const nftUUID = uuid;
@@ -552,16 +598,17 @@ export class RippleHandler {
   }
 
   async getAllChecks(): Promise<AccountObject[]> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         const getAccountObjectsRequestJSON: Request = {
           command: 'account_objects',
-          account: this.issuerAddress,
+          account: this.issuerAddress!,
           ledger_index: 'validated',
           type: 'check',
         };
 
-        const getAccountObjectsResponse: AccountObjectsResponse = await this.client.request(
+        const getAccountObjectsResponse: AccountObjectsResponse = await this.client!.request(
           getAccountObjectsRequestJSON
         );
 
@@ -576,9 +623,10 @@ export class RippleHandler {
     txHash: string,
     autoFillValues?: AutoFillValues[]
   ): Promise<MultisignatureTransactionResponse[]> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
-        const check = await getCheckByTXHash(this.client, this.issuerAddress, txHash);
+        const check = await getCheckByTXHash(this.client!, this.issuerAddress!, txHash);
         const invoiceID = check.InvoiceID;
 
         if (!invoiceID) {
@@ -618,25 +666,26 @@ export class RippleHandler {
     dlcBTCAmount: string,
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         console.log(`Cashing Check of Check ID ${checkID} for an amount of ${dlcBTCAmount}`);
 
         const cashCheckTransactionJSON: CheckCash = {
           TransactionType: 'CheckCash',
-          Account: this.issuerAddress,
+          Account: this.issuerAddress!,
           CheckID: checkID,
           Amount: {
             currency: XRPL_DLCBTC_CURRENCY_HEX,
             value: dlcBTCAmount,
-            issuer: this.issuerAddress,
+            issuer: this.issuerAddress!,
           },
         };
 
         // even if autofills are provided, we still need to use autofill to have all the fields filled in
-        const preparedCashCheckTx = await this.client.autofill(
+        const preparedCashCheckTx = await this.client!.autofill(
           cashCheckTransactionJSON,
-          this.minSigners
+          this.minSigners!
         );
         if (autoFillValues) {
           preparedCashCheckTx.Fee = autoFillValues.Fee;
@@ -654,7 +703,7 @@ export class RippleHandler {
 
         console.log('Issuer is about to sign the following cashCheck tx: ', preparedCashCheckTx);
 
-        const signCashCheckTransactionSig: SignResponse = this.wallet.sign(
+        const signCashCheckTransactionSig: SignResponse = this.wallet!.sign(
           preparedCashCheckTx,
           true
         );
@@ -681,6 +730,7 @@ export class RippleHandler {
     incrementBy: number = 0,
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse | undefined> {
+    this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
       try {
         if (updatedValueMinted === 0 || valueMinted >= updatedValueMinted) {
@@ -695,20 +745,20 @@ export class RippleHandler {
 
         const sendTokenTransactionJSON: Payment = {
           TransactionType: 'Payment',
-          Account: this.issuerAddress,
+          Account: this.issuerAddress!,
           Destination: destinationAddress,
           DestinationTag: 1,
           Amount: {
             currency: XRPL_DLCBTC_CURRENCY_HEX,
             value: dlcBTCAmount,
-            issuer: this.issuerAddress,
+            issuer: this.issuerAddress!,
           },
         };
 
         // even if autofills are provided, we still need to use autofill to have all the fields filled in
-        const preparedSendTokenTx = await this.client.autofill(
+        const preparedSendTokenTx = await this.client!.autofill(
           sendTokenTransactionJSON,
-          this.minSigners
+          this.minSigners!
         );
         if (autoFillValues) {
           preparedSendTokenTx.Fee = autoFillValues.Fee;
@@ -730,7 +780,7 @@ export class RippleHandler {
 
         console.log('Issuer is about to sign the following mintTokens tx: ', preparedSendTokenTx);
 
-        const signSendTokenTransactionResponse: SignResponse = this.wallet.sign(
+        const signSendTokenTransactionResponse: SignResponse = this.wallet!.sign(
           preparedSendTokenTx,
           true
         );
