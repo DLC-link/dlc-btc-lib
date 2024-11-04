@@ -167,28 +167,6 @@ export class RippleHandler {
     }
   }
 
-  // async withConnectionMgmt<T>(callback: () => Promise<T>): Promise<T> {
-  //   this.checkInitialized();
-  //   console.log('Connecting to the async service...');
-  //   const newConnection = !this.client!.isConnected();
-  //   try {
-  //     await connectRippleClient(this.client!);
-  //     console.log('calling the callback service...');
-  //     const result = await callback();
-  //     return result;
-  //   } catch (error) {
-  //     throw new RippleError(`Error while executing XRPL function: ${error}`);
-  //   } finally {
-  //     console.log('Disconnecting from the async service...');
-  //     if (newConnection) {
-  //       // only disconnect if we connected in this function, otherwise leave the connection open
-  //       // This is to prevent closing a connection from an internally used function when the connection is still needed by the caller
-  //       // For example, getSigUpdateVaultForSSP calls getRawVault internally, and both need the connection, so we can't close the connection when getRawVault finishes
-  //       await this.client!.disconnect();
-  //     }
-  //   }
-  // }
-
   async submit(xrplSignatures: XRPLSignatures[]): Promise<string> {
     this.checkInitialized();
     return await this.withConnectionMgmt(async () => {
