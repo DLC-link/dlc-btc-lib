@@ -12,6 +12,7 @@ import {
   ecdsaPublicKeyToSchnorr,
   getBalance,
   getFeeRate,
+  getInputIndicesByScript,
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import {
@@ -21,6 +22,7 @@ import {
 } from '../functions/bitcoin/psbt-functions.js';
 import { PaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
+import { createRangeFromLength } from '../utilities/index.js';
 
 export class DFNSDLCHandler {
   private dfnsDelegatedAPIClient: DfnsDelegatedApiClient;
@@ -87,6 +89,13 @@ export class DFNSDLCHandler {
 
   setTaprootDerivedPublicKey(taprootDerivedPublicKey: string): void {
     this.taprootDerivedPublicKey = taprootDerivedPublicKey;
+  }
+
+  getTaprootDerivedPublicKey(): string {
+    if (!this.taprootDerivedPublicKey) {
+      throw new Error('Taproot Derived Public Key not set');
+    }
+    return this.taprootDerivedPublicKey;
   }
 
   getVaultRelatedAddress(paymentType: 'funding' | 'multisig'): string {
@@ -172,9 +181,9 @@ export class DFNSDLCHandler {
         attestorGroupPublicKey
       );
 
-      const feeRate =
-        customFeeRate ??
-        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+      const feeRate = 200n;
+      // customFeeRate ??
+      // BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
       const addressBalance = await getBalance(fundingPayment, this.bitcoinBlockchainAPI);
 
@@ -192,6 +201,14 @@ export class DFNSDLCHandler {
         vault.btcFeeRecipient,
         vault.btcMintFeeBasisPoints.toBigInt()
       );
+
+      createRangeFromLength(fundingTransaction.inputsLength).forEach(index => {
+        console.log('index', index);
+        fundingTransaction.updateInput(index, {
+          sighashType: 0x01,
+        });
+        console.log('input', fundingTransaction.getInput(index));
+      });
 
       return fundingTransaction;
     } catch (error: any) {
@@ -213,9 +230,9 @@ export class DFNSDLCHandler {
         attestorGroupPublicKey
       );
 
-      const feeRate =
-        customFeeRate ??
-        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+      const feeRate = 200n;
+      // customFeeRate ??
+      // BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
       const withdrawTransaction = await createWithdrawTransaction(
         this.bitcoinBlockchainAPI,
@@ -228,6 +245,14 @@ export class DFNSDLCHandler {
         vault.btcFeeRecipient,
         vault.btcRedeemFeeBasisPoints.toBigInt()
       );
+
+      createRangeFromLength(withdrawTransaction.inputsLength).forEach(index => {
+        console.log('index', index);
+        withdrawTransaction.updateInput(index, {
+          sighashType: 0x01,
+        });
+        console.log('input', withdrawTransaction.getInput(index));
+      });
       return withdrawTransaction;
     } catch (error: any) {
       throw new Error(`Error creating Withdraw PSBT: ${error}`);
@@ -247,9 +272,9 @@ export class DFNSDLCHandler {
       attestorGroupPublicKey
     );
 
-    const feeRate =
-      customFeeRate ??
-      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+    const feeRate = 200n;
+    // customFeeRate ??
+    // BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
     const depositTransaction = await createDepositTransaction(
       this.bitcoinBlockchainAPI,
@@ -263,10 +288,21 @@ export class DFNSDLCHandler {
       vault.btcMintFeeBasisPoints.toBigInt()
     );
 
+    createRangeFromLength(depositTransaction.inputsLength).forEach(index => {
+      console.log('index', index);
+      depositTransaction.updateInput(index, {
+        sighashType: 0x01,
+      });
+      console.log('input', depositTransaction.getInput(index));
+    });
+
     return depositTransaction;
   }
 
-  async signPSBT(transaction: Transaction): Promise<Transaction> {
+  async signPSBT(
+    transaction: Transaction,
+    transactionType: 'funding' | 'deposit' | 'withdraw'
+  ): Promise<Transaction> {
     try {
       const walletId = this.walletID;
       if (!walletId) {
@@ -300,13 +336,33 @@ export class DFNSDLCHandler {
 
       console.log('generateSignatureCompleteResponse', generateSignatureCompleteResponse);
 
-      // ==> Finalize Funding Transaction
-      const fundingTransaction = Transaction.fromPSBT(
-        hexToBytes(generateSignatureCompleteResponse.signedData!)
-      );
-      fundingTransaction.finalize();
+      const signedPSBT = generateSignatureCompleteResponse.signedData;
 
-      return fundingTransaction;
+      if (!signedPSBT) {
+        throw new Error('No signed data returned');
+      }
+
+      // ==> Finalize Funding Transaction
+      const signedTransaction = Transaction.fromPSBT(hexToBytes(signedPSBT.slice(2)!));
+
+      switch (transactionType) {
+        case 'funding':
+          signedTransaction.finalize();
+          break;
+        case 'deposit':
+          getInputIndicesByScript(
+            this.getPayment().fundingPayment.script,
+            signedTransaction
+          ).forEach(index => {
+            signedTransaction.finalizeIdx(index);
+          });
+          break;
+        case 'withdraw':
+          break;
+        default:
+          throw new Error('Invalid Transaction Type');
+      }
+      return signedTransaction;
     } catch (error: any) {
       throw new Error(`Error signing PSBT: ${error}`);
     }
