@@ -202,14 +202,6 @@ export class DFNSDLCHandler {
         vault.btcMintFeeBasisPoints.toBigInt()
       );
 
-      createRangeFromLength(fundingTransaction.inputsLength).forEach(index => {
-        console.log('index', index);
-        fundingTransaction.updateInput(index, {
-          sighashType: 0x01,
-        });
-        console.log('input', fundingTransaction.getInput(index));
-      });
-
       return fundingTransaction;
     } catch (error: any) {
       throw new Error(`Error creating Funding PSBT: ${error}`);
@@ -246,13 +238,6 @@ export class DFNSDLCHandler {
         vault.btcRedeemFeeBasisPoints.toBigInt()
       );
 
-      createRangeFromLength(withdrawTransaction.inputsLength).forEach(index => {
-        console.log('index', index);
-        withdrawTransaction.updateInput(index, {
-          sighashType: 0x01,
-        });
-        console.log('input', withdrawTransaction.getInput(index));
-      });
       return withdrawTransaction;
     } catch (error: any) {
       throw new Error(`Error creating Withdraw PSBT: ${error}`);
@@ -287,14 +272,6 @@ export class DFNSDLCHandler {
       vault.btcFeeRecipient,
       vault.btcMintFeeBasisPoints.toBigInt()
     );
-
-    createRangeFromLength(depositTransaction.inputsLength).forEach(index => {
-      console.log('index', index);
-      depositTransaction.updateInput(index, {
-        sighashType: 0x01,
-      });
-      console.log('input', depositTransaction.getInput(index));
-    });
 
     return depositTransaction;
   }
