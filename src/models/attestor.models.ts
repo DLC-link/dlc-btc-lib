@@ -29,6 +29,15 @@ export interface WithdrawDepositTXAttestorInfo {
   withdrawDepositPSBT: string;
 }
 
+export interface OneClickYieldWithdrawDepositAttestorInfo {
+  vaultUUID?: string;
+  withdrawDepositPSBT: string;
+  attestorChainID?: string;
+  userBitcoinTaprootPublicKey: string;
+  valueLocked: string;
+  integrationAddress: string;
+}
+
 export interface PsbtEvent {
   closing_psbt: string;
   wd_psbt: string;

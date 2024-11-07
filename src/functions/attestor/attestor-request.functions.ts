@@ -3,6 +3,7 @@ import { equals, filter, isEmpty, isNotNil, join, map, prop } from 'ramda';
 import {
   AttestorChainID,
   FundingTXAttestorInfo,
+  OneClickYieldWithdrawDepositAttestorInfo,
   WithdrawDepositTXAttestorInfo,
 } from '../../models/attestor.models.js';
 import { AttestorError } from '../../models/errors.js';
@@ -53,6 +54,20 @@ export async function submitWithdrawDepositPSBT(
   await submitPSBT(attestorRootURLs, withdrawDepositTXAttestorInfo, '/app/withdraw', info => ({
     uuid: info.vaultUUID,
     wd_psbt: info.withdrawDepositPSBT,
+  }));
+}
+
+export async function submit1CYWithdrawDepositPSBT(
+  attestorRootURLs: string[],
+  withdrawDepositTXAttestorInfo: OneClickYieldWithdrawDepositAttestorInfo
+): Promise<void> {
+  await submitPSBT(attestorRootURLs, withdrawDepositTXAttestorInfo, '/app/icy-wd', info => ({
+    uuid: info.vaultUUID,
+    funding_transaction_psbt: info.withdrawDepositPSBT,
+    chain: info.attestorChainID,
+    icy_vault_address: info.integrationAddress,
+    alice_pubkey: info.userBitcoinTaprootPublicKey,
+    current_value_locked: info.valueLocked,
   }));
 }
 
