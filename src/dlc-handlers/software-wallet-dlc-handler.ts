@@ -144,9 +144,9 @@ export class SoftwareWalletDLCHandler {
         attestorGroupPublicKey
       );
 
-      const feeRate =
-        customFeeRate ??
-        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+      const feeRate = 200n; //
+      // customFeeRate ??
+      // BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
       const addressBalance = await getBalance(fundingPayment, this.bitcoinBlockchainAPI);
 
@@ -184,9 +184,9 @@ export class SoftwareWalletDLCHandler {
         attestorGroupPublicKey
       );
 
-      const feeRate =
-        customFeeRate ??
-        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+      const feeRate = 200n;
+      // customFeeRate ??
+      // BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
       const withdrawTransaction = await createWithdrawTransaction(
         this.bitcoinBlockchainAPI,
@@ -218,9 +218,9 @@ export class SoftwareWalletDLCHandler {
       attestorGroupPublicKey
     );
 
-    const feeRate =
-      customFeeRate ??
-      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+    const feeRate = 200n; //
+    // customFeeRate ??
+    // BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
     const depositTransaction = await createDepositTransaction(
       this.bitcoinBlockchainAPI,

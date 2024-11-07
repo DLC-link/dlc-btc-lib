@@ -5,6 +5,7 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { Transaction, p2tr } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
+import { sign } from 'tiny-secp256k1';
 
 import {
   createTaprootMultisigPayment,
@@ -340,6 +341,75 @@ export class DFNSDLCHandler {
           throw new Error('Invalid Transaction Type');
       }
       return signedTransaction;
+    } catch (error: any) {
+      throw new Error(`Error signing PSBT: ${error}`);
+    }
+  }
+
+  async signInput(
+    transaction: Transaction,
+    transactionType: 'funding' | 'deposit' | 'withdraw'
+  ): Promise<Transaction> {
+    try {
+      const formattedPSBT = Psbt.fromHex(bytesToHex(transaction.toPSBT()));
+
+      const walletId = this.walletID;
+      if (!walletId) {
+        throw new Error('Wallet ID not set');
+      }
+      const generateSignatureBody: GenerateSignatureBody = {
+        kind: 'Hash',
+        // taprootMerkleRoot: bytesToHex(transaction.getInput(0).tapMerkleRoot!),
+        taprootMerkleRoot: '',
+        hash: formattedPSBT.txInputs[0].hash.toString('hex'),
+      };
+
+      const generateSignatureInitResponse =
+        await this.dfnsDelegatedAPIClient.wallets.generateSignatureInit({
+          walletId,
+          body: generateSignatureBody,
+        });
+
+      const webAuthenticator = new WebAuthnSigner();
+      const assertion = await webAuthenticator.sign(generateSignatureInitResponse);
+
+      const generateSignatureCompleteResponse =
+        await this.dfnsDelegatedAPIClient.wallets.generateSignatureComplete(
+          {
+            walletId,
+            body: generateSignatureBody,
+          },
+          {
+            challengeIdentifier: generateSignatureInitResponse.challengeIdentifier,
+            firstFactor: assertion,
+          }
+        );
+
+      console.log('generateSignatureCompleteResponse', generateSignatureCompleteResponse);
+
+      const signedInput = generateSignatureCompleteResponse.signature;
+
+      if (!signedInput) {
+        throw new Error('No signed data returned');
+      }
+
+      const rBytes = Buffer.from(signedInput.r.slice(2), 'hex'); // 32 bytes
+      const sBytes = Buffer.from(signedInput.s.slice(2), 'hex'); // 32 bytes
+
+      // Concatenate into a single 64-byte signature
+      const schnorrSignature = Buffer.concat([rBytes, sBytes]);
+      formattedPSBT.updateInput(0, {
+        tapScriptSig: [
+          {
+            signature: schnorrSignature,
+            pubkey: Buffer.from(this.taprootDerivedPublicKey!.slice(2), 'hex'),
+            leafHash: formattedPSBT.txInputs[0].hash,
+          },
+        ],
+      });
+      console.log('formattedPSBT', formattedPSBT);
+
+      return Transaction.fromPSBT(formattedPSBT.toBuffer());
     } catch (error: any) {
       throw new Error(`Error signing PSBT: ${error}`);
     }
