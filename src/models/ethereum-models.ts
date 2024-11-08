@@ -40,6 +40,7 @@ export interface RawVault {
   btcMintFeeBasisPoints: BigNumber;
   btcRedeemFeeBasisPoints: BigNumber;
   taprootPubKey: string;
+  icyIntegrationAddress: string;
 }
 
 export interface SSPVaultUpdate {
