@@ -98,6 +98,7 @@ export function decodeURI(URI: string): RawVault {
       btcFeeRecipient: URI.slice(332, 398),
       taprootPubKey: URI.slice(398, 462),
       closingTxId: '', // Deprecated
+      icyIntegrationAddress: '', // not used in xrpl
     };
   } catch (error) {
     throw new Error(`Could not decode NFT URI: ${error}`);

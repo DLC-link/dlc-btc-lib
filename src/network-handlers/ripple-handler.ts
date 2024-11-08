@@ -47,6 +47,7 @@ function buildDefaultNftVault(): RawVault {
     btcMintFeeBasisPoints: BigNumber.from(100),
     btcRedeemFeeBasisPoints: BigNumber.from(100),
     taprootPubKey: '0'.repeat(64),
+    icyIntegrationAddress: '',
   };
 }
 
