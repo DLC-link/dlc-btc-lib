@@ -1,4 +1,4 @@
-import { hexToBytes } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import {
   Address,
   OutScript,
@@ -8,10 +8,12 @@ import {
   p2tr,
   p2tr_ns,
   p2wpkh,
+  selectUTXO,
 } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { TransactionInput } from '@scure/btc-signer/psbt';
 import { BIP32Factory, BIP32Interface } from 'bip32';
+import bip39 from 'bip39';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
@@ -31,6 +33,7 @@ import {
   isDefined,
   isUndefined,
 } from '../../utilities/index.js';
+import { broadcastTransaction } from './bitcoin-request-functions.js';
 
 const TAPROOT_UNSPENDABLE_KEY_HEX =
   '0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
@@ -41,6 +44,50 @@ const bip32 = BIP32Factory(ellipticCurveCryptography);
 export function getFeeAmount(bitcoinAmount: number, feeBasisPoints: number): number {
   const feePercentage = new Decimal(feeBasisPoints).dividedBy(100);
   return new Decimal(bitcoinAmount).times(feePercentage.dividedBy(100)).toNumber();
+}
+
+export async function sendYield(
+  bitcoinWalletMnemonicPhrase: string,
+  bitcoinNetwork: Network,
+  bitcoinAmount: bigint,
+  bitcoinBlockchainAPIURL: string,
+  bitcoinRecipientAddress: string
+): Promise<void> {
+  const seed = await bip39.mnemonicToSeed(bitcoinWalletMnemonicPhrase);
+  const derivedKeyPair = bip32.fromSeed(seed, bitcoinNetwork).derivePath(`m/84'/0'/0'/0/0`);
+
+  const payment = p2wpkh(derivedKeyPair.publicKey, bitcoinNetwork);
+  console.log('yieldpayer address:', payment.address);
+
+  const utxos = await getUTXOs(payment, bitcoinBlockchainAPIURL);
+
+  const psbtOutputs = [{ address: bitcoinRecipientAddress, amount: bitcoinAmount }];
+
+  const selected = selectUTXO(utxos, psbtOutputs, 'default', {
+    changeAddress: payment.address!,
+    feePerByte: 2n,
+    bip69: false,
+    createTx: true,
+    network: bitcoinNetwork,
+    dust: 546n as unknown as number,
+  });
+
+  if (!selected) {
+    throw new Error(
+      'Failed to select Inputs for the Funding Transaction. Ensure sufficient funds are available.'
+    );
+  }
+
+  const fundingTX = selected.tx;
+
+  if (!fundingTX) {
+    throw new Error('Failed to create the Funding Transaction');
+  }
+
+  fundingTX.sign(derivedKeyPair.privateKey!);
+  fundingTX.finalize();
+
+  await broadcastTransaction(bytesToHex(fundingTX.extract()), bitcoinBlockchainAPIURL);
 }
 
 /**

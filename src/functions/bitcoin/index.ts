@@ -4,6 +4,7 @@ import {
   getFeeAmount,
   getFeeRecipientAddressFromPublicKey,
   getInputIndicesByScript,
+  sendYield,
 } from '../bitcoin/bitcoin-functions.js';
 import {
   broadcastTransaction,
@@ -18,6 +19,7 @@ import {
 } from '../bitcoin/psbt-functions.js';
 
 export {
+  sendYield,
   createFundingTransaction,
   createDepositTransaction,
   createWithdrawTransaction,
