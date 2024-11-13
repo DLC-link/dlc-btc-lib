@@ -223,42 +223,96 @@ export async function getRippleVault(
   }
 }
 
+export async function getNFTokenIdForVault(
+  rippleClient: Client,
+  issuerAddress: string,
+  vaultUUID: string
+): Promise<string> {
+  try {
+    const allVaultNFTs = await getAllVaultNFTs(rippleClient, issuerAddress);
+
+    const matchingNFT = allVaultNFTs.find(nft => decodeURI(nft.URI!).uuid.slice(2) === vaultUUID);
+
+    if (!matchingNFT) {
+      throw new RippleError(`NFT Vault for uuid: ${vaultUUID} not found`);
+    }
+    return matchingNFT.NFTokenID;
+  } catch (error) {
+    throw new RippleError(`Could not find NFTokenId for vault Vault: ${error}`);
+  }
+}
+
+// Gets all NFTs, filtered by owner, and then filtered by UUID to only show the newest one if there are duplicates
+async function getAllVaultNFTs(
+  rippleClient: Client,
+  issuerAddress: string,
+  ownerAddress?: string
+): Promise<AccountNFToken[]> {
+  await connectRippleClient(rippleClient);
+
+  let marker: any = undefined;
+  const limit = 100;
+  let allRippleNFTs: AccountNFToken[] = [];
+
+  do {
+    const getAccountNFTsRequest: AccountNFTsRequest = {
+      command: 'account_nfts',
+      account: issuerAddress,
+      limit,
+      marker,
+    };
+
+    const {
+      result: { account_nfts: rippleNFTs, marker: newMarker },
+    } = await rippleClient.request(getAccountNFTsRequest);
+
+    allRippleNFTs = allRippleNFTs.concat(rippleNFTs);
+
+    marker = newMarker;
+  } while (marker);
+
+  const allRippleNFTsSortedBySerialID = allRippleNFTs.sort((a, b) => b.nft_serial - a.nft_serial);
+
+  let NFTsSortedFilteredByOwner: AccountNFToken[] = [];
+  if (ownerAddress) {
+    NFTsSortedFilteredByOwner = allRippleNFTsSortedBySerialID.filter(
+      nft => decodeURI(nft.URI!).creator === ownerAddress
+    );
+  } else {
+    NFTsSortedFilteredByOwner = allRippleNFTsSortedBySerialID;
+  }
+
+  const uniqueUUIDFilteredNFTs: AccountNFToken[] = [];
+  NFTsSortedFilteredByOwner.forEach(nft => {
+    const vaultUUID = decodeURI(nft.URI!).uuid;
+    const matchedVault = uniqueUUIDFilteredNFTs.some(
+      filteredVault => decodeURI(filteredVault.URI!).uuid === vaultUUID
+    );
+
+    if (!matchedVault) {
+      // Only add the nft-vault if it's unique by UUID
+      uniqueUUIDFilteredNFTs.push(nft);
+    }
+  });
+
+  return uniqueUUIDFilteredNFTs;
+}
+
 export async function getAllRippleVaults(
   rippleClient: Client,
   issuerAddress: string,
   ownerAddress?: string
 ): Promise<RawVault[]> {
   try {
-    await connectRippleClient(rippleClient);
-
-    let marker: any = undefined;
-    const limit = 100;
-    let allRippleNFTs: any[] = [];
-
-    do {
-      const getAccountNFTsRequest: AccountNFTsRequest = {
-        command: 'account_nfts',
-        account: issuerAddress,
-        limit,
-        marker,
-      };
-
-      const {
-        result: { account_nfts: rippleNFTs, marker: newMarker },
-      } = await rippleClient.request(getAccountNFTsRequest);
-
-      allRippleNFTs = allRippleNFTs.concat(rippleNFTs);
-
-      marker = newMarker;
-    } while (marker);
-
-    const rippleVaults = allRippleNFTs.map(nft => hexFieldsToLowercase(decodeURI(nft.URI!)));
-
-    if (ownerAddress) {
-      return rippleVaults.filter(vault => vault.creator === ownerAddress);
-    } else {
-      return rippleVaults;
-    }
+    const uniqueUUIDFilteredVaults: AccountNFToken[] = await getAllVaultNFTs(
+      rippleClient,
+      issuerAddress,
+      ownerAddress
+    );
+    const rippleVaults = uniqueUUIDFilteredVaults.map(nft =>
+      hexFieldsToLowercase(decodeURI(nft.URI!))
+    );
+    return rippleVaults;
   } catch (error) {
     throw new RippleError(`Error getting Vaults: ${error}`);
   }
@@ -282,7 +336,7 @@ export async function signAndSubmitRippleTransaction(
 
     return submitResponse;
   } catch (error) {
-    throw new RippleError(`Error signing and submitt Transaction: ${error}`);
+    throw new RippleError(`Error signing and submitting Transaction: ${error}`);
   }
 }
 
