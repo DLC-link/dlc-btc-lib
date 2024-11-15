@@ -1,12 +1,13 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { Transaction, p2tr, p2wpkh } from '@scure/btc-signer';
-import { regtest, testnet } from 'bitcoinjs-lib/src/networks';
+import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks';
 
 import {
   createTaprootMultisigPayment,
   deriveUnhardenedPublicKey,
   ecdsaPublicKeyToSchnorr,
   finalizeUserInputs,
+  getFeeRecipientAddress,
   getInputIndicesByScript,
   getScriptMatchingOutputFromTransaction,
   getUnspendableKeyCommittedToUUID,
@@ -63,6 +64,82 @@ describe('Bitcoin Functions', () => {
       const aliceScript = hexToBytes(TEST_ALICE_NATIVE_SEGWIT_PAYMENT_SCRIPT_1);
       const inputIndices = getInputIndicesByScript(aliceScript, transaction);
       expect(inputIndices).toEqual([]);
+    });
+  });
+
+  describe('getFeeRecipientAddress', () => {
+    describe('mainnet', () => {
+      const network = bitcoin;
+
+      it('accepts native segwit (p2wpkh) address', () => {
+        const address = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('accepts taproot (p2tr) address', () => {
+        const address = 'bc1qw02rsw9afgp4dsd5n87z5s6rqnf455yhhsnz9f';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('converts public key to native segwit address', () => {
+        const publicKey = '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+        const expectedAddress = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
+        expect(getFeeRecipientAddress(publicKey, network)).toBe(expectedAddress);
+      });
+    });
+
+    describe('testnet', () => {
+      const network = testnet;
+
+      it('accepts native segwit (p2wpkh) address', () => {
+        const address = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('accepts taproot (p2tr) address', () => {
+        const address = 'tb1qqhy33peyp82mf82fktdtphfmnhtxyhtp6x9hrc';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('converts public key to native segwit address', () => {
+        const publicKey = '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+        const expectedAddress = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
+        expect(getFeeRecipientAddress(publicKey, network)).toBe(expectedAddress);
+      });
+    });
+
+    describe('regtest', () => {
+      const network = regtest;
+
+      it('accepts native segwit (p2wpkh) address', () => {
+        const address = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('accepts taproot (p2tr) address', () => {
+        const address = 'bcrt1qqhy33peyp82mf82fktdtphfmnhtxyhtpc0u653';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('converts public key to native segwit address', () => {
+        const publicKey = '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+        const expectedAddress = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080';
+        expect(getFeeRecipientAddress(publicKey, network)).toBe(expectedAddress);
+      });
+    });
+
+    describe('error cases', () => {
+      it('throws on invalid public key', () => {
+        const invalidKey = 'invalidPublicKey';
+        expect(() => getFeeRecipientAddress(invalidKey, bitcoin)).toThrow(
+          'P2WPKH: invalid publicKey'
+        );
+      });
+
+      it('throws on invalid address', () => {
+        const invalidAddress = 'invalidAddress';
+        expect(() => getFeeRecipientAddress(invalidAddress, bitcoin)).toThrow();
+      });
     });
   });
 
