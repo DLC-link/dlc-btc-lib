@@ -39,8 +39,8 @@ const ECDSA_PUBLIC_KEY_LENGTH = 33;
 const bip32 = BIP32Factory(ellipticCurveCryptography);
 
 export function getFeeAmount(bitcoinAmount: number, feeBasisPoints: number): number {
-  const feePercentage = new Decimal(feeBasisPoints).dividedBy(100);
-  return new Decimal(bitcoinAmount).times(feePercentage.dividedBy(100)).toNumber();
+  const feePercentage = new Decimal(feeBasisPoints).dividedBy(10000);
+  return new Decimal(bitcoinAmount).times(feePercentage).trunc().toNumber();
 }
 
 /**
