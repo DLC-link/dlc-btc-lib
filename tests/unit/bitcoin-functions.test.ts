@@ -7,11 +7,13 @@ import {
   deriveUnhardenedPublicKey,
   ecdsaPublicKeyToSchnorr,
   finalizeUserInputs,
+  getFeeAmount,
   getFeeRecipientAddress,
   getInputIndicesByScript,
   getScriptMatchingOutputFromTransaction,
   getUnspendableKeyCommittedToUUID,
 } from '../../src/functions/bitcoin/bitcoin-functions';
+import { shiftValue, unshiftValue } from '../../src/utilities';
 import {
   TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
   TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1,
@@ -255,6 +257,29 @@ describe('Bitcoin Functions', () => {
       );
 
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getFeeAmount', () => {
+    test('calculates correct fee for whole numbers', () => {
+      expect(getFeeAmount(1000000, 50)).toBe(5000);
+      expect(getFeeAmount(1000000, 25)).toBe(2500);
+    });
+
+    test('handles small fee basis points', () => {
+      expect(getFeeAmount(1000000, 1)).toBe(100);
+      expect(getFeeAmount(2000000, 1)).toBe(200);
+    });
+
+    test('handles typical fee calculations', () => {
+      expect(getFeeAmount(1500000, 15)).toBe(2250);
+      expect(getFeeAmount(2000000, 25)).toBe(5000);
+    });
+
+    test('properly drops decimals', () => {
+      expect(getFeeAmount(1008584578, 15)).toBe(1512876);
+      expect(getFeeAmount(1234567, 15)).toBe(1851); // 1234567 * 15 / 10000 = 1851.8505 -> 1851
+      expect(getFeeAmount(9876543, 23)).toBe(22716); // 9876543 * 23 / 10000 = 22716.0489 -> 22716
     });
   });
 });
