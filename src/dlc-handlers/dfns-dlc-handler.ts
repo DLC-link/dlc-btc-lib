@@ -4,8 +4,7 @@ import { GenerateSignatureBody, ListWalletsResponse } from '@dfns/sdk/generated/
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { Transaction, p2tr } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
-import { Network, Psbt } from 'bitcoinjs-lib';
-import { sign } from 'tiny-secp256k1';
+import { Network } from 'bitcoinjs-lib';
 
 import {
   createTaprootMultisigPayment,
@@ -23,16 +22,15 @@ import {
 } from '../functions/bitcoin/psbt-functions.js';
 import { PaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
-import { createRangeFromLength } from '../utilities/index.js';
 
 export class DFNSDLCHandler {
-  private dfnsDelegatedAPIClient: DfnsDelegatedApiClient;
-  private taprootDerivedPublicKey: string | undefined;
-  public walletID: string | undefined;
-  public payment: PaymentInformation | undefined;
-  private bitcoinNetwork: Network;
-  private bitcoinBlockchainAPI: string;
-  private bitcoinBlockchainFeeRecommendationAPI: string;
+  private readonly dfnsDelegatedAPIClient: DfnsDelegatedApiClient;
+  private readonly bitcoinNetwork: Network;
+  private readonly bitcoinBlockchainAPI: string;
+  private readonly bitcoinBlockchainFeeRecommendationAPI: string;
+  private taprootDerivedPublicKey?: string;
+  private dfnsWalletID?: string;
+  public payment?: PaymentInformation;
 
   constructor(
     dfnsAppID: string,
@@ -42,14 +40,14 @@ export class DFNSDLCHandler {
     bitcoinBlockchainAPI: string,
     bitcoinBlockchainFeeRecommendationAPI: string
   ) {
-    this.bitcoinBlockchainAPI = bitcoinBlockchainAPI;
-    this.bitcoinBlockchainFeeRecommendationAPI = bitcoinBlockchainFeeRecommendationAPI;
-    this.bitcoinNetwork = bitcoinNetwork;
     this.dfnsDelegatedAPIClient = new DfnsDelegatedApiClient({
       baseUrl: appBaseURL,
       appId: dfnsAppID,
       authToken: dfnsAuthToken,
     });
+    this.bitcoinBlockchainAPI = bitcoinBlockchainAPI;
+    this.bitcoinBlockchainFeeRecommendationAPI = bitcoinBlockchainFeeRecommendationAPI;
+    this.bitcoinNetwork = bitcoinNetwork;
   }
 
   private setPayment(fundingPayment: P2Ret | P2TROut, multisigPayment: P2TROut): void {
@@ -74,18 +72,27 @@ export class DFNSDLCHandler {
     }
   }
 
-  async getWalletByID(walletID: string): Promise<void> {
+  async initializeWalletByID(dfnsWalletID: string): Promise<void> {
     try {
-      const wallet = await this.dfnsDelegatedAPIClient.wallets.getWallet({ walletId: walletID });
-      this.setWalletID(wallet.id);
-      this.setTaprootDerivedPublicKey(wallet.signingKey.publicKey);
+      const dfnsWallet = await this.dfnsDelegatedAPIClient.wallets.getWallet({
+        walletId: dfnsWalletID,
+      });
+      this.setDFNSWalletID(dfnsWallet.id);
+      this.setTaprootDerivedPublicKey(dfnsWallet.signingKey.publicKey);
     } catch (error: any) {
       throw new Error(`Error fetching wallet: ${error}`);
     }
   }
 
-  setWalletID(walletID: string): void {
-    this.walletID = walletID;
+  setDFNSWalletID(dfnsWalletID: string): void {
+    this.dfnsWalletID = dfnsWalletID;
+  }
+
+  getDFNSWalletID(): string {
+    if (!this.dfnsWalletID) {
+      throw new Error('DFNS Wallet ID not set');
+    }
+    return this.dfnsWalletID;
   }
 
   setTaprootDerivedPublicKey(taprootDerivedPublicKey: string): void {
@@ -97,6 +104,13 @@ export class DFNSDLCHandler {
       throw new Error('Taproot Derived Public Key not set');
     }
     return this.taprootDerivedPublicKey;
+  }
+
+  getTaprootTweakedPublicKey(): string {
+    if (!this.payment) {
+      throw new Error('Payment Information not set');
+    }
+    return bytesToHex((this.payment.fundingPayment as P2TROut).tweakedPubkey);
   }
 
   getVaultRelatedAddress(paymentType: 'funding' | 'multisig'): string {
@@ -154,7 +168,7 @@ export class DFNSDLCHandler {
       const multisigPayment = createTaprootMultisigPayment(
         unspendableDerivedPublicKey,
         attestorDerivedPublicKey,
-        Buffer.from(this.taprootDerivedPublicKey, 'hex'),
+        Buffer.from(fundingPayment.tweakedPubkey),
         this.bitcoinNetwork
       );
 
@@ -182,9 +196,9 @@ export class DFNSDLCHandler {
         attestorGroupPublicKey
       );
 
-      const feeRate = 200n;
-      // customFeeRate ??
-      // BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+      const feeRate =
+        customFeeRate ??
+        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
       const addressBalance = await getBalance(fundingPayment, this.bitcoinBlockchainAPI);
 
@@ -223,9 +237,9 @@ export class DFNSDLCHandler {
         attestorGroupPublicKey
       );
 
-      const feeRate = 200n;
-      // customFeeRate ??
-      // BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+      const feeRate =
+        customFeeRate ??
+        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
       const withdrawTransaction = await createWithdrawTransaction(
         this.bitcoinBlockchainAPI,
@@ -258,9 +272,9 @@ export class DFNSDLCHandler {
       attestorGroupPublicKey
     );
 
-    const feeRate = 200n;
-    // customFeeRate ??
-    // BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+    const feeRate =
+      customFeeRate ??
+      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
 
     const depositTransaction = await createDepositTransaction(
       this.bitcoinBlockchainAPI,
@@ -282,30 +296,27 @@ export class DFNSDLCHandler {
     transactionType: 'funding' | 'deposit' | 'withdraw'
   ): Promise<Transaction> {
     try {
-      const walletId = this.walletID;
-      if (!walletId) {
-        throw new Error('Wallet ID not set');
-      }
+      const dfnsWalletID = this.getDFNSWalletID();
+
       const generateSignatureBody: GenerateSignatureBody = {
         kind: 'Psbt',
         psbt: bytesToHex(transaction.toPSBT()),
       };
 
+      const generateSignatureRequest = {
+        walletId: dfnsWalletID,
+        body: generateSignatureBody,
+      };
+
       const generateSignatureInitResponse =
-        await this.dfnsDelegatedAPIClient.wallets.generateSignatureInit({
-          walletId,
-          body: generateSignatureBody,
-        });
+        await this.dfnsDelegatedAPIClient.wallets.generateSignatureInit(generateSignatureRequest);
 
       const webAuthenticator = new WebAuthnSigner();
       const assertion = await webAuthenticator.sign(generateSignatureInitResponse);
 
       const generateSignatureCompleteResponse =
         await this.dfnsDelegatedAPIClient.wallets.generateSignatureComplete(
-          {
-            walletId,
-            body: generateSignatureBody,
-          },
+          generateSignatureRequest,
           {
             challengeIdentifier: generateSignatureInitResponse.challengeIdentifier,
             firstFactor: assertion,
@@ -320,98 +331,44 @@ export class DFNSDLCHandler {
         throw new Error('No signed data returned');
       }
 
-      // ==> Finalize Funding Transaction
-      const signedTransaction = Transaction.fromPSBT(hexToBytes(signedPSBT.slice(2)!));
+      const signedTransaction = Transaction.fromPSBT(hexToBytes(signedPSBT.slice(2)));
 
-      switch (transactionType) {
-        case 'funding':
-          signedTransaction.finalize();
-          break;
-        case 'deposit':
-          getInputIndicesByScript(
-            this.getPayment().fundingPayment.script,
-            signedTransaction
-          ).forEach(index => {
-            signedTransaction.finalizeIdx(index);
-          });
-          break;
-        case 'withdraw':
-          break;
-        default:
-          throw new Error('Invalid Transaction Type');
-      }
+      const fundingPayment = this.getPayment().fundingPayment;
+
+      this.finalizeTransaction(signedTransaction, transactionType, fundingPayment.script);
+
       return signedTransaction;
     } catch (error: any) {
       throw new Error(`Error signing PSBT: ${error}`);
     }
   }
 
-  async signInput(
-    transaction: Transaction,
-    transactionType: 'funding' | 'deposit' | 'withdraw'
-  ): Promise<Transaction> {
-    try {
-      const formattedPSBT = Psbt.fromHex(bytesToHex(transaction.toPSBT()));
-
-      const walletId = this.walletID;
-      if (!walletId) {
-        throw new Error('Wallet ID not set');
-      }
-      const generateSignatureBody: GenerateSignatureBody = {
-        kind: 'Hash',
-        // taprootMerkleRoot: bytesToHex(transaction.getInput(0).tapMerkleRoot!),
-        taprootMerkleRoot: '',
-        hash: formattedPSBT.txInputs[0].hash.toString('hex'),
-      };
-
-      const generateSignatureInitResponse =
-        await this.dfnsDelegatedAPIClient.wallets.generateSignatureInit({
-          walletId,
-          body: generateSignatureBody,
-        });
-
-      const webAuthenticator = new WebAuthnSigner();
-      const assertion = await webAuthenticator.sign(generateSignatureInitResponse);
-
-      const generateSignatureCompleteResponse =
-        await this.dfnsDelegatedAPIClient.wallets.generateSignatureComplete(
-          {
-            walletId,
-            body: generateSignatureBody,
-          },
-          {
-            challengeIdentifier: generateSignatureInitResponse.challengeIdentifier,
-            firstFactor: assertion,
-          }
+  private finalizeTransaction(
+    signedTransaction: Transaction,
+    transactionType: 'funding' | 'deposit' | 'withdraw',
+    fundingPaymentScript: Uint8Array
+  ): Transaction {
+    switch (transactionType) {
+      case 'funding':
+        // finalize all inputs in the funding transaction since we have
+        // collected all required signatures at this point.
+        signedTransaction.finalize();
+        break;
+      case 'deposit':
+        // only finalize inputs that spend from the funding address,
+        // multisig inputs will be finalized after attestor signatures are added.
+        getInputIndicesByScript(fundingPaymentScript, signedTransaction).forEach(index =>
+          signedTransaction.finalizeIdx(index)
         );
+        break;
+      case 'withdraw':
+        // skip finalization since withdraw transaction requires additional
+        // attestor signatures before it can be finalized.
+        break;
 
-      console.log('generateSignatureCompleteResponse', generateSignatureCompleteResponse);
-
-      const signedInput = generateSignatureCompleteResponse.signature;
-
-      if (!signedInput) {
-        throw new Error('No signed data returned');
-      }
-
-      const rBytes = Buffer.from(signedInput.r.slice(2), 'hex'); // 32 bytes
-      const sBytes = Buffer.from(signedInput.s.slice(2), 'hex'); // 32 bytes
-
-      // Concatenate into a single 64-byte signature
-      const schnorrSignature = Buffer.concat([rBytes, sBytes]);
-      formattedPSBT.updateInput(0, {
-        tapScriptSig: [
-          {
-            signature: schnorrSignature,
-            pubkey: Buffer.from(this.taprootDerivedPublicKey!.slice(2), 'hex'),
-            leafHash: formattedPSBT.txInputs[0].hash,
-          },
-        ],
-      });
-      console.log('formattedPSBT', formattedPSBT);
-
-      return Transaction.fromPSBT(formattedPSBT.toBuffer());
-    } catch (error: any) {
-      throw new Error(`Error signing PSBT: ${error}`);
+      default:
+        throw new Error(`Invalid Transaction Type: ${transactionType}`);
     }
+    return signedTransaction;
   }
 }
