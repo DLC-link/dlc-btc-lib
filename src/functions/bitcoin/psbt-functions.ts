@@ -10,7 +10,7 @@ import { reverseBytes } from '../../utilities/index.js';
 import {
   ecdsaPublicKeyToSchnorr,
   getFeeAmount,
-  getFeeRecipientAddressFromPublicKey,
+  getFeeRecipientAddress
 } from '../bitcoin/bitcoin-functions.js';
 import { fetchBitcoinTransaction, getUTXOs } from './bitcoin-request-functions.js';
 import { BitcoinCoreRpcConnection } from './bitcoincore-rpc-connection.js';
@@ -26,7 +26,7 @@ import { BitcoinCoreRpcConnection } from './bitcoincore-rpc-connection.js';
  * @param multisigPayment - The Multisig Payment object created from the User's Taproot Public Key, the Attestor's Public Key, and the Unspendable Public Key committed to the Vault's UUID.
  * @param depositPayment - The User's Payment object which will be used to fund the Deposit Transaction.
  * @param feeRate - The Fee Rate to use for the Transaction.
- * @param feePublicKey - The Fee Recipient's Public Key.
+ * @param feeRecipient - The Fee Recipient's Public Key or Address.
  * @param feeBasisPoints - The Fee Basis Points.
  * @returns A Funding Transaction.
  */
@@ -37,7 +37,7 @@ export async function createFundingTransaction(
   multisigPayment: P2TROut,
   depositPayment: P2Ret | P2TROut,
   feeRate: bigint,
-  feePublicKey: string,
+  feeRecipient: string,
   feeBasisPoints: bigint
 ): Promise<Transaction> {
   const multisigAddress = multisigPayment.address;
@@ -52,17 +52,11 @@ export async function createFundingTransaction(
     throw new Error('Deposit Payment is missing Address');
   }
 
-  logger.info('createFundingTransaction: Getting feeAddress');
-  const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
-  logger.info('feeAddress:', feeAddress);
+  const feeAddress = getFeeRecipientAddress(feeRecipient, bitcoinNetwork);
 
-  logger.info('createFundingTransaction: Getting feeAmount');
   const feeAmount = getFeeAmount(Number(depositAmount), Number(feeBasisPoints));
-  logger.info('feeAmount:', feeAmount);
 
-  logger.info('createFundingTransaction: Getting userUTXOs');
   const userUTXOs = await getUTXOs(depositPayment, bitcoinCoreRpcConnection);
-  console.log('User UTXOs:', userUTXOs);
 
   const psbtOutputs = [
     { address: multisigAddress, amount: depositAmount },
@@ -112,7 +106,7 @@ export async function createFundingTransaction(
  * @param multisigPayment - The Multisig Payment object created from the User's Taproot Public Key, the Attestor's Public Key, and the Unspendable Public Key committed to the Vault's UUID.
  * @param depositPayment - The User's Payment object which will be used to fund the Deposit Transaction.
  * @param feeRate - The Fee Rate to use for the Transaction.
- * @param feePublicKey - The Fee Recipient's Public Key.
+ * @param feeRecipient - The Fee Recipient's Public Key or Address.
  * @param feeBasisPoints - The Fee Basis Points.
  * @returns A Deposit Transaction.
  */
@@ -124,7 +118,7 @@ export async function createDepositTransaction(
   multisigPayment: P2TROut,
   depositPayment: P2TROut | P2Ret,
   feeRate: bigint,
-  feePublicKey: string,
+  feeRecipient: string,
   feeBasisPoints: bigint
 ): Promise<Transaction> {
   const multisigAddress = multisigPayment.address;
@@ -139,7 +133,7 @@ export async function createDepositTransaction(
     throw new Error('Deposit Payment is missing Address');
   }
 
-  const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
+  const feeAddress = getFeeRecipientAddress(feeRecipient, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(depositAmount), Number(feeBasisPoints));
 
   console.log('CREATE DEPOSIT TX: vaultTransaction');
@@ -174,7 +168,6 @@ export async function createDepositTransaction(
     },
   ];
 
-  console.log('CREATE DEPOSIT TX: selectUTXO');
   const additionalDepositSelected = selectUTXO(userUTXOs, additionalDepositOutputs, 'default', {
     changeAddress: depositAddress,
     feePerByte: feeRate,
@@ -184,17 +177,14 @@ export async function createDepositTransaction(
     dust: 546n as unknown as number,
   });
 
-  console.log('CREATE DEPOSIT TX: selectUTXO: ', additionalDepositSelected);
   if (!additionalDepositSelected) {
     throw new Error(
       'Failed to select Inputs for the Additional Deposit Transaction. Ensure sufficient funds are available.'
     );
   }
 
-  console.log('CREATE DEPOSIT TX: vaultInput');
   const vaultInput = {
     txid: hexToBytes(vaultTransactionID),
-    // txid: vaultTransactionID,
     index: vaultTransactionOutputIndex,
     witnessUtxo: {
       amount: BigInt(vaultTransactionOutputValue),
@@ -239,7 +229,7 @@ export async function createDepositTransaction(
   // +++++DEBUG START+++++
   const depositInputPromises = additionalDepositSelected.inputs
     .map(async input => {
-      const txID = input.txid; // Uint8Array
+      const txID = input.txid;
       if (!txID) {
         throw new Error('Could not get Transaction ID from Input');
       }
@@ -270,27 +260,8 @@ export async function createDepositTransaction(
     .filter(utxo => utxo !== undefined);
 
   const depositInputs = await Promise.all(depositInputPromises);
-  console.log('CREATE DEPOSIT TX: depositInputs: ', depositInputs);
   depositInputs.push(vaultInput);
-  console.log('CREATE DEPOSIT TX: depositInputs with vaultInput: ', depositInputs);
 
-  // Promise.all(depositInputPromises)
-  //   .then(results => {
-  //     console.log('All Results:', results);
-  //     return results.filter(utxo => utxo !== undefined);
-  //   })
-  //   .then(filteredResults => {
-  //     // Use filteredResults here
-  //     console.log('Filtered Results:', filteredResults);
-  //     return filteredResults;
-  //   })
-  //   .catch(error => {
-  //     console.error('Error processing deposit inputs:', error);
-  //   });
-
-  // +++++DEBUG END+++++
-
-  console.log('CREATE DEPOSIT TX: depositOutputs');
   const depositOutputs = [
     {
       address: feeAddress,
@@ -302,8 +273,6 @@ export async function createDepositTransaction(
     },
   ];
 
-  console.log('CREATE DEPOSIT TX: depositOutputs: ', depositOutputs);
-  console.log('CREATE DEPOSIT TX: depositSelected');
   const depositSelected = selectUTXO(depositInputs, depositOutputs, 'all', {
     changeAddress: depositAddress,
     feePerByte: feeRate,
@@ -319,7 +288,6 @@ export async function createDepositTransaction(
     );
   }
 
-  console.log('CREATE DEPOSIT TX: depositSelected: ', depositSelected);
   const depositTransaction = depositSelected.tx;
 
   if (!depositTransaction) throw new Error('Could not create Deposit Transaction');
@@ -344,7 +312,7 @@ export async function createDepositTransaction(
  * @param multisigPayment - The Multisig Payment object created from the User's Taproot Public Key, the Attestor's Public Key, and the Unspendable Public Key committed to the Vault's UUID.
  * @param withdrawPayment - The User's Payment object which will be used to receive the withdrawn Bitcoin.
  * @param feeRate - The Fee Rate to use for the Transaction.
- * @param feePublicKey - The Fee Recipient's Public Key.
+ * @param feeRecipient - The Fee Recipient's Public Key or Address.
  * @param feeBasisPoints - The Fee Basis Points.
  * @returns A Withdraw Transaction.
  */
@@ -356,7 +324,7 @@ export async function createWithdrawTransaction(
   multisigPayment: P2TROut,
   withdrawPayment: P2Ret | P2TROut,
   feeRate: bigint,
-  feePublicKey: string,
+  feeRecipient: string,
   feeBasisPoints: bigint
 ): Promise<Transaction> {
   const multisigAddress = multisigPayment.address;
@@ -370,7 +338,6 @@ export async function createWithdrawTransaction(
   if (!withdrawAddress) {
     throw new Error('Withdraw Payment is missing Address');
   }
-
   const fundingTransaction = await fetchBitcoinTransaction(
     vaultTransactionID,
     bitcoinCoreRpcConnection
@@ -395,13 +362,12 @@ export async function createWithdrawTransaction(
   const remainingAmount =
     BigInt(fundingTransaction.vout[fundingTransactionOutputIndex].value) - BigInt(withdrawAmount);
 
-  const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
+  const feeAddress = getFeeRecipientAddress(feeRecipient, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(withdrawAmount), Number(feeBasisPoints));
 
   const inputs = [
     {
       txid: hexToBytes(vaultTransactionID),
-      // txid: vaultTransactionID,
       index: fundingTransactionOutputIndex,
       witnessUtxo: {
         amount: BigInt(fundingTransaction.vout[fundingTransactionOutputIndex].value),

@@ -14,7 +14,7 @@ import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { TransactionInput } from '@scure/btc-signer/psbt';
 import { BIP32Factory, BIP32Interface } from 'bip32';
 import { FetchedRawTransaction, TxOut } from 'bitcoin-core';
-import { Network } from 'bitcoinjs-lib';
+import { Network, address } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
 import * as R from 'ramda';
@@ -35,8 +35,8 @@ const ECDSA_PUBLIC_KEY_LENGTH = 33;
 const bip32 = BIP32Factory(ellipticCurveCryptography);
 
 export function getFeeAmount(bitcoinAmount: number, feeBasisPoints: number): number {
-  const feePercentage = new Decimal(feeBasisPoints).dividedBy(100);
-  return new Decimal(bitcoinAmount).times(feePercentage.dividedBy(100)).toNumber();
+  const feePercentage = new Decimal(feeBasisPoints).dividedBy(10000);
+  return new Decimal(bitcoinAmount).times(feePercentage).trunc().toNumber();
 }
 
 /**
@@ -190,23 +190,35 @@ export async function getFeeRate(
 }
 
 /**
- * Gets the Fee Recipient's Address from the Rcipient's Public Key.
- * @param feePublicKey - The Fee Recipient's Public Key.
+ * Validates a Bitcoin Address.
+ * @param bitcoinAddress
+ * @param bitcoinNetwork
+ * @returns A boolean indicating if the Bitcoin Address is valid.
+ */
+export function isBitcoinAddress(bitcoinAddress: string, bitcoinNetwork: Network): boolean {
+  try {
+    return !!address.toOutputScript(bitcoinAddress, bitcoinNetwork);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Gets the Fee Recipient's Address from the Recipient's Public Key or Address.
+ * @param bitcoinFeeRecipient - The Fee Recipient's Public Key or Address.
  * @param bitcoinNetwork - The Bitcoin Network to use.
  * @returns The Fee Recipient's Address.
  */
-export function getFeeRecipientAddressFromPublicKey(
-  feePublicKey: string,
+export function getFeeRecipientAddress(
+  bitcoinFeeRecipient: string,
   bitcoinNetwork: Network
 ): string {
-  const feePublicKeyBuffer = Buffer.from(feePublicKey, 'hex');
-  console.log('INSIDE getFeeRecipientAddressFromPublicKey - feePublicKey: ', feePublicKey);
-  console.log(
-    'INSIDE getFeeRecipientAddressFromPublicKey - feePublicKeyBuffer: ',
-    feePublicKeyBuffer
-  );
-  const { address } = p2wpkh(feePublicKeyBuffer, bitcoinNetwork);
+  if (isBitcoinAddress(bitcoinFeeRecipient, bitcoinNetwork)) return bitcoinFeeRecipient;
+
+  const { address } = p2wpkh(Buffer.from(bitcoinFeeRecipient, 'hex'), bitcoinNetwork);
+
   if (!address) throw new Error('Could not create Fee Address from Public Key');
+
   return address;
 }
 
