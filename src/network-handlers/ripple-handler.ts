@@ -19,6 +19,7 @@ import { XRPL_DLCBTC_CURRENCY_HEX } from '../constants/ripple.constants.js';
 import {
   checkRippleTransactionResult,
   connectRippleClient,
+  createTicket,
   decodeURI,
   encodeURI,
   getAllRippleVaults,
@@ -189,6 +190,16 @@ export class RippleHandler {
         throw new RippleError(`Could not submit Ticket Transaction: ${error}`);
       }
     });
+  }
+
+  async createTicket(ticketAmount: number): Promise<TicketCreate> {
+    try {
+      await connectRippleClient(this.client);
+
+      return await createTicket(this.client, this.issuerAddress, ticketAmount, this.minSigners);
+    } catch (error) {
+      throw new RippleError(`Could not create Ticket: ${error}`);
+    }
   }
 
   async setupVault(
