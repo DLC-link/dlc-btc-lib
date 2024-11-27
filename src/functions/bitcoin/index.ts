@@ -2,7 +2,7 @@ import {
   finalizeUserInputs,
   getBitcoinAddressFromExtendedPublicKey,
   getFeeAmount,
-  getFeeRecipientAddressFromPublicKey,
+  getFeeRecipientAddress,
   getInputIndicesByScript,
 } from '../bitcoin/bitcoin-functions.js';
 import {
@@ -27,7 +27,7 @@ export {
   finalizeUserInputs,
   getFeeAmount,
   getBalance,
-  getFeeRecipientAddressFromPublicKey,
+  getFeeRecipientAddress,
   getInputIndicesByScript,
   getBitcoinAddressFromExtendedPublicKey,
 };

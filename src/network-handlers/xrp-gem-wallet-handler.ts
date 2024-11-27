@@ -11,6 +11,7 @@ import {
   getLockedBTCBalance,
   setTrustLine,
 } from '../functions/ripple/ripple.functions.js';
+import { AttestorChainID } from '../models/attestor.models.js';
 
 export class GemXRPHandler {
   private xrpClient: Client;
@@ -127,9 +128,13 @@ export class GemXRPHandler {
     }
   }
 
-  public async sendCheckTXHash(coordinatorURL: string, checkTXHash: string): Promise<void> {
+  public async sendCheckTXHash(
+    coordinatorURL: string,
+    checkTXHash: string,
+    attestorChainID: AttestorChainID
+  ): Promise<void> {
     try {
-      await submitXRPLCheckToCash(coordinatorURL, checkTXHash);
+      await submitXRPLCheckToCash(coordinatorURL, checkTXHash, attestorChainID);
     } catch (error) {
       throw new Error(`Error sending Check TX Hash to Attestors: ${error}`);
     }

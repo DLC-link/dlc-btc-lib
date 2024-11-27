@@ -9,7 +9,7 @@ import { reverseBytes } from '../../utilities/index.js';
 import {
   ecdsaPublicKeyToSchnorr,
   getFeeAmount,
-  getFeeRecipientAddressFromPublicKey,
+  getFeeRecipientAddress,
   getUTXOs,
 } from '../bitcoin/bitcoin-functions.js';
 import { fetchBitcoinTransaction } from './bitcoin-request-functions.js';
@@ -25,7 +25,7 @@ import { fetchBitcoinTransaction } from './bitcoin-request-functions.js';
  * @param multisigPayment - The Multisig Payment object created from the User's Taproot Public Key, the Attestor's Public Key, and the Unspendable Public Key committed to the Vault's UUID.
  * @param depositPayment - The User's Payment object which will be used to fund the Deposit Transaction.
  * @param feeRate - The Fee Rate to use for the Transaction.
- * @param feePublicKey - The Fee Recipient's Public Key.
+ * @param feeRecipient - The Fee Recipient's Public Key or Address.
  * @param feeBasisPoints - The Fee Basis Points.
  * @returns A Funding Transaction.
  */
@@ -36,7 +36,7 @@ export async function createFundingTransaction(
   multisigPayment: P2TROut,
   depositPayment: P2Ret | P2TROut,
   feeRate: bigint,
-  feePublicKey: string,
+  feeRecipient: string,
   feeBasisPoints: bigint
 ): Promise<Transaction> {
   const multisigAddress = multisigPayment.address;
@@ -51,7 +51,7 @@ export async function createFundingTransaction(
     throw new Error('Deposit Payment is missing Address');
   }
 
-  const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
+  const feeAddress = getFeeRecipientAddress(feeRecipient, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(depositAmount), Number(feeBasisPoints));
 
   const userUTXOs = await getUTXOs(depositPayment, bitcoinBlockchainAPIURL);
@@ -103,7 +103,7 @@ export async function createFundingTransaction(
  * @param multisigPayment - The Multisig Payment object created from the User's Taproot Public Key, the Attestor's Public Key, and the Unspendable Public Key committed to the Vault's UUID.
  * @param depositPayment - The User's Payment object which will be used to fund the Deposit Transaction.
  * @param feeRate - The Fee Rate to use for the Transaction.
- * @param feePublicKey - The Fee Recipient's Public Key.
+ * @param feeRecipient - The Fee Recipient's Public Key or Address.
  * @param feeBasisPoints - The Fee Basis Points.
  * @returns A Deposit Transaction.
  */
@@ -115,7 +115,7 @@ export async function createDepositTransaction(
   multisigPayment: P2TROut,
   depositPayment: P2TROut | P2Ret,
   feeRate: bigint,
-  feePublicKey: string,
+  feeRecipient: string,
   feeBasisPoints: bigint
 ): Promise<Transaction> {
   const multisigAddress = multisigPayment.address;
@@ -130,7 +130,7 @@ export async function createDepositTransaction(
     throw new Error('Deposit Payment is missing Address');
   }
 
-  const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
+  const feeAddress = getFeeRecipientAddress(feeRecipient, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(depositAmount), Number(feeBasisPoints));
 
   const vaultTransaction = await fetchBitcoinTransaction(vaultTransactionID, bitcoinBlockchainURL);
@@ -248,7 +248,7 @@ export async function createDepositTransaction(
  * @param multisigPayment - The Multisig Payment object created from the User's Taproot Public Key, the Attestor's Public Key, and the Unspendable Public Key committed to the Vault's UUID.
  * @param withdrawPayment - The User's Payment object which will be used to receive the withdrawn Bitcoin.
  * @param feeRate - The Fee Rate to use for the Transaction.
- * @param feePublicKey - The Fee Recipient's Public Key.
+ * @param feeRecipient - The Fee Recipient's Public Key or Address.
  * @param feeBasisPoints - The Fee Basis Points.
  * @returns A Withdraw Transaction.
  */
@@ -260,7 +260,7 @@ export async function createWithdrawTransaction(
   multisigPayment: P2TROut,
   withdrawPayment: P2Ret | P2TROut,
   feeRate: bigint,
-  feePublicKey: string,
+  feeRecipient: string,
   feeBasisPoints: bigint
 ): Promise<Transaction> {
   const multisigAddress = multisigPayment.address;
@@ -298,7 +298,7 @@ export async function createWithdrawTransaction(
   const remainingAmount =
     BigInt(fundingTransaction.vout[fundingTransactionOutputIndex].value) - BigInt(withdrawAmount);
 
-  const feeAddress = getFeeRecipientAddressFromPublicKey(feePublicKey, bitcoinNetwork);
+  const feeAddress = getFeeRecipientAddress(feeRecipient, bitcoinNetwork);
   const feeAmount = getFeeAmount(Number(withdrawAmount), Number(feeBasisPoints));
 
   const inputs = [

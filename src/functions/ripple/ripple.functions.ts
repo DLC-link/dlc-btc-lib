@@ -100,6 +100,7 @@ export function decodeURI(URI: string): RawVault {
       btcFeeRecipient: URI.slice(332, 398),
       taprootPubKey: URI.slice(398, 462),
       closingTxId: '', // Deprecated
+      icyIntegrationAddress: '', // not used in xrpl
     };
   } catch (error) {
     throw new Error(`Could not decode NFT URI: ${error}`);
@@ -132,11 +133,12 @@ export function getRippleWallet(seedPhrase: string): Wallet {
   return Wallet.fromSeed(seedPhrase);
 }
 
-export async function connectRippleClient(rippleClient: Client): Promise<void> {
+export async function connectRippleClient(rippleClient: Client): Promise<boolean> {
   if (rippleClient.isConnected()) {
-    return;
+    return false;
   }
   await rippleClient.connect();
+  return true;
 }
 
 export function formatRippleVaultUUID(vaultUUID: string): string {
@@ -201,8 +203,6 @@ export async function getRippleVault(
   try {
     await connectRippleClient(rippleClient);
 
-    // let formattedUUID = vaultUUID.substring(0, 2) === '0x' ? vaultUUID.slice(2) : vaultUUID;
-    // formattedUUID = formattedUUID.toUpperCase();
     const formattedUUID = vaultUUID.substring(0, 2) === '0x' ? vaultUUID : `0x${vaultUUID}`;
 
     const allVaults = await getAllRippleVaults(rippleClient, issuerAddress);
