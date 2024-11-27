@@ -30,7 +30,7 @@ export async function submitXRPLCheckToCash(
 }
 
 export async function getAttestorExtendedGroupPublicKey(coordinatorURL: string): Promise<string> {
-  return sendGetRequest(`${coordinatorURL}/tss/get-extended-group-publickey`);
+  return sendGetRequest(`${coordinatorURL}/app/get-extended-group-publickey`);
 }
 
 export async function submitFundingPSBT(
