@@ -97,6 +97,7 @@ export class JSONFriendlyRawVault {
       btcMintFeeBasisPoints: BigNumber.from(jsonVaultObj.btcMintFeeBasisPoints.hex),
       btcRedeemFeeBasisPoints: BigNumber.from(jsonVaultObj.btcRedeemFeeBasisPoints.hex),
       taprootPubKey: jsonVaultObj.taprootPubKey,
+      icyIntegrationAddress: jsonVaultObj.icyIntegrationAddress
     };
   }
 }

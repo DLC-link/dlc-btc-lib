@@ -162,7 +162,7 @@ describe('Bitcoin Functions', () => {
       const alicePublicKey = Buffer.from(TEST_ALICE_NATIVE_SEGWIT_PUBLIC_KEY_1, 'hex');
       const alicePayment = p2wpkh(alicePublicKey, regtest);
 
-      finalizeUserInputs(transaction, alicePayment);
+      finalizeUserInputs(transaction, alicePayment.script);
 
       expect(transaction.getInput(0).finalScriptWitness).toBeDefined();
       expect(transaction.getInput(1).finalScriptWitness).toBeUndefined();
@@ -176,7 +176,7 @@ describe('Bitcoin Functions', () => {
       const alicePublicKey = Buffer.from(TEST_ALICE_NATIVE_SEGWIT_PUBLIC_KEY_2, 'hex');
       const alicePayment = p2wpkh(alicePublicKey, regtest);
 
-      finalizeUserInputs(transaction, alicePayment);
+      finalizeUserInputs(transaction, alicePayment.script);
 
       expect(transaction.getInput(0).finalScriptWitness).toBeUndefined();
       expect(transaction.getInput(1).finalScriptWitness).toBeUndefined();
@@ -192,7 +192,7 @@ describe('Bitcoin Functions', () => {
       );
       const alicePayment = p2tr(alicePublicKey, undefined, regtest);
 
-      finalizeUserInputs(transaction, alicePayment);
+      finalizeUserInputs(transaction, alicePayment.script);
 
       expect(transaction.getInput(0).finalScriptWitness).toBeDefined();
       expect(transaction.getInput(1).finalScriptWitness).toBeUndefined();
@@ -208,7 +208,7 @@ describe('Bitcoin Functions', () => {
       );
       const alicePayment = p2tr(alicePublicKey, undefined, regtest);
 
-      finalizeUserInputs(transaction, alicePayment);
+      finalizeUserInputs(transaction, alicePayment.script);
 
       expect(transaction.getInput(0).finalScriptWitness).toBeUndefined();
       expect(transaction.getInput(1).finalScriptWitness).toBeUndefined();
