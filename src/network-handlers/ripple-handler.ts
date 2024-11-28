@@ -19,7 +19,6 @@ import { XRPL_DLCBTC_CURRENCY_HEX } from '../constants/ripple.constants.js';
 import {
   checkRippleTransactionResult,
   connectRippleClient,
-  createTicket,
   decodeURI,
   encodeURI,
   getAllRippleVaults,
@@ -159,8 +158,6 @@ export class RippleHandler {
   async submitCreateTicketTransaction(signedTransactionBlobs: string[]): Promise<string[]> {
     return await this.withConnectionMgmt(async () => {
       try {
-        await connectRippleClient(this.client);
-
         const multisignedTransaction = multiSignTransaction(signedTransactionBlobs);
 
         const submitCreateTicketTransactionResponse =
@@ -168,7 +165,7 @@ export class RippleHandler {
 
         checkRippleTransactionResult(submitCreateTicketTransactionResponse);
 
-        let meta = submitCreateTicketTransactionResponse.result.meta;
+        const meta = submitCreateTicketTransactionResponse.result.meta;
 
         if (!meta) {
           throw new RippleError('Transaction Metadata not found');
@@ -178,12 +175,9 @@ export class RippleHandler {
           throw new RippleError(`Could not read Transaction Result of: ${meta}`);
         }
 
-        meta = meta as TransactionMetadata<TicketCreate>;
-
-        const affectedNodes = meta.AffectedNodes;
-        const createdNodes = affectedNodes
-          .filter((node): node is CreatedNode => 'CreatedNode' in node)
-          .map(node => node.CreatedNode);
+        const createdNodes = (meta as TransactionMetadata<TicketCreate>).AffectedNodes.filter(
+          (node): node is CreatedNode => 'CreatedNode' in node
+        ).map(node => node.CreatedNode);
 
         return createdNodes.map(node => node.NewFields.TicketSequence) as string[];
       } catch (error) {
@@ -192,14 +186,57 @@ export class RippleHandler {
     });
   }
 
-  async createTicket(ticketAmount: number): Promise<TicketCreate> {
-    try {
-      await connectRippleClient(this.client);
+  async createTicket(
+    ticketCount: number,
+    autoFillValues?: AutoFillValues
+  ): Promise<MultisignatureTransactionResponse> {
+    return await this.withConnectionMgmt(async () => {
+      try {
+        const createTicketRequest: TicketCreate = {
+          TransactionType: 'TicketCreate',
+          Account: this.issuerAddress,
+          TicketCount: ticketCount,
+        };
 
-      return await createTicket(this.client, this.issuerAddress, ticketAmount, this.minSigners);
-    } catch (error) {
-      throw new RippleError(`Could not create Ticket: ${error}`);
-    }
+        const preparedCreateTicketTransaction = await this.client.autofill(
+          createTicketRequest,
+          this.minSigners
+        );
+        if (autoFillValues) {
+          preparedCreateTicketTransaction.Fee = autoFillValues.Fee;
+          preparedCreateTicketTransaction.LastLedgerSequence = autoFillValues.LastLedgerSequence;
+          preparedCreateTicketTransaction.Sequence = autoFillValues.Sequence;
+        } else {
+          // set the LastLedgerSequence to be rounded up to the nearest 10000.
+          // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
+          // The request has a timeout, so this shouldn't end up being a hanging request
+          // Using the ticket system would likely be a better way:
+          // https://xrpl.org/docs/concepts/accounts/tickets
+          preparedCreateTicketTransaction.LastLedgerSequence =
+            Math.ceil(preparedCreateTicketTransaction.LastLedgerSequence! / 10000 + 1) * 10000;
+        }
+
+        console.log('preparedCreateTicketTransaction ', preparedCreateTicketTransaction);
+
+        const createTicketTransactionSignature = this.wallet.sign(
+          preparedCreateTicketTransaction,
+          true
+        ).tx_blob;
+        console.log('createTicketTransactionSignature: ', createTicketTransactionSignature);
+
+        return {
+          tx_blob: createTicketTransactionSignature,
+          autoFillValues: {
+            signatureType: 'createTicket',
+            LastLedgerSequence: preparedCreateTicketTransaction.LastLedgerSequence!,
+            Sequence: preparedCreateTicketTransaction.Sequence!,
+            Fee: preparedCreateTicketTransaction.Fee!,
+          },
+        };
+      } catch (error) {
+        throw new RippleError(`Could not create Ticket: ${error}`);
+      }
+    });
   }
 
   async setupVault(

@@ -10,7 +10,7 @@ export interface AutoFillValues {
   Fee: string;
 }
 
-export type SignatureType = 'cashCheck' | 'burnNFT' | 'mintNFT' | 'mintToken';
+export type SignatureType = 'cashCheck' | 'burnNFT' | 'mintNFT' | 'mintToken' | 'createTicket';
 
 export interface XRPLSignatures {
   signatureType: SignatureType;
