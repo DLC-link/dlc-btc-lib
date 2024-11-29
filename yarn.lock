@@ -4478,11 +4478,7 @@ ripple-address-codec@^5.0.0:
     "@scure/base" "^1.1.3"
     "@xrplf/isomorphic" "^1.0.0"
 
-<<<<<<< HEAD
-ripple-binary-codec@^2.1.0:
-=======
 ripple-binary-codec@2.1.0, ripple-binary-codec@^2.1.0:
->>>>>>> main
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/ripple-binary-codec/-/ripple-binary-codec-2.1.0.tgz#f1ef81f8d1f05a6cecc06fc6d9b13456569cafda"
   integrity sha512-q0GAx+hj3UVcDbhXVjk7qeNfgUMehlElYJwiCuIBwqs/51GVTOwLr39Ht3eNsX5ow2xPRaC5mqHwcFDvLRm6cA==
