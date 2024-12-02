@@ -17,6 +17,7 @@ import {
   Wallet,
   convertHexToString,
   convertStringToHex,
+  multisign,
 } from 'xrpl';
 
 import {
@@ -403,5 +404,13 @@ export async function getCheckByTXHash(
     return check as LedgerEntry.Check;
   } catch (error) {
     throw new RippleError(`Error getting Check by TX Hash: ${error}`);
+  }
+}
+
+export function multiSignTransaction(signedTransactions: string[]): string {
+  try {
+    return multisign(signedTransactions);
+  } catch (error) {
+    throw new RippleError(`Error multi-signing Transaction: ${error}`);
   }
 }
