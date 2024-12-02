@@ -13,7 +13,6 @@ import {
   getScriptMatchingOutputFromTransaction,
   getUnspendableKeyCommittedToUUID,
 } from '../../src/functions/bitcoin/bitcoin-functions';
-import { shiftValue, unshiftValue } from '../../src/utilities';
 import {
   TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
   TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1,
@@ -83,6 +82,11 @@ describe('Bitcoin Functions', () => {
         expect(getFeeRecipientAddress(address, network)).toBe(address);
       });
 
+      it('accepts nested segwit (p2sh) address', () => {
+        const address = '3KF9nXowQ4asSGxRRzeiTpDjMuwM2nypAN';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
       it('converts public key to native segwit address', () => {
         const publicKey = '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
         const expectedAddress = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
@@ -103,6 +107,11 @@ describe('Bitcoin Functions', () => {
         expect(getFeeRecipientAddress(address, network)).toBe(address);
       });
 
+      it('accepts nested segwit (p2sh) address', () => {
+        const address = '2MzQwSSnBHWHqSAqtTVQ6v47XtaisrJa1Vc';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
       it('converts public key to native segwit address', () => {
         const publicKey = '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
         const expectedAddress = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
@@ -120,6 +129,11 @@ describe('Bitcoin Functions', () => {
 
       it('accepts taproot (p2tr) address', () => {
         const address = 'bcrt1qqhy33peyp82mf82fktdtphfmnhtxyhtpc0u653';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('accepts nested segwit (p2sh) address', () => {
+        const address = '2MzQwSSnBHWHqSAqtTVQ6v47XtaisrJa1Vc';
         expect(getFeeRecipientAddress(address, network)).toBe(address);
       });
 
