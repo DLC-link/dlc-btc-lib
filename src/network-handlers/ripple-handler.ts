@@ -225,7 +225,6 @@ export class RippleHandler {
           preparedCreateTicketTransaction,
           true
         ).tx_blob;
-        console.log('createTicketTransactionSignature: ', createTicketTransactionSignature);
 
         return [
           {
