@@ -5,21 +5,26 @@ import xrpl, {
   AccountObject,
   AccountObjectsResponse,
   CheckCash,
+  CreatedNode,
   IssuedCurrencyAmount,
   Payment,
   Request,
   SubmittableTransaction,
+  TicketCreate,
+  TransactionMetadata,
 } from 'xrpl';
 import { NFTokenMintMetadata } from 'xrpl/dist/npm/models/transactions/NFTokenMint.js';
 
 import { XRPL_DLCBTC_CURRENCY_HEX } from '../constants/ripple.constants.js';
 import {
+  checkRippleTransactionResult,
   connectRippleClient,
   decodeURI,
   encodeURI,
   getAllRippleVaults,
   getCheckByTXHash,
   getRippleVault,
+  multiSignTransaction,
 } from '../functions/ripple/ripple.functions.js';
 import { RippleError } from '../models/errors.js';
 import { RawVault, SSFVaultUpdate, SSPVaultUpdate } from '../models/ethereum-models.js';
@@ -150,12 +155,101 @@ export class RippleHandler {
     });
   }
 
+  async submitCreateTicketTransaction(xrplSignatures: XRPLSignatures[]): Promise<string[]> {
+    return await this.withConnectionMgmt(async () => {
+      try {
+        const signedTransactionBlobs = xrplSignatures.find(
+          sig => sig.signatureType === 'createTicket'
+        )!.signatures;
+        const multisignedTransaction = multiSignTransaction(signedTransactionBlobs);
+
+        const submitCreateTicketTransactionResponse =
+          await this.client.submitAndWait(multisignedTransaction);
+
+        checkRippleTransactionResult(submitCreateTicketTransactionResponse);
+
+        const meta = submitCreateTicketTransactionResponse.result.meta;
+
+        if (!meta) {
+          throw new RippleError('Transaction Metadata not found');
+        }
+
+        if (typeof meta === 'string') {
+          throw new RippleError(`Could not read Transaction Result of: ${meta}`);
+        }
+
+        const createdNodes = (meta as TransactionMetadata<TicketCreate>).AffectedNodes.filter(
+          (node): node is CreatedNode => 'CreatedNode' in node
+        ).map(node => node.CreatedNode);
+
+        return createdNodes.map(node => node.NewFields.TicketSequence) as string[];
+      } catch (error) {
+        throw new RippleError(`Could not submit Ticket Transaction: ${error}`);
+      }
+    });
+  }
+
+  async createTicket(
+    ticketCount: number,
+    autoFillValues?: AutoFillValues
+  ): Promise<MultisignatureTransactionResponse[]> {
+    return await this.withConnectionMgmt(async () => {
+      try {
+        const createTicketRequest: TicketCreate = {
+          TransactionType: 'TicketCreate',
+          Account: this.issuerAddress,
+          TicketCount: ticketCount,
+        };
+
+        const preparedCreateTicketTransaction = await this.client.autofill(
+          createTicketRequest,
+          this.minSigners
+        );
+        if (autoFillValues) {
+          preparedCreateTicketTransaction.Fee = autoFillValues.Fee;
+          preparedCreateTicketTransaction.LastLedgerSequence = autoFillValues.LastLedgerSequence;
+          preparedCreateTicketTransaction.Sequence = autoFillValues.Sequence;
+        } else {
+          // set the LastLedgerSequence to be rounded up to the nearest 10000.
+          // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
+          // The request has a timeout, so this shouldn't end up being a hanging request
+          // Using the ticket system would likely be a better way:
+          // https://xrpl.org/docs/concepts/accounts/tickets
+          preparedCreateTicketTransaction.LastLedgerSequence =
+            Math.ceil(preparedCreateTicketTransaction.LastLedgerSequence! / 10000 + 1) * 10000;
+        }
+
+        console.log('preparedCreateTicketTransaction ', preparedCreateTicketTransaction);
+
+        const createTicketTransactionSignature = this.wallet.sign(
+          preparedCreateTicketTransaction,
+          true
+        ).tx_blob;
+
+        return [
+          {
+            tx_blob: createTicketTransactionSignature,
+            autoFillValues: {
+              signatureType: 'createTicket',
+              LastLedgerSequence: preparedCreateTicketTransaction.LastLedgerSequence!,
+              Sequence: preparedCreateTicketTransaction.Sequence!,
+              Fee: preparedCreateTicketTransaction.Fee!,
+            },
+          },
+        ];
+      } catch (error) {
+        throw new RippleError(`Could not create Ticket: ${error}`);
+      }
+    });
+  }
+
   async setupVault(
     uuid: string,
     userAddress: string,
     timeStamp: number,
     btcMintFeeBasisPoints: number,
     btcRedeemFeeBasisPoints: number,
+    ticket: string,
     autoFillValues?: AutoFillValues[]
   ): Promise<MultisignatureTransactionResponse[]> {
     return await this.withConnectionMgmt(async () => {
@@ -170,7 +264,7 @@ export class RippleHandler {
         return [
           await this.mintNFT(
             newVault,
-            undefined,
+            ticket,
             autoFillValues?.find(sig => sig.signatureType === 'mintNFT')
           ),
         ];
@@ -183,6 +277,7 @@ export class RippleHandler {
   async withdraw(
     uuid: string,
     withdrawAmount: bigint,
+    tickets: string[],
     autoFillValues: AutoFillValues[]
   ): Promise<MultisignatureTransactionResponse[]> {
     return await this.withConnectionMgmt(async () => {
@@ -194,14 +289,14 @@ export class RippleHandler {
         const thisVault = await this.getRawVault(nftUUID);
         const burnSig = await this.burnNFT(
           nftUUID,
-          1,
+          tickets[0],
           autoFillValues.find(sig => sig.signatureType === 'burnNFT')
         );
 
         thisVault.valueMinted = thisVault.valueMinted.sub(BigNumber.from(withdrawAmount));
         const mintSig = await this.mintNFT(
           thisVault,
-          2,
+          tickets[1],
           autoFillValues.find(sig => sig.signatureType === 'mintNFT')
         );
         return [burnSig, mintSig];
@@ -393,7 +488,7 @@ export class RippleHandler {
 
   async burnNFT(
     nftUUID: string,
-    incrementBy: number = 0,
+    ticket: string,
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse> {
     return await this.withConnectionMgmt(async () => {
@@ -402,6 +497,8 @@ export class RippleHandler {
         const nftTokenId = await this.getNFTokenIdForVault(nftUUID);
         const burnTransactionJson: SubmittableTransaction = {
           TransactionType: 'NFTokenBurn',
+          TicketSequence: new Decimal(ticket).toNumber(),
+          Sequence: 0,
           Account: this.issuerAddress,
           NFTokenID: nftTokenId,
         };
@@ -420,10 +517,6 @@ export class RippleHandler {
           // https://xrpl.org/docs/concepts/accounts/tickets
           preparedBurnTx.LastLedgerSequence =
             Math.ceil(preparedBurnTx.LastLedgerSequence! / 10000 + 1) * 10000;
-
-          if (incrementBy > 0) {
-            preparedBurnTx.Sequence = preparedBurnTx.Sequence! + incrementBy;
-          }
         }
 
         console.log('preparedBurnTx ', preparedBurnTx);
@@ -448,7 +541,7 @@ export class RippleHandler {
 
   async mintNFT(
     vault: RawVault,
-    incrementBy: number = 0,
+    ticket: string,
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse> {
     return await this.withConnectionMgmt(async () => {
@@ -460,6 +553,8 @@ export class RippleHandler {
         console.log('newURI: ', newURI);
         const mintTransactionJson: SubmittableTransaction = {
           TransactionType: 'NFTokenMint',
+          TicketSequence: new Decimal(ticket).toNumber(),
+          Sequence: 0,
           Account: this.issuerAddress,
           URI: newURI,
           NFTokenTaxon: 0,
@@ -479,9 +574,6 @@ export class RippleHandler {
           // https://xrpl.org/docs/concepts/accounts/tickets
           preparedMintTx.LastLedgerSequence =
             Math.ceil(preparedMintTx.LastLedgerSequence! / 10000 + 1) * 10000;
-          if (incrementBy > 0) {
-            preparedMintTx.Sequence = preparedMintTx.Sequence! + incrementBy;
-          }
         }
 
         console.log('preparedMintTx ', preparedMintTx);
@@ -505,6 +597,7 @@ export class RippleHandler {
   async getSigUpdateVaultForSSP(
     uuid: string,
     updates: SSPVaultUpdate,
+    ticket: string,
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse> {
     return await this.withConnectionMgmt(async () => {
@@ -520,7 +613,7 @@ export class RippleHandler {
           taprootPubKey: updates.taprootPubKey,
         };
         console.log(`the updated vault: `, updatedVault);
-        return await this.mintNFT(updatedVault, 1, autoFillValues);
+        return await this.mintNFT(updatedVault, ticket, autoFillValues);
       } catch (error) {
         throw new RippleError(`Could not update Vault: ${error}`);
       }
@@ -530,7 +623,7 @@ export class RippleHandler {
   async getSigUpdateVaultForSSF(
     uuid: string,
     updates: SSFVaultUpdate,
-    updateSequenceBy: number,
+    ticket: string,
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse> {
     return await this.withConnectionMgmt(async () => {
@@ -545,7 +638,7 @@ export class RippleHandler {
           valueMinted: BigNumber.from(updates.valueMinted),
           valueLocked: BigNumber.from(updates.valueLocked),
         };
-        return await this.mintNFT(updatedVault, updateSequenceBy, autoFillValues);
+        return await this.mintNFT(updatedVault, ticket, autoFillValues);
       } catch (error) {
         throw new RippleError(`Could not update Vault: ${error}`);
       }
@@ -575,6 +668,7 @@ export class RippleHandler {
 
   async getCashCheckAndWithdrawSignatures(
     txHash: string,
+    tickets: string[],
     autoFillValues?: AutoFillValues[]
   ): Promise<MultisignatureTransactionResponse[]> {
     return await this.withConnectionMgmt(async () => {
@@ -599,12 +693,14 @@ export class RippleHandler {
         const checkCashSignatures = await this.cashCheck(
           check.index,
           checkSendMax.value,
+          tickets[0],
           autoFillValues?.find(sig => sig.signatureType === 'cashCheck')
         );
 
         const mintAndBurnSignatures = await this.withdraw(
           vault.uuid,
           BigInt(shiftValue(Number(checkSendMax.value))),
+          tickets.slice(1),
           autoFillValues ?? []
         );
         return [checkCashSignatures, ...mintAndBurnSignatures];
@@ -617,6 +713,7 @@ export class RippleHandler {
   async cashCheck(
     checkID: string,
     dlcBTCAmount: string,
+    ticket: string,
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse> {
     return await this.withConnectionMgmt(async () => {
@@ -627,6 +724,8 @@ export class RippleHandler {
           TransactionType: 'CheckCash',
           Account: this.issuerAddress,
           CheckID: checkID,
+          TicketSequence: new Decimal(ticket).toNumber(),
+          Sequence: 0,
           Amount: {
             currency: XRPL_DLCBTC_CURRENCY_HEX,
             value: dlcBTCAmount,
@@ -679,7 +778,7 @@ export class RippleHandler {
     updatedValueMinted: number,
     destinationAddress: string,
     valueMinted: number,
-    incrementBy: number = 0,
+    ticket: string,
     autoFillValues?: AutoFillValues
   ): Promise<MultisignatureTransactionResponse | undefined> {
     return await this.withConnectionMgmt(async () => {
@@ -697,6 +796,8 @@ export class RippleHandler {
         const sendTokenTransactionJSON: Payment = {
           TransactionType: 'Payment',
           Account: this.issuerAddress,
+          TicketSequence: new Decimal(ticket).toNumber(),
+          Sequence: 0,
           Destination: destinationAddress,
           DestinationTag: 1,
           Amount: {
@@ -723,10 +824,6 @@ export class RippleHandler {
           // https://xrpl.org/docs/concepts/accounts/tickets
           preparedSendTokenTx.LastLedgerSequence =
             Math.ceil(preparedSendTokenTx.LastLedgerSequence! / 10000 + 1) * 10000;
-
-          if (incrementBy > 0) {
-            preparedSendTokenTx.Sequence = preparedSendTokenTx.Sequence! + incrementBy;
-          }
         }
 
         console.log('Issuer is about to sign the following mintTokens tx: ', preparedSendTokenTx);
