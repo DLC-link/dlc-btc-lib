@@ -1,7 +1,6 @@
 import { Decimal } from 'decimal.js';
 import { BigNumber } from 'ethers';
 import xrpl, {
-  AccountNFTsRequest,
   AccountObject,
   AccountObjectsResponse,
   CheckCash,
@@ -15,10 +14,10 @@ import { NFTokenMintMetadata } from 'xrpl/dist/npm/models/transactions/NFTokenMi
 import { XRPL_DLCBTC_CURRENCY_HEX } from '../constants/ripple.constants.js';
 import {
   connectRippleClient,
-  decodeURI,
   encodeURI,
   getAllRippleVaults,
   getCheckByTXHash,
+  getNFTokenIdForVault,
   getRippleVault,
 } from '../functions/ripple/ripple.functions.js';
 import { RippleError } from '../models/errors.js';
@@ -189,20 +188,17 @@ export class RippleHandler {
       try {
         console.log(`Performing Withdraw from Vault: ${uuid}`);
 
-        let nftUUID = uuid.substring(0, 2) === '0x' ? uuid.slice(2) : uuid;
-        nftUUID = nftUUID.toUpperCase();
-        const thisVault = await this.getRawVault(nftUUID);
-        const burnSig = await this.burnNFT(
-          nftUUID,
-          1,
-          autoFillValues.find(sig => sig.signatureType === 'burnNFT')
-        );
-
+        const thisVault = await this.getRawVault(uuid);
         thisVault.valueMinted = thisVault.valueMinted.sub(BigNumber.from(withdrawAmount));
         const mintSig = await this.mintNFT(
           thisVault,
-          2,
+          1,
           autoFillValues.find(sig => sig.signatureType === 'mintNFT')
+        );
+        const burnSig = await this.burnNFT(
+          uuid,
+          2,
+          autoFillValues.find(sig => sig.signatureType === 'burnNFT')
         );
         return [burnSig, mintSig];
       } catch (error) {
@@ -214,16 +210,16 @@ export class RippleHandler {
   async setVaultStatusFunded(xrplSignatures: XRPLSignatures[]): Promise<void> {
     return await this.withConnectionMgmt(async () => {
       try {
-        console.log('Doing the burn for SSF');
-        const burn_multisig_tx = xrpl.multisign(
-          xrplSignatures.find(sig => sig.signatureType === 'burnNFT')!.signatures
+        console.log('Doing the mint for SSF');
+        const mint_multisig_tx = xrpl.multisign(
+          xrplSignatures.find(sig => sig.signatureType === 'mintNFT')!.signatures
         );
-        const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(burn_multisig_tx);
-        const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
-        if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
+        const mintTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+          await this.client.submitAndWait(mint_multisig_tx);
+        const mintMeta: NFTokenMintMetadata = mintTx.result.meta! as NFTokenMintMetadata;
+        if (mintMeta!.TransactionResult !== 'tesSUCCESS') {
           throw new RippleError(
-            `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
+            `Could not mint temporary Ripple Vault: ${mintMeta!.TransactionResult}`
           );
         }
 
@@ -247,19 +243,19 @@ export class RippleHandler {
           console.log('No need to mint tokens, because this was a withdraw flow SSF');
         }
 
-        console.log('Success! Now Doing the mint for SSF');
-        // multisig mint
-        const mint_multisig_tx = xrpl.multisign(
-          xrplSignatures.find(sig => sig.signatureType === 'mintNFT')!.signatures
+        console.log('Doing the burn for SSF');
+        const burn_multisig_tx = xrpl.multisign(
+          xrplSignatures.find(sig => sig.signatureType === 'burnNFT')!.signatures
         );
-        const mintTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(mint_multisig_tx);
-        const mintMeta: NFTokenMintMetadata = mintTx.result.meta! as NFTokenMintMetadata;
-        if (mintMeta!.TransactionResult !== 'tesSUCCESS') {
+        const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+          await this.client.submitAndWait(burn_multisig_tx);
+        const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
+        if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
           throw new RippleError(
-            `Could not mint temporary Ripple Vault: ${mintMeta!.TransactionResult}`
+            `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
           );
         }
+        console.log('Success! Done with SSF');
       } catch (error) {
         throw new RippleError(`Unable to set Vault status to FUNDED: ${error}`);
       }
@@ -270,7 +266,6 @@ export class RippleHandler {
     return await this.withConnectionMgmt(async () => {
       try {
         console.log('Doing the check cashing');
-        // multisig burn
         const cash_check_tx = xrpl.multisign(
           xrplSignatures.find(sig => sig.signatureType === 'cashCheck')!.signatures
         );
@@ -281,23 +276,7 @@ export class RippleHandler {
           throw new RippleError(`Could not cash check: ${cashCheckMeta!.TransactionResult}`);
         }
 
-        console.log('Doing the burn for SSP');
-        // multisig burn
-        const burn_multisig_tx = xrpl.multisign(
-          xrplSignatures.find(sig => sig.signatureType === 'burnNFT')!.signatures
-        );
-        const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(burn_multisig_tx); // add timeouts
-        const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
-        if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
-          throw new RippleError(
-            `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
-          );
-        }
-
-        console.log('Success! Now Doing the mint for SSP');
-
-        // multisig mint
+        console.log('Success! Doing the mint for checkCashAndNftUpdate');
         const mint_multisig_tx = xrpl.multisign(
           xrplSignatures.find(sig => sig.signatureType === 'mintNFT')!.signatures
         );
@@ -310,7 +289,19 @@ export class RippleHandler {
           );
         }
 
-        console.log('Success! Done with the mint for SSP');
+        console.log('Success! Doing the burn for checkCashAndNftUpdate');
+        const burn_multisig_tx = xrpl.multisign(
+          xrplSignatures.find(sig => sig.signatureType === 'burnNFT')!.signatures
+        );
+        const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+          await this.client.submitAndWait(burn_multisig_tx); // add timeouts
+        const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
+        if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
+          throw new RippleError(
+            `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
+          );
+        }
+        console.log('Success! Done with the checkCashAndNftUpdate flow');
       } catch (error) {
         throw new RippleError(`Unable to set Vault status to PENDING: ${error}`);
       }
@@ -320,23 +311,7 @@ export class RippleHandler {
   async setVaultStatusPending(xrplSignatures: XRPLSignatures[]): Promise<void> {
     return await this.withConnectionMgmt(async () => {
       try {
-        console.log('Doing the burn for SSP');
-        // multisig burn
-        const burn_multisig_tx = xrpl.multisign(
-          xrplSignatures.find(sig => sig.signatureType === 'burnNFT')!.signatures
-        );
-        const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(burn_multisig_tx);
-        const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
-        if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
-          throw new RippleError(
-            `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
-          );
-        }
-
-        console.log('Success! Now Doing the mint for SSP');
-
-        // multisig mint
+        console.log('Doing the mint for SSP');
         const mint_multisig_tx = xrpl.multisign(
           xrplSignatures.find(sig => sig.signatureType === 'mintNFT')!.signatures
         );
@@ -349,7 +324,20 @@ export class RippleHandler {
           );
         }
 
-        console.log('Success! Done with the mint for SSP');
+        console.log('Success! Doing the burn for SSP');
+        const burn_multisig_tx = xrpl.multisign(
+          xrplSignatures.find(sig => sig.signatureType === 'burnNFT')!.signatures
+        );
+        const burnTx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
+          await this.client.submitAndWait(burn_multisig_tx);
+        const burnMeta: NFTokenMintMetadata = burnTx.result.meta! as NFTokenMintMetadata;
+        if (burnMeta!.TransactionResult !== 'tesSUCCESS') {
+          throw new RippleError(
+            `Could not burn temporary Ripple Vault: ${burnMeta!.TransactionResult}`
+          );
+        }
+
+        console.log('Success! Done with the SSP Flow');
       } catch (error) {
         throw new RippleError(`Unable to set Vault status to PENDING: ${error}`);
       }
@@ -366,31 +354,6 @@ export class RippleHandler {
     });
   }
 
-  async getNFTokenIdForVault(uuid: string): Promise<string> {
-    return await this.withConnectionMgmt(async () => {
-      console.log(`Getting NFTokenId for vault: ${uuid}`);
-      try {
-        const getNFTsTransaction: AccountNFTsRequest = {
-          command: 'account_nfts',
-          account: this.issuerAddress,
-          limit: 400,
-        };
-
-        const nfts: xrpl.AccountNFTsResponse = await this.client.request(getNFTsTransaction);
-        const matchingNFT = nfts.result.account_nfts.find(
-          nft => decodeURI(nft.URI!).uuid.slice(2) === uuid
-        );
-
-        if (!matchingNFT) {
-          throw new RippleError(`Vault for uuid: ${uuid} not found`);
-        }
-        return matchingNFT.NFTokenID;
-      } catch (error) {
-        throw new RippleError(`Could not find NFTokenId for vault Vault: ${error}`);
-      }
-    });
-  }
-
   async burnNFT(
     nftUUID: string,
     incrementBy: number = 0,
@@ -398,8 +361,13 @@ export class RippleHandler {
   ): Promise<MultisignatureTransactionResponse> {
     return await this.withConnectionMgmt(async () => {
       try {
-        console.log(`Getting sig for Burning Ripple Vault, vault: ${nftUUID}`);
-        const nftTokenId = await this.getNFTokenIdForVault(nftUUID);
+        let formattedUUID = nftUUID.substring(0, 2) === '0x' ? nftUUID.slice(2) : nftUUID;
+        formattedUUID = formattedUUID.toUpperCase();
+        const nftTokenId = await getNFTokenIdForVault(
+          this.client,
+          this.issuerAddress,
+          formattedUUID
+        );
         const burnTransactionJson: SubmittableTransaction = {
           TransactionType: 'NFTokenBurn',
           Account: this.issuerAddress,
@@ -520,7 +488,7 @@ export class RippleHandler {
           taprootPubKey: updates.taprootPubKey,
         };
         console.log(`the updated vault: `, updatedVault);
-        return await this.mintNFT(updatedVault, 1, autoFillValues);
+        return await this.mintNFT(updatedVault, 0, autoFillValues);
       } catch (error) {
         throw new RippleError(`Could not update Vault: ${error}`);
       }
