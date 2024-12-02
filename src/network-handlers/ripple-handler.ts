@@ -1,11 +1,5 @@
 import { Decimal } from 'decimal.js';
 import { BigNumber } from 'ethers';
-import {
-  AutoFillValues,
-  MultisignatureTransactionResponse,
-  SignResponse,
-  XRPLSignatures,
-} from 'src/models/ripple.model.js';
 import xrpl, {
   AccountNFTsRequest,
   AccountObject,
@@ -29,6 +23,12 @@ import {
 } from '../functions/ripple/ripple.functions.js';
 import { RippleError } from '../models/errors.js';
 import { RawVault, SSFVaultUpdate, SSPVaultUpdate } from '../models/ethereum-models.js';
+import {
+  AutoFillValues,
+  MultisignatureTransactionResponse,
+  SignResponse,
+  XRPLSignatures,
+} from '../models/ripple.model.js';
 import { shiftValue, unshiftValue } from '../utilities/index.js';
 
 function buildDefaultNftVault(): RawVault {
@@ -47,6 +47,7 @@ function buildDefaultNftVault(): RawVault {
     btcMintFeeBasisPoints: BigNumber.from(100),
     btcRedeemFeeBasisPoints: BigNumber.from(100),
     taprootPubKey: '0'.repeat(64),
+    icyIntegrationAddress: '',
   };
 }
 

@@ -1,16 +1,19 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { Transaction, p2tr, p2wpkh } from '@scure/btc-signer';
-import { regtest, testnet } from 'bitcoinjs-lib/src/networks';
+import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks';
 
 import {
   createTaprootMultisigPayment,
   deriveUnhardenedPublicKey,
   ecdsaPublicKeyToSchnorr,
   finalizeUserInputs,
+  getFeeAmount,
+  getFeeRecipientAddress,
   getInputIndicesByScript,
   getScriptMatchingOutputFromTransaction,
   getUnspendableKeyCommittedToUUID,
 } from '../../src/functions/bitcoin/bitcoin-functions';
+import { shiftValue, unshiftValue } from '../../src/utilities';
 import {
   TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
   TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1,
@@ -63,6 +66,82 @@ describe('Bitcoin Functions', () => {
       const aliceScript = hexToBytes(TEST_ALICE_NATIVE_SEGWIT_PAYMENT_SCRIPT_1);
       const inputIndices = getInputIndicesByScript(aliceScript, transaction);
       expect(inputIndices).toEqual([]);
+    });
+  });
+
+  describe('getFeeRecipientAddress', () => {
+    describe('mainnet', () => {
+      const network = bitcoin;
+
+      it('accepts native segwit (p2wpkh) address', () => {
+        const address = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('accepts taproot (p2tr) address', () => {
+        const address = 'bc1qw02rsw9afgp4dsd5n87z5s6rqnf455yhhsnz9f';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('converts public key to native segwit address', () => {
+        const publicKey = '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+        const expectedAddress = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
+        expect(getFeeRecipientAddress(publicKey, network)).toBe(expectedAddress);
+      });
+    });
+
+    describe('testnet', () => {
+      const network = testnet;
+
+      it('accepts native segwit (p2wpkh) address', () => {
+        const address = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('accepts taproot (p2tr) address', () => {
+        const address = 'tb1qqhy33peyp82mf82fktdtphfmnhtxyhtp6x9hrc';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('converts public key to native segwit address', () => {
+        const publicKey = '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+        const expectedAddress = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
+        expect(getFeeRecipientAddress(publicKey, network)).toBe(expectedAddress);
+      });
+    });
+
+    describe('regtest', () => {
+      const network = regtest;
+
+      it('accepts native segwit (p2wpkh) address', () => {
+        const address = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('accepts taproot (p2tr) address', () => {
+        const address = 'bcrt1qqhy33peyp82mf82fktdtphfmnhtxyhtpc0u653';
+        expect(getFeeRecipientAddress(address, network)).toBe(address);
+      });
+
+      it('converts public key to native segwit address', () => {
+        const publicKey = '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+        const expectedAddress = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080';
+        expect(getFeeRecipientAddress(publicKey, network)).toBe(expectedAddress);
+      });
+    });
+
+    describe('error cases', () => {
+      it('throws on invalid public key', () => {
+        const invalidKey = 'invalidPublicKey';
+        expect(() => getFeeRecipientAddress(invalidKey, bitcoin)).toThrow(
+          'P2WPKH: invalid publicKey'
+        );
+      });
+
+      it('throws on invalid address', () => {
+        const invalidAddress = 'invalidAddress';
+        expect(() => getFeeRecipientAddress(invalidAddress, bitcoin)).toThrow();
+      });
     });
   });
 
@@ -178,6 +257,29 @@ describe('Bitcoin Functions', () => {
       );
 
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getFeeAmount', () => {
+    test('calculates correct fee for whole numbers', () => {
+      expect(getFeeAmount(1000000, 50)).toBe(5000);
+      expect(getFeeAmount(1000000, 25)).toBe(2500);
+    });
+
+    test('handles small fee basis points', () => {
+      expect(getFeeAmount(1000000, 1)).toBe(100);
+      expect(getFeeAmount(2000000, 1)).toBe(200);
+    });
+
+    test('handles typical fee calculations', () => {
+      expect(getFeeAmount(1500000, 15)).toBe(2250);
+      expect(getFeeAmount(2000000, 25)).toBe(5000);
+    });
+
+    test('properly drops decimals', () => {
+      expect(getFeeAmount(1008584578, 15)).toBe(1512876);
+      expect(getFeeAmount(1234567, 15)).toBe(1851); // 1234567 * 15 / 10000 = 1851.8505 -> 1851
+      expect(getFeeAmount(9876543, 23)).toBe(22716); // 9876543 * 23 / 10000 = 22716.0489 -> 22716
     });
   });
 });

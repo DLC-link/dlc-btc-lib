@@ -17,6 +17,7 @@ export const TEST_VAULT_1: RawVault = {
   btcMintFeeBasisPoints: BigNumber.from('0x64'),
   btcRedeemFeeBasisPoints: BigNumber.from('0x64'),
   taprootPubKey: '',
+  icyIntegrationAddress: '',
 };
 
 export const TEST_VAULT_2: RawVault = {
@@ -34,6 +35,7 @@ export const TEST_VAULT_2: RawVault = {
   btcMintFeeBasisPoints: BigNumber.from('0x64'),
   btcRedeemFeeBasisPoints: BigNumber.from('0x64'),
   taprootPubKey: 'dc544c17af0887dfc8ca9936755c9fdef0c79bbc8866cd69bf120c71509742d2',
+  icyIntegrationAddress: '',
 };
 
 export const TEST_VAULT_3: RawVault = {
@@ -51,4 +53,5 @@ export const TEST_VAULT_3: RawVault = {
   btcMintFeeBasisPoints: BigNumber.from('0x64'),
   btcRedeemFeeBasisPoints: BigNumber.from('0x64'),
   taprootPubKey: 'b362931e3e4cf3cc20f75ae11ff5a4c115ec1548cb5f2c7c48294929f1e8979c',
+  icyIntegrationAddress: '',
 };
