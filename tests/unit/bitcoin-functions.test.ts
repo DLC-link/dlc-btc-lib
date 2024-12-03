@@ -78,7 +78,7 @@ describe('Bitcoin Functions', () => {
       });
 
       it('accepts taproot (p2tr) address', () => {
-        const address = 'bc1qw02rsw9afgp4dsd5n87z5s6rqnf455yhhsnz9f';
+        const address = 'bc1pgj9ef0lhysgd2v042jta4mv8qmc70yappkv7vpl76dhfvrdfvusqqe4qj3';
         expect(getFeeRecipientAddress(address, network)).toBe(address);
       });
 
@@ -103,7 +103,7 @@ describe('Bitcoin Functions', () => {
       });
 
       it('accepts taproot (p2tr) address', () => {
-        const address = 'tb1qqhy33peyp82mf82fktdtphfmnhtxyhtp6x9hrc';
+        const address = 'tb1pa8hxt6r2gkc8d5thzfrw7gyrqlv354rdy4k05ylkvf6nadnhg8xsygyusf';
         expect(getFeeRecipientAddress(address, network)).toBe(address);
       });
 
@@ -128,7 +128,7 @@ describe('Bitcoin Functions', () => {
       });
 
       it('accepts taproot (p2tr) address', () => {
-        const address = 'bcrt1qqhy33peyp82mf82fktdtphfmnhtxyhtpc0u653';
+        const address = 'bcrt1pa8hxt6r2gkc8d5thzfrw7gyrqlv354rdy4k05ylkvf6nadnhg8xsf3w69n';
         expect(getFeeRecipientAddress(address, network)).toBe(address);
       });
 
