@@ -3,7 +3,7 @@ import { WebAuthnSigner } from '@dfns/sdk-browser';
 import { GenerateSignatureBody, ListWalletsResponse } from '@dfns/sdk/generated/wallets/types.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { Transaction, p2tr } from '@scure/btc-signer';
-import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
+import { P2TROut } from '@scure/btc-signer/payment';
 import { Network } from 'bitcoinjs-lib';
 
 import {
@@ -50,7 +50,7 @@ export class DFNSDLCHandler {
     this.bitcoinNetwork = bitcoinNetwork;
   }
 
-  private setPayment(fundingPayment: P2Ret | P2TROut, multisigPayment: P2TROut): void {
+  private setPayment(fundingPayment: P2TROut, multisigPayment: P2TROut): void {
     this.payment = {
       fundingPayment,
       multisigPayment,
@@ -120,21 +120,17 @@ export class DFNSDLCHandler {
       throw new Error('Payment Objects have not been set');
     }
 
-    let address: string;
-
     switch (paymentType) {
       case 'funding':
         if (!payment.fundingPayment.address) {
           throw new Error('Funding Payment Address is undefined');
         }
-        address = payment.fundingPayment.address;
-        return address;
+        return payment.fundingPayment.address;
       case 'multisig':
         if (!payment.multisigPayment.address) {
           throw new Error('Taproot Multisig Payment Address is undefined');
         }
-        address = payment.multisigPayment.address;
-        return address;
+        return payment.multisigPayment.address;
       default:
         throw new Error('Invalid Payment Type');
     }
@@ -148,6 +144,7 @@ export class DFNSDLCHandler {
       if (!this.taprootDerivedPublicKey) {
         throw new Error('Taproot Derived Public Key not set');
       }
+
       const fundingPayment = p2tr(
         ecdsaPublicKeyToSchnorr(Buffer.from(this.taprootDerivedPublicKey, 'hex')),
         undefined,
@@ -322,8 +319,6 @@ export class DFNSDLCHandler {
             firstFactor: assertion,
           }
         );
-
-      console.log('generateSignatureCompleteResponse', generateSignatureCompleteResponse);
 
       const signedPSBT = generateSignatureCompleteResponse.signedData;
 
