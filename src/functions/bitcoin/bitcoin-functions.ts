@@ -12,7 +12,7 @@ import {
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { TransactionInput } from '@scure/btc-signer/psbt';
 import { BIP32Factory, BIP32Interface } from 'bip32';
-import { Network, address } from 'bitcoinjs-lib';
+import { Network, address, initEccLib } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
@@ -37,6 +37,7 @@ const TAPROOT_UNSPENDABLE_KEY_HEX =
 const ECDSA_PUBLIC_KEY_LENGTH = 33;
 
 const bip32 = BIP32Factory(ellipticCurveCryptography);
+initEccLib(ellipticCurveCryptography);
 
 export function getFeeAmount(bitcoinAmount: number, feeBasisPoints: number): number {
   const feePercentage = new Decimal(feeBasisPoints).dividedBy(10000);
