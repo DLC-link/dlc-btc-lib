@@ -1,6 +1,6 @@
 import { Transaction } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
-import { Network, Psbt } from 'bitcoinjs-lib';
+import { Network } from 'bitcoinjs-lib';
 
 import {
   createNativeSegwitPayment,
@@ -21,10 +21,10 @@ import {
 import { PaymentInformation } from '../models/bitcoin-models.js';
 import { RawVault } from '../models/ethereum-models.js';
 
-type DLCHandlerType = 'browser' | 'ledger' | 'dfns';
-type FundingPaymentType = 'wpkh' | 'tr';
-type PaymentType = 'funding' | 'multisig';
-type TransactionType = 'funding' | 'deposit' | 'withdraw';
+export type DLCHandlerType = 'browser' | 'ledger' | 'dfns';
+export type FundingPaymentType = 'wpkh' | 'tr';
+export type PaymentType = 'funding' | 'multisig';
+export type TransactionType = 'funding' | 'deposit' | 'withdraw';
 
 export class DLCHandlerError extends Error {
   constructor(message: string) {
@@ -67,6 +67,13 @@ export class InsufficientFundsError extends DLCHandlerError {
   constructor(available: bigint, required: bigint) {
     super(`Insufficient funds: have ${available}, need ${required}`);
     this.name = 'InsufficientFundsError';
+  }
+}
+
+export class IncompatibleTransactionArgument extends DLCHandlerError {
+  constructor() {
+    super('Incompatible transaction argument');
+    this.name = 'IncompatibleTransactionArgument';
   }
 }
 
@@ -278,12 +285,12 @@ export abstract class AbstractDLCHandler {
     this.transactionFinalizers[transactionType](signedTransaction, fundingPayment);
   }
 
-  abstract signPSBT<T extends Psbt | Transaction>(
-    transaction: T,
+  abstract signPSBT(
+    transaction: Transaction,
     transactionType: TransactionType
   ): Promise<Transaction>;
 
-  abstract getUserTaprootPublicKey(): string;
+  abstract getUserTaprootPublicKey(tweaked?: boolean): string;
 
   abstract getUserFundingPublicKey(): string;
 }
