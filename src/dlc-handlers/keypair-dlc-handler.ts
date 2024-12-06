@@ -8,19 +8,15 @@ import {
   deriveUnhardenedKeyPairFromRootPrivateKey,
   getInputIndicesByScript,
 } from '../functions/bitcoin/bitcoin-functions.js';
-import { PaymentInformation } from '../models/bitcoin-models.js';
+import { FundingPaymentType, PaymentType, TransactionType } from '../models/dlc-handler.models.js';
 import {
-  AbstractDLCHandler,
-  FundingPaymentType,
   InvalidTransactionTypeError,
   PaymentNotSetError,
-  PaymentType,
-  TransactionType,
-} from './abstract-dlc-handler.js';
+} from '../models/errors/dlc-handler.errors.models.js';
+import { AbstractDLCHandler } from './abstract-dlc-handler.js';
 
-export class PrivateKeyDLCHandler extends AbstractDLCHandler {
-  readonly _dlcHandlerType = 'browser' as const;
-  protected _payment?: PaymentInformation;
+export class KeyPairDLCHandler extends AbstractDLCHandler {
+  readonly _dlcHandlerType = 'keypair' as const;
   private fundingDerivedKeyPair: BIP32Interface;
   private taprootDerivedKeyPair: BIP32Interface;
 

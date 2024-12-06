@@ -2,13 +2,9 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { Transaction } from '@scure/btc-signer';
 import { Network } from 'bitcoinjs-lib';
 
-import { PaymentInformation } from '../models/bitcoin-models.js';
-import {
-  AbstractDLCHandler,
-  FundingPaymentType,
-  PaymentNotSetError,
-  TransactionType,
-} from './abstract-dlc-handler.js';
+import { FundingPaymentType, TransactionType } from '../models/dlc-handler.models.js';
+import { PaymentNotSetError } from '../models/errors/dlc-handler.errors.models.js';
+import { AbstractDLCHandler } from './abstract-dlc-handler.js';
 
 const networkModes = ['mainnet', 'testnet', 'regtest'] as const;
 
@@ -33,8 +29,7 @@ interface SignPsbtRequestParams {
 }
 
 export class LeatherDLCHandler extends AbstractDLCHandler {
-  readonly _dlcHandlerType = 'browser' as const;
-  protected _payment?: PaymentInformation;
+  readonly _dlcHandlerType = 'leather' as const;
   private taprootDerivedPublicKey: string;
   private fundingDerivedPublicKey: string;
 

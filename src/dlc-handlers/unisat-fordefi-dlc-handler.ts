@@ -1,15 +1,11 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { Transaction } from '@scure/btc-signer';
 import { Network } from 'bitcoinjs-lib';
-import { getInputIndicesByScript } from 'src/functions/bitcoin/bitcoin-functions.js';
 
-import { PaymentInformation } from '../models/bitcoin-models.js';
-import {
-  AbstractDLCHandler,
-  FundingPaymentType,
-  PaymentNotSetError,
-  TransactionType,
-} from './abstract-dlc-handler.js';
+import { getInputIndicesByScript } from '../functions/bitcoin/bitcoin-functions.js';
+import { FundingPaymentType, TransactionType } from '../models/dlc-handler.models.js';
+import { PaymentNotSetError } from '../models/errors/dlc-handler.errors.models.js';
+import { AbstractDLCHandler } from './abstract-dlc-handler.js';
 
 export interface UnisatToSignInput {
   index: number;
@@ -25,8 +21,7 @@ export interface UnisatSignPsbtRequestOptions {
 }
 
 export class UnisatFordefiDLCHandler extends AbstractDLCHandler {
-  readonly _dlcHandlerType = 'browser' as const;
-  protected _payment?: PaymentInformation;
+  readonly _dlcHandlerType = 'unisat/fordefi' as const;
   private taprootDerivedPublicKey: string;
   private fundingDerivedPublicKey: string;
 

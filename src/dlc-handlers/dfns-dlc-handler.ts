@@ -5,45 +5,17 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { Transaction } from '@scure/btc-signer';
 import { Network } from 'bitcoinjs-lib';
 
-import { PaymentInformation } from '../models/bitcoin-models.js';
+import { FundingPaymentType, TransactionType } from '../models/dlc-handler.models.js';
 import {
-  AbstractDLCHandler,
-  DLCHandlerError,
-  FundingPaymentType,
+  DFNSWalletIDNotSetError,
   PaymentNotSetError,
-  TransactionType,
-} from './abstract-dlc-handler.js';
-
-export class DFNSWalletIDNotSetError extends DLCHandlerError {
-  constructor(
-    message: string = 'DFNS Wallet ID not set. Make sure to initialize the wallet before attempting to access it.'
-  ) {
-    super(message);
-    this.name = 'DFNSWalletIDNotSetError';
-  }
-}
-
-export class TaprootDerivedPublicKeyNotSet extends DLCHandlerError {
-  constructor(
-    message: string = 'Taproot Derived Public Key not set. Make sure to initialize the wallet before attempting to access it.'
-  ) {
-    super(message);
-    this.name = 'TaprootDerivedPublicKeyNotSet';
-  }
-}
-
-export class SignatureGenerationFailed extends DLCHandlerError {
-  constructor(
-    message: string = 'Signature generation failed. Make sure to initialize the wallet before attempting to access it.'
-  ) {
-    super(message);
-    this.name = 'SignatureGenerationFailed';
-  }
-}
+  SignatureGenerationFailed,
+  TaprootDerivedPublicKeyNotSet,
+} from '../models/errors/dlc-handler.errors.models.js';
+import { AbstractDLCHandler } from './abstract-dlc-handler.js';
 
 export class DFNSDLCHandler extends AbstractDLCHandler {
   readonly _dlcHandlerType = 'dfns' as const;
-  protected _payment?: PaymentInformation;
   private readonly dfnsDelegatedAPIClient: DfnsDelegatedApiClient;
   private _taprootDerivedPublicKey?: string;
   private _dfnsWalletID?: string;
@@ -70,6 +42,21 @@ export class DFNSDLCHandler extends AbstractDLCHandler {
     });
   }
 
+  set dfnsWalletID(dfnsWalletID: string) {
+    this._dfnsWalletID = dfnsWalletID;
+  }
+
+  get dfnsWalletID(): string {
+    if (!this._dfnsWalletID) {
+      throw new DFNSWalletIDNotSetError();
+    }
+    return this._dfnsWalletID;
+  }
+
+  set taprootDerivedPublicKey(taprootDerivedPublicKey: string) {
+    this._taprootDerivedPublicKey = taprootDerivedPublicKey;
+  }
+
   async getWallets(): Promise<ListWalletsResponse> {
     try {
       return await this.dfnsDelegatedAPIClient.wallets.listWallets();
@@ -90,27 +77,12 @@ export class DFNSDLCHandler extends AbstractDLCHandler {
     }
   }
 
-  set dfnsWalletID(dfnsWalletID: string) {
-    this._dfnsWalletID = dfnsWalletID;
-  }
-
-  get dfnsWalletID(): string {
-    if (!this._dfnsWalletID) {
-      throw new DFNSWalletIDNotSetError();
-    }
-    return this._dfnsWalletID;
-  }
-
-  set taprootDerivedPublicKey(taprootDerivedPublicKey: string) {
-    this._taprootDerivedPublicKey = taprootDerivedPublicKey;
-  }
-
   getUserTaprootPublicKey(tweaked: boolean = false): string {
     if (!tweaked) {
       if (!this._taprootDerivedPublicKey) {
         throw new TaprootDerivedPublicKeyNotSet();
       }
-      return this.taprootDerivedPublicKey;
+      return this._taprootDerivedPublicKey;
     }
 
     if (!this.payment) {
@@ -124,7 +96,7 @@ export class DFNSDLCHandler extends AbstractDLCHandler {
     if (!this._taprootDerivedPublicKey) {
       throw new TaprootDerivedPublicKeyNotSet();
     }
-    return this.taprootDerivedPublicKey;
+    return this._taprootDerivedPublicKey;
   }
 
   async signPSBT(transaction: Transaction, transactionType: TransactionType): Promise<Transaction> {

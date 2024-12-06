@@ -19,68 +19,24 @@ import {
   createWithdrawTransaction,
 } from '../functions/bitcoin/psbt-functions.js';
 import { PaymentInformation } from '../models/bitcoin-models.js';
+import {
+  DLCHandlerType,
+  FundingPaymentType,
+  PaymentType,
+  TransactionType,
+} from '../models/dlc-handler.models.js';
+import {
+  AddressNotFoundError,
+  InsufficientFundsError,
+  InvalidPaymentTypeError,
+  PaymentNotSetError,
+} from '../models/errors/dlc-handler.errors.models.js';
 import { RawVault } from '../models/ethereum-models.js';
-
-export type DLCHandlerType = 'browser' | 'ledger' | 'dfns';
-export type FundingPaymentType = 'wpkh' | 'tr';
-export type PaymentType = 'funding' | 'multisig';
-export type TransactionType = 'funding' | 'deposit' | 'withdraw';
-
-export class DLCHandlerError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'DLCHandlerError';
-  }
-}
-
-export class PaymentNotSetError extends DLCHandlerError {
-  constructor(
-    message: string = 'Payment information not initialized. Make sure to create payments before attempting to access them.'
-  ) {
-    super(message);
-    this.name = 'PaymentNotSetError';
-  }
-}
-
-export class AddressNotFoundError extends DLCHandlerError {
-  constructor(paymentType: PaymentType) {
-    super(`Address not found for ${paymentType} payment`);
-    this.name = 'AddressNotFoundError';
-  }
-}
-
-export class InvalidPaymentTypeError extends DLCHandlerError {
-  constructor(paymentType: PaymentType) {
-    super(`Invalid payment type: ${paymentType}`);
-    this.name = 'InvalidPaymentTypeError';
-  }
-}
-
-export class InvalidTransactionTypeError extends DLCHandlerError {
-  constructor(transactionType: TransactionType) {
-    super(`Invalid transaction type: ${transactionType}`);
-    this.name = 'InvalidTransactionTypeError';
-  }
-}
-
-export class InsufficientFundsError extends DLCHandlerError {
-  constructor(available: bigint, required: bigint) {
-    super(`Insufficient funds: have ${available}, need ${required}`);
-    this.name = 'InsufficientFundsError';
-  }
-}
-
-export class IncompatibleTransactionArgument extends DLCHandlerError {
-  constructor() {
-    super('Incompatible transaction argument');
-    this.name = 'IncompatibleTransactionArgument';
-  }
-}
 
 export abstract class AbstractDLCHandler {
   abstract readonly _dlcHandlerType: DLCHandlerType;
   protected fundingPaymentType: FundingPaymentType;
-  protected abstract _payment?: PaymentInformation;
+  protected _payment?: PaymentInformation;
   protected readonly bitcoinNetwork: Network;
   protected readonly bitcoinBlockchainAPI: string;
   protected readonly bitcoinBlockchainFeeRecommendationAPI: string;

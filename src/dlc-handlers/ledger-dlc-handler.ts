@@ -25,16 +25,17 @@ import {
   updateNativeSegwitInputs,
   updateTaprootInputs,
 } from '../functions/bitcoin/psbt-functions.js';
-import { ExtendedPaymentInformation, PaymentInformation } from '../models/bitcoin-models.js';
+import { ExtendedPaymentInformation } from '../models/bitcoin-models.js';
+import { FundingPaymentType, TransactionType } from '../models/dlc-handler.models.js';
+import {
+  FundingDerivedPublicKeyNotSet,
+  IncompatibleTransactionArgument,
+  PolicyInformationNotSet,
+  TaprootDerivedPublicKeyNotSet,
+} from '../models/errors/dlc-handler.errors.models.js';
 import { RawVault } from '../models/ethereum-models.js';
 import { truncateAddress } from '../utilities/index.js';
-import {
-  AbstractDLCHandler,
-  DLCHandlerError,
-  FundingPaymentType,
-  IncompatibleTransactionArgument,
-  TransactionType,
-} from './abstract-dlc-handler.js';
+import { AbstractDLCHandler } from './abstract-dlc-handler.js';
 
 interface LedgerPolicyInformation {
   fundingWalletPolicy: DefaultWalletPolicy;
@@ -42,36 +43,8 @@ interface LedgerPolicyInformation {
   multisigWalletPolicyHMac: Buffer;
 }
 
-export class PolicyInformationNotSet extends DLCHandlerError {
-  constructor(
-    message: string = 'Policy Information not initialized. Make sure to create payments before attempting to access them.'
-  ) {
-    super(message);
-    this.name = 'PolicyInformationNotSet';
-  }
-}
-
-export class TaprootDerivedPublicKeyNotSet extends DLCHandlerError {
-  constructor(
-    message: string = 'Taproot Derived Public Key not set. Make sure to initialize the wallet before attempting to access it.'
-  ) {
-    super(message);
-    this.name = 'TaprootDerivedPublicKeyNotSet';
-  }
-}
-
-export class FundingDerivedPublicKeyNotSet extends DLCHandlerError {
-  constructor(
-    message: string = 'Funding Derived Public Key not set. Make sure to initialize the wallet before attempting to access it.'
-  ) {
-    super(message);
-    this.name = 'FundingDerivedPublicKeyNotSet';
-  }
-}
-
 export class LedgerDLCHandler extends AbstractDLCHandler {
   readonly _dlcHandlerType = 'ledger' as const;
-  protected _payment?: PaymentInformation;
   private ledgerApp: AppClient;
   private masterFingerprint: string;
   private walletAccountIndex: number;
