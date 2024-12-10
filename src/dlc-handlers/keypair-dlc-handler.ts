@@ -16,7 +16,7 @@ import {
 import { AbstractDLCHandler } from './abstract-dlc-handler.js';
 
 export class KeyPairDLCHandler extends AbstractDLCHandler {
-  readonly _dlcHandlerType = 'keypair' as const;
+  readonly dlcHandlerType = 'keypair' as const;
   private fundingDerivedKeyPair: BIP32Interface;
   private taprootDerivedKeyPair: BIP32Interface;
 

@@ -15,7 +15,7 @@ import {
 import { AbstractDLCHandler } from './abstract-dlc-handler.js';
 
 export class DFNSDLCHandler extends AbstractDLCHandler {
-  readonly _dlcHandlerType = 'dfns' as const;
+  readonly dlcHandlerType = 'dfns' as const;
   private readonly dfnsDelegatedAPIClient: DfnsDelegatedApiClient;
   private _taprootDerivedPublicKey?: string;
   private _dfnsWalletID?: string;

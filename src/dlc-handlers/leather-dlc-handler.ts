@@ -29,7 +29,7 @@ interface SignPsbtRequestParams {
 }
 
 export class LeatherDLCHandler extends AbstractDLCHandler {
-  readonly _dlcHandlerType = 'leather' as const;
+  readonly dlcHandlerType = 'leather' as const;
   private taprootDerivedPublicKey: string;
   private fundingDerivedPublicKey: string;
 

@@ -34,7 +34,7 @@ import {
 import { RawVault } from '../models/ethereum-models.js';
 
 export abstract class AbstractDLCHandler {
-  abstract readonly _dlcHandlerType: DLCHandlerType;
+  abstract readonly dlcHandlerType: DLCHandlerType;
   protected fundingPaymentType: FundingPaymentType;
   protected _payment?: PaymentInformation;
   protected readonly bitcoinNetwork: Network;

@@ -44,7 +44,7 @@ interface LedgerPolicyInformation {
 }
 
 export class LedgerDLCHandler extends AbstractDLCHandler {
-  readonly _dlcHandlerType = 'ledger' as const;
+  readonly dlcHandlerType = 'ledger' as const;
   private ledgerApp: AppClient;
   private masterFingerprint: string;
   private walletAccountIndex: number;

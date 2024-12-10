@@ -21,7 +21,7 @@ export interface UnisatSignPsbtRequestOptions {
 }
 
 export class UnisatFordefiDLCHandler extends AbstractDLCHandler {
-  readonly _dlcHandlerType = 'unisat/fordefi' as const;
+  readonly dlcHandlerType = 'unisat/fordefi' as const;
   private taprootDerivedPublicKey: string;
   private fundingDerivedPublicKey: string;
 
