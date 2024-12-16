@@ -40,12 +40,6 @@ import {
 import { TEST_VAULT_UUID_1 } from '../mocks/ethereum.test.constants';
 
 describe('Bitcoin Functions', () => {
-  describe('getFeeRate', () => {
-    it('should return the fee rate in satoshis per byte', async () => {
-      const feeRate = await getFeeRate('https://mempool.space');
-      console.log(feeRate);
-    }, 30000);
-  });
   describe('getInputIndicesByScript', () => {
     it('correctly retrieves one input index by script', () => {
       const transaction = Transaction.fromPSBT(
