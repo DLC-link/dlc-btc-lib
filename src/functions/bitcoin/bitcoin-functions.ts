@@ -221,18 +221,21 @@ export async function getFeeRate(
   const multiplier = feeRateMultiplier ?? 1;
 
   const currentBlockFeeRate = await getCurrentMempoolBlockFeeRate(bitcoinBlockchainAPIFeeURL);
-  const lastTwoBlocksFeeRate = await getLastTwoBlocksFeeRate(bitcoinBlockchainAPIFeeURL);
+  const currentBlockFeeRateMultiplied = Math.ceil(currentBlockFeeRate) * multiplier;
 
-  const feeRates = lastTwoBlocksFeeRate.concat(currentBlockFeeRate);
-  const feeRateAverage = feeRates.reduce((a, b) => a + b) / feeRates.length;
-  const feeRateAverageMultiplied = Math.ceil(feeRateAverage) * multiplier;
-  console.log('Fee Rate Average Multiplied:', feeRateAverageMultiplied);
+  const lastTwoBlocksFeeRate = await getLastTwoBlocksFeeRate(bitcoinBlockchainAPIFeeURL);
+  const lastTwoBlocksfeeRateAverage =
+    lastTwoBlocksFeeRate.reduce((a, b) => a + b) / lastTwoBlocksFeeRate.length;
+  const lastTwoBlocksfeeRateAverageMultiplied = Math.ceil(lastTwoBlocksfeeRateAverage) * multiplier;
 
   const estimatedFeeRate = await getEstimatedFeeRate(bitcoinBlockchainAPIFeeURL);
   const estimatedFeeRateMultiplied = estimatedFeeRate * multiplier;
-  console.log('Estimated Fee Rate Multiplied:', estimatedFeeRateMultiplied);
 
-  return Math.max(feeRateAverageMultiplied, estimatedFeeRateMultiplied);
+  return Math.max(
+    lastTwoBlocksfeeRateAverageMultiplied,
+    currentBlockFeeRateMultiplied,
+    estimatedFeeRateMultiplied
+  );
 }
 
 /**
