@@ -59,6 +59,14 @@ export function deriveUnhardenedPublicKey(
     .publicKey;
 }
 
+export function createTaprootPayment(publicKey: Buffer, bitcoinNetwork: Network): P2TROut {
+  return p2tr(publicKey, undefined, bitcoinNetwork);
+}
+
+export function createNativeSegwitPayment(publicKey: Buffer, bitcoinNetwork: Network): P2Ret {
+  return p2wpkh(publicKey, bitcoinNetwork);
+}
+
 /**
  * Derives the Account Key Pair from the Root Private Key.
  * @param rootPrivateKey - The Root Private Key.

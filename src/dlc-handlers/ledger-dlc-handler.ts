@@ -1,8 +1,7 @@
-import { bytesToHex } from '@noble/hashes/utils';
 import { Transaction } from '@scure/btc-signer';
-import { P2Ret, P2TROut, p2tr, p2wpkh } from '@scure/btc-signer/payment';
+import { p2tr, p2wpkh } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
-import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
+import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
 import { AppClient, DefaultWalletPolicy, WalletPolicy } from 'ledger-bitcoin';
 
 import {
@@ -13,7 +12,6 @@ import {
   getBalance,
   getFeeRate,
   getInputByPaymentTypeArray,
-  getInputIndicesByScript,
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import {
@@ -28,8 +26,16 @@ import {
   updateTaprootInputs,
 } from '../functions/bitcoin/psbt-functions.js';
 import { ExtendedPaymentInformation } from '../models/bitcoin-models.js';
+import { FundingPaymentType, TransactionType } from '../models/dlc-handler.models.js';
+import {
+  FundingDerivedPublicKeyNotSet,
+  IncompatibleTransactionArgument,
+  PolicyInformationNotSet,
+  TaprootDerivedPublicKeyNotSet,
+} from '../models/errors/dlc-handler.errors.models.js';
 import { RawVault } from '../models/ethereum-models.js';
 import { truncateAddress } from '../utilities/index.js';
+import { AbstractDLCHandler } from './abstract-dlc-handler.js';
 
 interface LedgerPolicyInformation {
   fundingWalletPolicy: DefaultWalletPolicy;
@@ -37,134 +43,73 @@ interface LedgerPolicyInformation {
   multisigWalletPolicyHMac: Buffer;
 }
 
-export class LedgerDLCHandler {
+export class LedgerDLCHandler extends AbstractDLCHandler {
+  readonly dlcHandlerType = 'ledger' as const;
   private ledgerApp: AppClient;
   private masterFingerprint: string;
   private walletAccountIndex: number;
   private walletAddressIndex: number;
-  private fundingPaymentType: 'wpkh' | 'tr';
-  private policyInformation: LedgerPolicyInformation | undefined;
-  public payment: ExtendedPaymentInformation | undefined;
-  private bitcoinNetwork: Network;
   private bitcoinNetworkIndex: number;
-  private bitcoinBlockchainAPI: string;
-  private bitcoinBlockchainFeeRecommendationAPI: string;
+  private _policyInformation: LedgerPolicyInformation | undefined;
+  private _fundingDerivedPublicKey?: string;
+  private _taprootDerivedPublicKey?: string;
 
   constructor(
     ledgerApp: AppClient,
     masterFingerprint: string,
     walletAccountIndex: number,
     walletAddressIndex: number,
-    fundingPaymentType: 'wpkh' | 'tr',
+    fundingPaymentType: FundingPaymentType,
     bitcoinNetwork: Network,
-    bitcoinBlockchainAPI?: string,
-    bitcoinBlockchainFeeRecommendationAPI?: string
+    bitcoinBlockchainAPI: string,
+    bitcoinBlockchainFeeRecommendationAPI: string
   ) {
-    switch (bitcoinNetwork) {
-      case bitcoin:
-        this.bitcoinBlockchainAPI = 'https://mempool.space/api';
-        this.bitcoinBlockchainFeeRecommendationAPI =
-          'https://mempool.space/api/v1/fees/recommended';
-        this.bitcoinNetworkIndex = 0;
-        break;
-      case testnet:
-        this.bitcoinBlockchainAPI = 'https://mempool.space/testnet/api';
-        this.bitcoinBlockchainFeeRecommendationAPI =
-          'https://mempool.space/testnet/api/v1/fees/recommended';
-        this.bitcoinNetworkIndex = 1;
-        break;
-      case regtest:
-        if (
-          bitcoinBlockchainAPI === undefined ||
-          bitcoinBlockchainFeeRecommendationAPI === undefined
-        ) {
-          throw new Error(
-            'Regtest requires a Bitcoin Blockchain API and a Bitcoin Blockchain Fee Recommendation API'
-          );
-        }
-        this.bitcoinBlockchainAPI = bitcoinBlockchainAPI;
-        this.bitcoinBlockchainFeeRecommendationAPI = bitcoinBlockchainFeeRecommendationAPI;
-        this.bitcoinNetworkIndex = 1;
-        break;
-      default:
-        throw new Error('Invalid Bitcoin Network');
-    }
+    super(
+      fundingPaymentType,
+      bitcoinNetwork,
+      bitcoinBlockchainAPI,
+      bitcoinBlockchainFeeRecommendationAPI
+    );
+    this.bitcoinNetworkIndex = bitcoinNetwork === bitcoin ? 0 : 1;
     this.ledgerApp = ledgerApp;
     this.masterFingerprint = masterFingerprint;
     this.walletAccountIndex = walletAccountIndex;
     this.walletAddressIndex = walletAddressIndex;
     this.fundingPaymentType = fundingPaymentType;
-    this.bitcoinNetwork = bitcoinNetwork;
   }
 
-  private setPolicyInformation(
-    fundingWalletPolicy: DefaultWalletPolicy,
-    multisigWalletPolicy: WalletPolicy,
-    multisigWalletPolicyHMac: Buffer
-  ): void {
-    this.policyInformation = {
-      fundingWalletPolicy,
-      multisigWalletPolicy,
-      multisigWalletPolicyHMac,
-    };
-  }
-  private setPayment(
-    fundingPayment: P2Ret | P2TROut,
-    fundingDerivedPublicKey: Buffer,
-    multisigPayment: P2TROut,
-    taprootDerivedPublicKey: Buffer
-  ): void {
-    this.payment = {
-      fundingPayment,
-      fundingDerivedPublicKey,
-      multisigPayment,
-      taprootDerivedPublicKey,
-    };
+  set policyInformation(policyInformation: LedgerPolicyInformation) {
+    this._policyInformation = policyInformation;
   }
 
-  private getPolicyInformation(): LedgerPolicyInformation {
-    if (!this.policyInformation) {
-      throw new Error('Policy Information not set');
+  get policyInformation(): LedgerPolicyInformation {
+    if (!this._policyInformation) {
+      throw new PolicyInformationNotSet();
     }
-    return this.policyInformation;
+    return this._policyInformation;
   }
 
-  private getPayment(): ExtendedPaymentInformation {
-    if (!this.payment) {
-      throw new Error('Payment Information not set');
+  set taprootDerivedPublicKey(taprootDerivedPublicKey: string) {
+    this._taprootDerivedPublicKey = taprootDerivedPublicKey;
+  }
+
+  getUserTaprootPublicKey(): string {
+    if (!this._taprootDerivedPublicKey) {
+      throw new TaprootDerivedPublicKeyNotSet();
     }
-    return this.payment;
+    return this._taprootDerivedPublicKey;
   }
 
-  getTaprootDerivedPublicKey(): string {
-    return bytesToHex(this.getPayment().taprootDerivedPublicKey);
+  set fundingDerivedPublicKey(fundingDerivedPublicKey: string) {
+    this._fundingDerivedPublicKey = fundingDerivedPublicKey;
   }
 
-  getVaultRelatedAddress(paymentType: 'funding' | 'multisig'): string {
-    const payment = this.getPayment();
-
-    if (payment === undefined) {
-      throw new Error('Payment objects have not been set');
+  getUserFundingPublicKey(): string {
+    if (!this._fundingDerivedPublicKey) {
+      throw new FundingDerivedPublicKeyNotSet();
     }
 
-    let address: string;
-
-    switch (paymentType) {
-      case 'funding':
-        if (!payment.fundingPayment.address) {
-          throw new Error('Funding Payment Address is undefined');
-        }
-        address = payment.fundingPayment.address;
-        return address;
-      case 'multisig':
-        if (!payment.multisigPayment.address) {
-          throw new Error('Taproot Multisig Payment Address is undefined');
-        }
-        address = payment.multisigPayment.address;
-        return address;
-      default:
-        throw new Error('Invalid Payment Type');
-    }
+    return this._fundingDerivedPublicKey;
   }
 
   private async createPayment(
@@ -237,19 +182,18 @@ export class LedgerDLCHandler {
           ? [ledgerTaprootKeyInfo, attestorGroupPublicKey]
           : [attestorGroupPublicKey, ledgerTaprootKeyInfo];
 
-      const taprootMultisigAccountPolicy = new WalletPolicy(
+      const multisigWalletPolicy = new WalletPolicy(
         `Taproot Multisig Wallet for Vault: ${truncateAddress(vaultUUID)}`,
         `tr(@0/**,and_v(v:pk(@1/**),pk(@2/**)))`,
         [unspendablePublicKey, ...descriptors]
       );
 
-      const [, taprootMultisigPolicyHMac] = await this.ledgerApp.registerWallet(
-        taprootMultisigAccountPolicy
-      );
+      const [, multisigWalletPolicyHMac] =
+        await this.ledgerApp.registerWallet(multisigWalletPolicy);
 
       const taprootMultisigAddress = await this.ledgerApp.getWalletAddress(
-        taprootMultisigAccountPolicy,
-        taprootMultisigPolicyHMac,
+        multisigWalletPolicy,
+        multisigWalletPolicyHMac,
         0,
         0,
         false
@@ -266,17 +210,17 @@ export class LedgerDLCHandler {
         throw new Error(`Recreated Multisig Address does not match the Ledger Multisig Address`);
       }
 
-      this.setPolicyInformation(
+      this.policyInformation = {
         fundingWalletPolicy,
-        taprootMultisigAccountPolicy,
-        taprootMultisigPolicyHMac
-      );
-      this.setPayment(
+        multisigWalletPolicy,
+        multisigWalletPolicyHMac,
+      };
+      this.payment = {
         fundingPayment,
-        fundingDerivedPublicKey,
         multisigPayment,
-        taprootDerivedPublicKey
-      );
+      };
+      this.taprootDerivedPublicKey = taprootDerivedPublicKey.toString('hex');
+      this.fundingDerivedPublicKey = fundingDerivedPublicKey.toString('hex');
 
       return {
         fundingPayment,
@@ -291,11 +235,11 @@ export class LedgerDLCHandler {
 
   async createFundingPSBT(
     vault: RawVault,
-    bitcoinAmount: bigint,
+    depositAmount: bigint,
     attestorGroupPublicKey: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
-  ): Promise<Psbt> {
+  ): Promise<Transaction> {
     try {
       const { fundingPayment, fundingDerivedPublicKey, multisigPayment } = await this.createPayment(
         vault.uuid,
@@ -315,7 +259,7 @@ export class LedgerDLCHandler {
       const fundingTransaction = await createFundingTransaction(
         this.bitcoinBlockchainAPI,
         this.bitcoinNetwork,
-        bitcoinAmount,
+        depositAmount,
         multisigPayment,
         fundingPayment,
         feeRate,
@@ -363,7 +307,7 @@ export class LedgerDLCHandler {
         );
       }
 
-      return formattedFundingPSBT;
+      return Transaction.fromPSBT(formattedFundingPSBT.toBuffer());
     } catch (error: any) {
       throw new Error(`Error creating Funding PSBT: ${error}`);
     }
@@ -376,7 +320,7 @@ export class LedgerDLCHandler {
     fundingTransactionID: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
-  ): Promise<Psbt> {
+  ): Promise<Transaction> {
     try {
       const { fundingPayment, taprootDerivedPublicKey, multisigPayment } = await this.createPayment(
         vault.uuid,
@@ -427,20 +371,20 @@ export class LedgerDLCHandler {
         formattedWithdrawPSBT
       );
 
-      return formattedWithdrawPSBT;
+      return Transaction.fromPSBT(formattedWithdrawPSBT.toBuffer());
     } catch (error: any) {
       throw new Error(`Error creating Withdraw PSBT: ${error}`);
     }
   }
 
   async createDepositPSBT(
-    depositAmount: bigint,
     vault: RawVault,
+    depositAmount: bigint,
     attestorGroupPublicKey: string,
     fundingTransactionID: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
-  ) {
+  ): Promise<Transaction> {
     const { fundingPayment, taprootDerivedPublicKey, fundingDerivedPublicKey, multisigPayment } =
       await this.createPayment(vault.uuid, attestorGroupPublicKey);
 
@@ -517,17 +461,21 @@ export class LedgerDLCHandler {
       );
     }
 
-    return formattedDepositPSBT;
+    return Transaction.fromPSBT(formattedDepositPSBT.toBuffer());
   }
 
-  async signPSBT(
-    psbt: Psbt,
-    transactionType: 'funding' | 'deposit' | 'withdraw'
+  async signPSBT<T extends Psbt | Transaction>(
+    transaction: T,
+    transactionType: TransactionType
   ): Promise<Transaction> {
-    let transaction: Transaction;
+    if (transaction instanceof Psbt) {
+      throw new IncompatibleTransactionArgument();
+    }
+
+    const psbt = Psbt.fromBuffer(Buffer.from(transaction.toPSBT()));
 
     const { fundingWalletPolicy, multisigWalletPolicy, multisigWalletPolicyHMac } =
-      this.getPolicyInformation();
+      this.policyInformation;
 
     switch (transactionType) {
       case 'funding':
@@ -536,8 +484,6 @@ export class LedgerDLCHandler {
           this.fundingPaymentType,
           await this.ledgerApp.signPsbt(psbt.toBase64(), fundingWalletPolicy, null)
         );
-        transaction = Transaction.fromPSBT(psbt.toBuffer());
-        transaction.finalize();
         break;
       case 'deposit':
         addTaprooMultisigInputSignaturesToPSBT(
@@ -554,14 +500,6 @@ export class LedgerDLCHandler {
           this.fundingPaymentType,
           await this.ledgerApp.signPsbt(psbt.toBase64(), fundingWalletPolicy, null)
         );
-
-        transaction = Transaction.fromPSBT(psbt.toBuffer());
-
-        getInputIndicesByScript(this.getPayment().fundingPayment.script, transaction).forEach(
-          index => {
-            transaction.finalizeIdx(index);
-          }
-        );
         break;
       case 'withdraw':
         addTaprooMultisigInputSignaturesToPSBT(
@@ -572,11 +510,15 @@ export class LedgerDLCHandler {
             multisigWalletPolicyHMac
           )
         );
-        transaction = Transaction.fromPSBT(psbt.toBuffer());
         break;
       default:
         throw new Error('Invalid Transaction Type');
     }
-    return transaction;
+
+    const signedTransaction = Transaction.fromPSBT(psbt.toBuffer());
+
+    this.finalizeTransaction(signedTransaction, transactionType, this.payment.fundingPayment);
+
+    return signedTransaction;
   }
 }
