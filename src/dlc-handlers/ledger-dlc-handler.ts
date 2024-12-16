@@ -10,7 +10,6 @@ import {
   deriveUnhardenedPublicKey,
   ecdsaPublicKeyToSchnorr,
   getBalance,
-  getFeeRate,
   getInputByPaymentTypeArray,
   getUnspendableKeyCommittedToUUID,
 } from '../functions/bitcoin/bitcoin-functions.js';
@@ -246,9 +245,7 @@ export class LedgerDLCHandler extends AbstractDLCHandler {
         attestorGroupPublicKey
       );
 
-      const feeRate =
-        customFeeRate ??
-        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+      const feeRate = await this.getFeeRate(feeRateMultiplier, customFeeRate);
 
       const addressBalance = await getBalance(fundingPayment, this.bitcoinBlockchainAPI);
 
@@ -327,9 +324,7 @@ export class LedgerDLCHandler extends AbstractDLCHandler {
         attestorGroupPublicKey
       );
 
-      const feeRate =
-        customFeeRate ??
-        BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+      const feeRate = await this.getFeeRate(feeRateMultiplier, customFeeRate);
 
       const withdrawTransaction = await createWithdrawTransaction(
         this.bitcoinBlockchainAPI,
@@ -388,9 +383,7 @@ export class LedgerDLCHandler extends AbstractDLCHandler {
     const { fundingPayment, taprootDerivedPublicKey, fundingDerivedPublicKey, multisigPayment } =
       await this.createPayment(vault.uuid, attestorGroupPublicKey);
 
-    const feeRate =
-      customFeeRate ??
-      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
+    const feeRate = await this.getFeeRate(feeRateMultiplier, customFeeRate);
 
     const depositTransaction = await createDepositTransaction(
       this.bitcoinBlockchainAPI,

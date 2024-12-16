@@ -6,8 +6,8 @@
 
 The transaction fee rate is calculated by taking the maximum value among three metrics from the Bitcoin blockchain:
 
-- Average fee rate from the last two blocks
-- Current mempool block's median fee rate
-- Estimated "fastest" fee rate
+- Average fee rate from the last two blocks `/api/v1/mining/blocks/fee-rates/24h`
+- Current mempool block's median fee rate `/api/v1/fees/mempool-blocks`
+- Recommended "fastest" fee rate by API `/api/v1/fees/recommended`
 
 Each metric is adjusted by an optional multiplier (defaults to 1.0) and the final result is rounded up to the nearest whole number. For regtest environments, a fixed fee rate of 2 is used.

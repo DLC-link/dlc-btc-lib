@@ -149,9 +149,9 @@ export function createTaprootMultisigPayment(
  *
  * @returns A promise that resolves to the last two blocks' median fee rates.
  */
-export async function getLastTwoBlocksFeeRate(
+export async function getLastTwoBlocksFeeRateAverage(
   bitcoinBlockchainAPIFeeURL: string
-): Promise<number[]> {
+): Promise<number> {
   const dayFeeRateAPI = `${bitcoinBlockchainAPIFeeURL}/api/v1/mining/blocks/fee-rates/24h`;
 
   const response = await fetch(dayFeeRateAPI);
@@ -162,7 +162,12 @@ export async function getLastTwoBlocksFeeRate(
 
   const historicalFeeRates: HistoricalFeeRate[] = await response.json();
 
-  return historicalFeeRates.slice(historicalFeeRates.length - 2).map(rate => rate.avgFee_50);
+  return (
+    historicalFeeRates
+      .slice(historicalFeeRates.length - 2)
+      .map(rate => rate.avgFee_50)
+      .reduce((a, b) => a + b) / 2
+  );
 }
 
 /**
@@ -213,30 +218,19 @@ export async function getEstimatedFeeRate(bitcoinBlockchainAPIFeeURL: string): P
  */
 export async function getFeeRate(
   bitcoinBlockchainAPIFeeURL: string,
-  feeRateMultiplier = 1,
-  isRegtest = false
+  feeRateMultiplier = 1
 ): Promise<number> {
-  if (isRegtest) return 2;
-
-  const [lastTwoBlocksFeeRate, currentBlockFeeRate, estimatedFeeRate] = await Promise.all([
-    getLastTwoBlocksFeeRate(bitcoinBlockchainAPIFeeURL),
+  const [lastTwoBlocksFeeRateAverage, currentBlockFeeRate, estimatedFeeRate] = await Promise.all([
+    getLastTwoBlocksFeeRateAverage(bitcoinBlockchainAPIFeeURL),
     getCurrentMempoolBlockFeeRate(bitcoinBlockchainAPIFeeURL),
     getEstimatedFeeRate(bitcoinBlockchainAPIFeeURL),
   ]);
 
-  const currentBlockFeeRateMultiplied = currentBlockFeeRate * feeRateMultiplier;
-
-  const lastTwoBlocksfeeRateAverageMultiplied =
-    (lastTwoBlocksFeeRate.reduce((a, b) => a + b) / lastTwoBlocksFeeRate.length) *
-    feeRateMultiplier;
-
-  const estimatedFeeRateMultiplied = estimatedFeeRate * feeRateMultiplier;
-
   return Math.ceil(
     Math.max(
-      lastTwoBlocksfeeRateAverageMultiplied,
-      currentBlockFeeRateMultiplied,
-      estimatedFeeRateMultiplied
+      lastTwoBlocksFeeRateAverage * feeRateMultiplier,
+      currentBlockFeeRate * feeRateMultiplier,
+      estimatedFeeRate * feeRateMultiplier
     )
   );
 }
