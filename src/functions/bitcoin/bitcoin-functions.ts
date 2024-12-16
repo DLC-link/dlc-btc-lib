@@ -213,12 +213,10 @@ export async function getEstimatedFeeRate(bitcoinBlockchainAPIFeeURL: string): P
  */
 export async function getFeeRate(
   bitcoinBlockchainAPIFeeURL: string,
-  feeRateMultiplier?: number,
+  feeRateMultiplier = 1,
   isRegtest = false
 ): Promise<number> {
   if (isRegtest) return 2;
-
-  const multiplier = feeRateMultiplier ?? 1;
 
   const [lastTwoBlocksFeeRate, currentBlockFeeRate, estimatedFeeRate] = await Promise.all([
     getLastTwoBlocksFeeRate(bitcoinBlockchainAPIFeeURL),
@@ -226,12 +224,13 @@ export async function getFeeRate(
     getEstimatedFeeRate(bitcoinBlockchainAPIFeeURL),
   ]);
 
-  const currentBlockFeeRateMultiplied = currentBlockFeeRate * multiplier;
+  const currentBlockFeeRateMultiplied = currentBlockFeeRate * feeRateMultiplier;
 
   const lastTwoBlocksfeeRateAverageMultiplied =
-    (lastTwoBlocksFeeRate.reduce((a, b) => a + b) / lastTwoBlocksFeeRate.length) * multiplier;
+    (lastTwoBlocksFeeRate.reduce((a, b) => a + b) / lastTwoBlocksFeeRate.length) *
+    feeRateMultiplier;
 
-  const estimatedFeeRateMultiplied = estimatedFeeRate * multiplier;
+  const estimatedFeeRateMultiplied = estimatedFeeRate * feeRateMultiplier;
 
   return Math.ceil(
     Math.max(
