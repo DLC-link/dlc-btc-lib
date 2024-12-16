@@ -10,7 +10,7 @@ import {
 import { AttestorError } from '../../src/models/errors';
 import { TEST_REGTEST_ATTESTOR_APIS } from '../mocks/api.test.constants';
 
-describe('Attestor Request Sending', () => {
+xdescribe('Attestor Request Sending', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });

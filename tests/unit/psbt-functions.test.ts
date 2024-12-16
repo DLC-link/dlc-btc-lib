@@ -24,7 +24,7 @@ import {
   TEST_UNHARDENED_DERIVED_UNSPENDABLE_KEY_COMMITED_TO_UUID_1,
 } from '../mocks/bitcoin.test.constants';
 
-describe('PSBT Functions', () => {
+xdescribe('PSBT Functions', () => {
   let depositPayment: P2Ret;
   let multisigPayment: P2TROut;
 

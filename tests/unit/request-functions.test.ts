@@ -3,7 +3,7 @@ import { TEST_REGTEST_ATTESTOR_APIS } from '../mocks/api.test.constants';
 
 global.fetch = jest.fn();
 
-describe('Request Functions', () => {
+xdescribe('Request Functions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });

@@ -2,11 +2,15 @@ import { BitGoAPI } from '@bitgo/sdk-api';
 import { Btc, Tbtc } from '@bitgo/sdk-coin-btc';
 import { CoinConstructor, EnvironmentName, Wallet } from '@bitgo/sdk-core';
 import { bytesToHex } from '@noble/hashes/utils';
-import { Transaction, p2tr, p2tr_ns } from '@scure/btc-signer';
+import { Transaction, p2tr, p2tr_ms, p2tr_ns } from '@scure/btc-signer';
 import { Network, address } from 'bitcoinjs-lib';
 import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
+import { any } from 'ramda';
 
-import { deriveUnhardenedPublicKey } from '../functions/bitcoin/bitcoin-functions.js';
+import {
+  deriveUnhardenedPublicKey,
+  ecdsaPublicKeyToSchnorr,
+} from '../functions/bitcoin/bitcoin-functions.js';
 import { FundingPaymentType, TransactionType } from '../models/dlc-handler.models.js';
 import {
   BitGoAPIClientNotSetError,
@@ -148,22 +152,20 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
       .keychains()
       .getKeysForSigning({ wallet: bitGoWallet });
 
-    const xpubs = walletKeychains.map(keychain => keychain.pub);
+    const extendedPublicKeys = walletKeychains.map(keychain => keychain.pub);
 
-    const pubs = xpubs.map(xpub => deriveUnhardenedPublicKey(xpub!, this.bitcoinNetwork, 1));
+    if (any(extendedPublicKey => extendedPublicKey === undefined, extendedPublicKeys)) {
+      throw new Error('Extended public keys are undefined');
+    }
 
-    const p2tr_ns_address = p2tr_ns(2, pubs);
-
-    const { data } = address.fromBech32(
-      'tb1p2cz9um3jnxr8nmejxvvmg95mtsrxywg4mcxpcdgs7g0fkds2wggsjdwm49'
+    const derivedPublicKeys = extendedPublicKeys.map(extendedPublicKey =>
+      ecdsaPublicKeyToSchnorr(deriveUnhardenedPublicKey(extendedPublicKey!, bitcoin))
     );
 
-    console.log('data', bytesToHex(data));
+    const bitGoMultiSig = p2tr_ms(2, derivedPublicKeys);
+    const attestorMultisig = p2tr_ns(derivedPublicKeys);
 
-    const taprootPayment = p2tr(data);
-    console.log('taprootPayment', taprootPayment.address);
-
-    console.log('walletKeychains', walletKeychains);
+    console.log('bitGoMultiSig', bitGoMultiSig.script);
 
     this.walletID = bitGoWallet.id();
     this.addressID = walletAddress.id;

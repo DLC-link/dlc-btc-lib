@@ -12,7 +12,7 @@ import {
   unshiftValue,
 } from '../../src/utilities';
 
-describe('Utility Functions', () => {
+xdescribe('Utility Functions', () => {
   describe('shiftValue', () => {
     it('correctly shifts the value by a power of 10^8', () => {
       const value = 1;

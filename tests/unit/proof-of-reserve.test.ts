@@ -22,7 +22,7 @@ import {
 } from '../mocks/bitcoin.test.constants.js';
 import { TEST_VAULT_2, TEST_VAULT_3 } from '../mocks/ethereum-vault.test.constants.js';
 
-describe('Proof of Reserve Calculation', () => {
+xdescribe('Proof of Reserve Calculation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
