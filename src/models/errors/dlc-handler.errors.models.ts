@@ -87,6 +87,33 @@ export class DFNSWalletIDNotSetError extends DLCHandlerError {
   }
 }
 
+export class BitGoAPIClientNotSetError extends DLCHandlerError {
+  constructor(
+    message: string = 'BitGo API client not set. Make sure to initialize the wallet before attempting to access it.'
+  ) {
+    super(message);
+    this.name = 'BitGoAPIClientNotSetError';
+  }
+}
+
+export class BitGoWalletIDNotSetError extends DLCHandlerError {
+  constructor(
+    message: string = 'BitGo Wallet ID not set. Make sure to initialize the wallet before attempting to access it.'
+  ) {
+    super(message);
+    this.name = 'BitGoWalletIDNotSetError';
+  }
+}
+
+export class BitGoAddressIDNotSetError extends DLCHandlerError {
+  constructor(
+    message: string = 'BitGo Address ID not set. Make sure to initialize the wallet before attempting to access it.'
+  ) {
+    super(message);
+    this.name = 'BitGoAddressIDNotSetError';
+  }
+}
+
 export class SignatureGenerationFailed extends DLCHandlerError {
   constructor(
     message: string = 'Signature generation failed. Make sure to initialize the wallet before attempting to access it.'

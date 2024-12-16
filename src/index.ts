@@ -1,3 +1,4 @@
+import { BitGoDLCHandler } from './dlc-handlers/bitgo-dlc-handler.js';
 import { DFNSDLCHandler } from './dlc-handlers/dfns-dlc-handler.js';
 import { KeyPairDLCHandler } from './dlc-handlers/keypair-dlc-handler.js';
 import { LeatherDLCHandler } from './dlc-handlers/leather-dlc-handler.js';
@@ -20,4 +21,5 @@ export {
   ProofOfReserveHandler,
   RippleHandler,
   DFNSDLCHandler,
+  BitGoDLCHandler,
 };

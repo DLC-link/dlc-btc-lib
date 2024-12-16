@@ -59,6 +59,8 @@
     "typescript-eslint": "^7.7.0"
   },
   "dependencies": {
+    "@bitgo/sdk-api": "^1.57.1",
+    "@bitgo/sdk-coin-btc": "^2.4.2",
     "@dfns/sdk": "^0.5.9",
     "@dfns/sdk-browser": "^0.5.9",
     "@gemwallet/api": "3.8.0",

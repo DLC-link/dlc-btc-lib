@@ -4,4 +4,5 @@ export const DLCHandlers = {
   UNISAT_FORDEFI: 'unisat/fordefi',
   LEDGER: 'ledger',
   DFNS: 'dfns',
+  BITGO: 'bitgo',
 } as const;
