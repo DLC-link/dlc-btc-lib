@@ -226,17 +226,19 @@ export async function getFeeRate(
     getEstimatedFeeRate(bitcoinBlockchainAPIFeeURL),
   ]);
 
-  const currentBlockFeeRateMultiplied = Math.ceil(currentBlockFeeRate) * multiplier;
+  const currentBlockFeeRateMultiplied = currentBlockFeeRate * multiplier;
 
   const lastTwoBlocksfeeRateAverageMultiplied =
     (lastTwoBlocksFeeRate.reduce((a, b) => a + b) / lastTwoBlocksFeeRate.length) * multiplier;
 
   const estimatedFeeRateMultiplied = estimatedFeeRate * multiplier;
 
-  return Math.max(
-    lastTwoBlocksfeeRateAverageMultiplied,
-    currentBlockFeeRateMultiplied,
-    estimatedFeeRateMultiplied
+  return Math.ceil(
+    Math.max(
+      lastTwoBlocksfeeRateAverageMultiplied,
+      currentBlockFeeRateMultiplied,
+      estimatedFeeRateMultiplied
+    )
   );
 }
 

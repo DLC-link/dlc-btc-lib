@@ -8,7 +8,6 @@ import {
   ecdsaPublicKeyToSchnorr,
   finalizeUserInputs,
   getFeeAmount,
-  getFeeRate,
   getFeeRecipientAddress,
   getInputIndicesByScript,
   getScriptMatchingOutputFromTransaction,
