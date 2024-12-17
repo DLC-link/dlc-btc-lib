@@ -21,7 +21,9 @@ import {
   BitcoinInputSigningConfig,
   BitcoinTransaction,
   BitcoinTransactionVectorOutput,
+  BlockData,
   FeeRates,
+  HistoricalFeeRate,
   PaymentTypes,
   UTXO,
 } from '../../models/bitcoin-models.js';
@@ -143,44 +145,94 @@ export function createTaprootMultisigPayment(
 }
 
 /**
- * Evaluates the fee rate from the bitcoin blockchain API.
+ * Fetches the last two blocks' fee rates from the bitcoin blockchain API.
  *
- * @returns The fee rate.
+ * @returns A promise that resolves to the last two blocks' median fee rates.
  */
-function checkFeeRate(feeRate: number | undefined): number {
-  if (!feeRate || feeRate < 2) {
-    return 2;
-  }
-  return feeRate;
-}
-
-/**
- * Fetches the fee rate from the bitcoin blockchain API.
- *
- * @returns A promise that resolves to the hour fee rate.
- */
-export async function getFeeRate(
-  bitcoinBlockchainAPIFeeURL: string,
-  feeRateMultiplier?: number
+export async function getLastTwoBlocksFeeRateAverage(
+  bitcoinBlockchainAPIFeeURL: string
 ): Promise<number> {
-  const response = await fetch(bitcoinBlockchainAPIFeeURL);
+  const dayFeeRateAPI = `${bitcoinBlockchainAPIFeeURL}/api/v1/mining/blocks/fee-rates/24h`;
+
+  const response = await fetch(dayFeeRateAPI);
 
   if (!response.ok) {
     throw new Error(`Bitcoin Blockchain Fee Rate Response was not OK: ${response.statusText}`);
   }
 
-  let feeRates: FeeRates;
+  const historicalFeeRates: HistoricalFeeRate[] = await response.json();
 
-  try {
-    feeRates = await response.json();
-  } catch (error) {
-    throw new Error(`Error parsing Bitcoin Blockchain Fee Rate Response JSON: ${error}`);
+  return (
+    historicalFeeRates
+      .slice(historicalFeeRates.length - 2)
+      .map(rate => rate.avgFee_50)
+      .reduce((a, b) => a + b) / 2
+  );
+}
+
+/**
+ * Fetches the current mempool block median fee rate from the bitcoin blockchain API.
+ *
+ * @param bitcoinBlockchainAPIFeeURL
+ * @returns
+ */
+export async function getCurrentMempoolBlockFeeRate(
+  bitcoinBlockchainAPIFeeURL: string
+): Promise<number> {
+  const mempoolBlocksAPI = `${bitcoinBlockchainAPIFeeURL}/api/v1/fees/mempool-blocks`;
+
+  const response = await fetch(mempoolBlocksAPI);
+
+  if (!response.ok) {
+    throw new Error(`Bitcoin Blockchain Fee Rate Response was not OK: ${response.statusText}`);
   }
 
-  const feeRate = checkFeeRate(feeRates.fastestFee);
-  const multipliedFeeRate = feeRate * (feeRateMultiplier ?? 1);
+  const currentBlockFeeRate: BlockData[] = await response.json();
 
-  return multipliedFeeRate;
+  return currentBlockFeeRate[0].medianFee;
+}
+
+/**
+ * Fetches the estimated fee rate from the bitcoin blockchain API.
+ *
+ * @returns A promise that resolves to the fastest fee rate.
+ */
+export async function getEstimatedFeeRate(bitcoinBlockchainAPIFeeURL: string): Promise<number> {
+  const estimatedFeeAPI = `${bitcoinBlockchainAPIFeeURL}/api/v1/fees/recommended`;
+
+  const response = await fetch(estimatedFeeAPI);
+
+  if (!response.ok) {
+    throw new Error(`Bitcoin Blockchain Fee Rate Response was not OK: ${response.statusText}`);
+  }
+
+  const feeRates: FeeRates = await response.json();
+
+  return feeRates.fastestFee;
+}
+
+/**
+ * Return the fee rate for the transaction.
+ *
+ * @returns A promise that resolves to the fee rate.
+ */
+export async function getFeeRate(
+  bitcoinBlockchainAPIFeeURL: string,
+  feeRateMultiplier = 1
+): Promise<number> {
+  const [lastTwoBlocksFeeRateAverage, currentBlockFeeRate, estimatedFeeRate] = await Promise.all([
+    getLastTwoBlocksFeeRateAverage(bitcoinBlockchainAPIFeeURL),
+    getCurrentMempoolBlockFeeRate(bitcoinBlockchainAPIFeeURL),
+    getEstimatedFeeRate(bitcoinBlockchainAPIFeeURL),
+  ]);
+
+  return Math.ceil(
+    Math.max(
+      lastTwoBlocksFeeRateAverage * feeRateMultiplier,
+      currentBlockFeeRate * feeRateMultiplier,
+      estimatedFeeRate * feeRateMultiplier
+    )
+  );
 }
 
 /**
