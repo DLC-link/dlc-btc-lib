@@ -592,6 +592,11 @@
     "@bitgo/unspents" "^0.47.17"
     "@bitgo/utxo-lib" "^11.2.1"
 
+"@bitgo/wasm-miniscript@^1.9.0":
+  version "1.9.0"
+  resolved "https://registry.yarnpkg.com/@bitgo/wasm-miniscript/-/wasm-miniscript-1.9.0.tgz#80b8380af79fea2598fa8b26c0343cb38cd7581b"
+  integrity sha512-Gk2Af5Xn0k4HIZg1BdDyKWC2qm2t/pOHSDri2dGsDoCDLyejJQafScX5fjT21XRfNGyImY8LbfvDGQL+dUTv+g==
+
 "@bitgo/wasm-miniscript@^2.0.0-beta.2":
   version "2.0.0-beta.2"
   resolved "https://registry.yarnpkg.com/@bitgo/wasm-miniscript/-/wasm-miniscript-2.0.0-beta.2.tgz#e057addecf0c856e1d425d6e45de920242c65809"

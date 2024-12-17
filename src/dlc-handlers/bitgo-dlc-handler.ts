@@ -1,15 +1,14 @@
 import { BitGoAPI } from '@bitgo/sdk-api';
 import { Btc, Tbtc } from '@bitgo/sdk-coin-btc';
 import { CoinConstructor, EnvironmentName, Wallet } from '@bitgo/sdk-core';
-import { bytesToHex } from '@noble/hashes/utils';
-import { Transaction, p2tr, p2tr_ms, p2tr_ns } from '@scure/btc-signer';
-import { Network, address } from 'bitcoinjs-lib';
+import { Transaction } from '@scure/btc-signer';
+import { Network } from 'bitcoinjs-lib';
 import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
-import { any } from 'ramda';
+import { any, isNil } from 'ramda';
 
 import {
-  deriveUnhardenedPublicKey,
-  ecdsaPublicKeyToSchnorr,
+  createBitGoPayment,
+  createBitGoTaprootMultisigPayment,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import { FundingPaymentType, TransactionType } from '../models/dlc-handler.models.js';
 import {
@@ -50,6 +49,7 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
   private _walletID?: string;
   private _addressID?: string;
   private bitGoAPIClientConfig: BitGoAPIClientConfig;
+  private _extendedPublicKeys?: string[];
 
   constructor(
     fundingPaymentType: FundingPaymentType = 'tr',
@@ -97,6 +97,18 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
       throw new BitGoAddressIDNotSetError();
     }
     return this._addressID;
+  }
+
+  set extendedPublicKeys(extendedPublicKeys: string[]) {
+    this._extendedPublicKeys = extendedPublicKeys;
+  }
+
+  get extendedPublicKeys(): string[] {
+    if (!this._extendedPublicKeys) {
+      throw new Error('Extended public keys are undefined');
+    }
+
+    return this._extendedPublicKeys;
   }
 
   async connect(username: string, password: string, otp: string): Promise<void> {
@@ -147,6 +159,8 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
       id: addressID,
     });
 
+    console.log('walletAddress', walletAddress);
+
     const walletKeychains = await this.bitGoAPIClient
       .coin(this.bitGoAPIClientConfig.coin.name)
       .keychains()
@@ -154,22 +168,64 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
 
     const extendedPublicKeys = walletKeychains.map(keychain => keychain.pub);
 
-    if (any(extendedPublicKey => extendedPublicKey === undefined, extendedPublicKeys)) {
+    if (any(extendedPublicKey => isNil(extendedPublicKey), extendedPublicKeys)) {
       throw new Error('Extended public keys are undefined');
     }
 
-    const derivedPublicKeys = extendedPublicKeys.map(extendedPublicKey =>
-      ecdsaPublicKeyToSchnorr(deriveUnhardenedPublicKey(extendedPublicKey!, bitcoin))
+    createBitGoPayment(extendedPublicKeys as string[], this.bitcoinNetwork);
+
+    createBitGoTaprootMultisigPayment(
+      Buffer.from('02b733c776dd7776657c20a58f1f009567afc75db226965bce83d5d0afc29e46c9', 'hex'),
+      'xpub6C1F2SwADP3TNajQjg2PaniEGpZLvWdMiFP8ChPjQBRWD1XUBeMdE4YkQYvnNhAYGoZKfcQbsRCefserB5DyJM7R9VR6ce6vLrXHVfeqyH3',
+      extendedPublicKeys as string[],
+      this.bitcoinNetwork
     );
 
-    const bitGoMultiSig = p2tr_ms(2, derivedPublicKeys);
-    const attestorMultisig = p2tr_ns(derivedPublicKeys);
-
-    console.log('bitGoMultiSig', bitGoMultiSig.script);
-
+    this.extendedPublicKeys = extendedPublicKeys as string[];
     this.walletID = bitGoWallet.id();
     this.addressID = walletAddress.id;
   }
+
+  // protected async createPaymentInformation(
+  //   vaultUUID: string,
+  //   attestorGroupPublicKey: string
+  // ): Promise<PaymentInformation> {
+  //   let fundingPayment: P2Ret | P2TROut;
+
+  //   if (this.fundingPaymentType === 'wpkh') {
+  //     const fundingPublicKeyBuffer = Buffer.from(this.getUserFundingPublicKey(), 'hex');
+  //     fundingPayment = createNativeSegwitPayment(fundingPublicKeyBuffer, this.bitcoinNetwork);
+  //   } else {
+  //     const fundingPublicKeyBuffer = Buffer.from(this.getUserFundingPublicKey(), 'hex');
+  //     const fundingSchnorrPublicKeyBuffer = ecdsaPublicKeyToSchnorr(fundingPublicKeyBuffer);
+  //     fundingPayment = createTaprootPayment(fundingSchnorrPublicKeyBuffer, this.bitcoinNetwork);
+  //   }
+
+  //   const unspendablePublicKey = getUnspendableKeyCommittedToUUID(vaultUUID, this.bitcoinNetwork);
+  //   const unspendableDerivedPublicKey = deriveUnhardenedPublicKey(
+  //     unspendablePublicKey,
+  //     this.bitcoinNetwork
+  //   );
+
+  //   const attestorDerivedPublicKey = deriveUnhardenedPublicKey(
+  //     attestorGroupPublicKey,
+  //     this.bitcoinNetwork
+  //   );
+
+  //   const taprootPublicKeyBuffer = Buffer.from(this.getUserTaprootPublicKey(), 'hex');
+
+  //   const multisigPayment = createTaprootMultisigPayment(
+  //     unspendableDerivedPublicKey,
+  //     attestorDerivedPublicKey,
+  //     taprootPublicKeyBuffer,
+  //     this.bitcoinNetwork
+  //   );
+
+  //   const paymentInformation = { fundingPayment, multisigPayment };
+
+  //   this.payment = paymentInformation;
+  //   return paymentInformation;
+  // }
 
   getUserTaprootPublicKey(tweaked: boolean = false): string {
     throw new PaymentNotSetError();

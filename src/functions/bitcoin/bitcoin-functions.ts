@@ -1,3 +1,4 @@
+import { Descriptor } from '@bitgo/wasm-miniscript';
 import { hexToBytes } from '@noble/hashes/utils';
 import {
   Address,
@@ -12,7 +13,7 @@ import {
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { TransactionInput } from '@scure/btc-signer/psbt';
 import { BIP32Factory, BIP32Interface } from 'bip32';
-import { Network, address, initEccLib } from 'bitcoinjs-lib';
+import { Network, address, initEccLib, payments } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
@@ -143,6 +144,68 @@ export function createTaprootMultisigPayment(
 }
 
 /**
+ * Creates a Taproot Multisig Payment.
+ * @param unspendableDerivedPublicKey - The Unspendable Derived Public Key.
+ * @param attestorDerivedPublicKey - The Attestor Derived Public Key.
+ * @param userDerivedPublicKey - The User Derived Public Key.
+ * @param bitcoinNetwork - The Bitcoin Network to use.
+ * @returns The Taproot Multisig Payment.
+ */
+export function createBitGoTaprootMultisigPayment(
+  unspendableDerivedPublicKey: Buffer,
+  attestorGroupPublicKey: string,
+  bitGoPublicKeys: string[],
+  bitcoinNetwork: Network
+): void {
+  // const unspendableDerivedPublicKeyFormatted = getXOnlyPublicKey(unspendableDerivedPublicKey);
+
+  const sortedBitGoPublicKeys = bitGoPublicKeys.sort((a, b) => (a > b ? 1 : -1));
+
+  const descriptorString = `tr(${'02b733c776dd7776657c20a58f1f009567afc75db226965bce83d5d0afc29e46c9'},and_v(v:pk(${attestorGroupPublicKey}),multi_a(2,${sortedBitGoPublicKeys[0]},${sortedBitGoPublicKeys[1]},${sortedBitGoPublicKeys[2]})))`;
+
+  console.log('descriptorString', descriptorString);
+
+  const descriptor = Descriptor.fromString(descriptorString, 'derivable');
+
+  const scriptPubKey = Buffer.from(descriptor.atDerivationIndex(0).scriptPubkey());
+
+  console.log('scriptPubKey', scriptPubKey);
+
+  const bitcoinJSPayment = payments.p2tr({ output: scriptPubKey, network: bitcoinNetwork });
+
+  console.log('bitcoinJSPayment', JSON.stringify(bitcoinJSPayment, null, 2));
+
+  console.log('bitcoinJSPayment.pubkey', bitcoinJSPayment.pubkey);
+
+  const payment = p2tr(bitcoinJSPayment.pubkey, undefined, bitcoinNetwork);
+  console.log('payment', payment.address);
+}
+
+export function createBitGoPayment(bitGoPublicKeys: string[], bitcoinNetwork: Network): void {
+  // const unspendableDerivedPublicKeyFormatted = getXOnlyPublicKey(unspendableDerivedPublicKey);
+
+  const sortedBitGoPublicKeys = bitGoPublicKeys.sort((a, b) => (a > b ? 1 : -1));
+
+  const descriptorString = `tr(multi_a(2,${sortedBitGoPublicKeys[0]},${sortedBitGoPublicKeys[1]},${sortedBitGoPublicKeys[2]})))`;
+  console.log('descriptorString', descriptorString);
+
+  const descriptor = Descriptor.fromString(descriptorString, 'derivable');
+
+  const scriptPubKey = Buffer.from(descriptor.atDerivationIndex(0).scriptPubkey());
+
+  console.log('scriptPubKey', scriptPubKey);
+
+  const bitcoinJSPayment = payments.p2tr({ output: scriptPubKey, network: bitcoinNetwork });
+
+  console.log('bitcoinJSPayment', JSON.stringify(bitcoinJSPayment, null, 2));
+
+  console.log('bitcoinJSPayment.pubkey', bitcoinJSPayment.pubkey);
+
+  const payment = p2tr(bitcoinJSPayment.pubkey, undefined, bitcoinNetwork);
+  console.log('payment', payment.address);
+}
+
+/**
  * Evaluates the fee rate from the bitcoin blockchain API.
  *
  * @returns The fee rate.
@@ -205,15 +268,9 @@ export async function getUTXOs(
   const modifiedUTXOs = await Promise.all(
     userUTXOs.map(async (utxo: UTXO) => {
       return {
-        ...payment,
         txid: utxo.txid,
         index: utxo.vout,
         value: utxo.value,
-        witnessUtxo: {
-          script: payment.script,
-          amount: BigInt(utxo.value),
-        },
-        redeemScript: payment.redeemScript,
       };
     })
   );
