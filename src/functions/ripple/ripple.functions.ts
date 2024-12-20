@@ -384,18 +384,30 @@ export async function getCheckByTXHash(
   try {
     await connectRippleClient(rippleClient);
 
-    const getAccountObjectsRequest: AccountObjectsRequest = {
-      command: 'account_objects',
-      account: issuerAddress,
-      ledger_index: 'validated',
-      type: 'check',
-    };
+    let marker: any = undefined;
+    const limit = 100;
+    let allChecks: any[] = [];
 
-    const {
-      result: { account_objects },
-    } = await rippleClient.request(getAccountObjectsRequest);
+    do {
+      const getAccountObjectsRequest: AccountObjectsRequest = {
+        command: 'account_objects',
+        account: issuerAddress,
+        ledger_index: 'validated',
+        marker,
+        limit,
+        type: 'check',
+      };
 
-    const check = account_objects.find(accountObject => accountObject.PreviousTxnID === txHash);
+      const {
+        result: { account_objects, marker: newMarker },
+      } = await rippleClient.request(getAccountObjectsRequest);
+
+      allChecks = allChecks.concat(account_objects);
+
+      marker = newMarker;
+    } while (marker);
+
+    const check = allChecks.find(accountObject => accountObject.PreviousTxnID === txHash);
 
     if (!check) {
       throw new RippleError(`Check with TX Hash: ${txHash} not found`);

@@ -12,6 +12,7 @@ import xrpl, {
   SubmittableTransaction,
   TicketCreate,
   TransactionMetadata,
+  decode,
 } from 'xrpl';
 import { NFTokenMintMetadata } from 'xrpl/dist/npm/models/transactions/NFTokenMint.js';
 
@@ -182,7 +183,19 @@ export class RippleHandler {
           (node): node is CreatedNode => 'CreatedNode' in node
         ).map(node => node.CreatedNode);
 
-        return createdNodes.map(node => node.NewFields.TicketSequence) as string[];
+        const tickets = createdNodes.map(node => node.NewFields.TicketSequence).filter(Boolean);
+
+        const decodedSignature: Record<string, unknown> = decode(multisignedTransaction);
+
+        const ticketCount = (decodedSignature as unknown as TicketCreate).TicketCount;
+
+        if (tickets.length !== ticketCount) {
+          throw new RippleError(
+            `Number of created tickets does not match the number of requested tickets. Requested: ${ticketCount}, Created: ${tickets.length}`
+          );
+        }
+
+        return tickets as string[];
       } catch (error) {
         throw new RippleError(`Could not submit Ticket Transaction: ${error}`);
       }
