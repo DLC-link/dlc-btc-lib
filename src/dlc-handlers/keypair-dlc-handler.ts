@@ -8,6 +8,7 @@ import {
   deriveUnhardenedKeyPairFromRootPrivateKey,
   getInputIndicesByScript,
 } from '../functions/bitcoin/bitcoin-functions.js';
+import { PaymentInformation } from '../models/bitcoin-models.js';
 import { FundingPaymentType, PaymentType, TransactionType } from '../models/dlc-handler.models.js';
 import {
   InvalidTransactionTypeError,
@@ -65,6 +66,14 @@ export class KeyPairDLCHandler extends AbstractDLCHandler {
 
   getUserFundingPublicKey(): string {
     return bytesToHex(this.fundingDerivedKeyPair.publicKey);
+  }
+
+  getPayment(): PaymentInformation {
+    if (!this._payment) {
+      throw new PaymentNotSetError();
+    }
+
+    return this._payment;
   }
 
   private getPrivateKey(paymentType: PaymentType): Signer {
