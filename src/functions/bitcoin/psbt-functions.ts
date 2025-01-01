@@ -4,6 +4,7 @@ import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
 import { PartialSignature } from 'ledger-bitcoin/build/main/lib/appClient.js';
 
+import { DUST_LIMIT } from '../../constants/dlc-handler.constants.js';
 import { BitcoinInputSigningConfig, PaymentTypes } from '../../models/bitcoin-models.js';
 import { reverseBytes } from '../../utilities/index.js';
 import {
@@ -11,10 +12,9 @@ import {
   getFeeAmount,
   getFeeRecipientAddress,
   getUTXOs,
+  removeDustOutputs,
 } from '../bitcoin/bitcoin-functions.js';
 import { fetchBitcoinTransaction } from './bitcoin-request-functions.js';
-
-const DUST_LIMIT = 546n;
 
 /**
  * Creates a Funding Transaction to deposit Bitcoin into an empty Vault.
@@ -60,8 +60,13 @@ export async function createFundingTransaction(
 
   const psbtOutputs = [
     { address: multisigAddress, amount: depositAmount },
-    { address: feeAddress, amount: BigInt(feeAmount) },
-  ].filter(output => output.amount >= DUST_LIMIT);
+    {
+      address: feeAddress,
+      amount: BigInt(feeAmount),
+    },
+  ];
+
+  removeDustOutputs(psbtOutputs);
 
   const selected = selectUTXO(userUTXOs, psbtOutputs, 'default', {
     changeAddress: depositAddress,
@@ -206,7 +211,9 @@ export async function createDepositTransaction(
       address: multisigAddress,
       amount: BigInt(depositAmount) + BigInt(vaultTransactionOutputValue),
     },
-  ].filter(output => output.amount >= DUST_LIMIT);
+  ];
+
+  removeDustOutputs(depositOutputs);
 
   const depositSelected = selectUTXO(depositInputs, depositOutputs, 'all', {
     changeAddress: depositAddress,
@@ -326,9 +333,9 @@ export async function createWithdrawTransaction(
     });
   }
 
-  const filteredOutputs = outputs.filter(output => output.amount >= DUST_LIMIT);
+  removeDustOutputs(outputs);
 
-  const selected = selectUTXO(inputs, filteredOutputs, 'default', {
+  const selected = selectUTXO(inputs, outputs, 'default', {
     changeAddress: withdrawAddress,
     feePerByte: feeRate,
     bip69: false,

@@ -46,7 +46,7 @@ describe('PSBT Functions', () => {
     jest.clearAllMocks();
   });
   describe('createFundingTransaction', () => {
-    it('should successfully create a valid funding transaction', async () => {
+    it('should successfully create a valid funding transaction and exclude change output under dust limit', async () => {
       jest
         .spyOn(bitcoinFunctions, 'getUTXOs')
         .mockImplementationOnce(async () => TEST_BITCOIN_REGTEST_NATIVE_SEGWIT_UTXOS_1);
@@ -72,6 +72,40 @@ describe('PSBT Functions', () => {
         p2wpkh(hexToBytes(TEST_FEE_RECIPIENT_PUBLIC_KEY_1), regtest).script
       );
 
+      expect(() =>
+        depositTransaction.sign(
+          deriveUnhardenedKeyPairFromRootPrivateKey(
+            TEST_BITCOIN_REGTEST_NATIVE_SEGWIT_XPRIV_1,
+            regtest,
+            'p2wpkh',
+            0
+          ).privateKey!
+        )
+      ).not.toThrow();
+    });
+    it('should successfully create a valid funding transaction and exclude fee output under dust limit', async () => {
+      jest
+        .spyOn(bitcoinFunctions, 'getUTXOs')
+        .mockImplementationOnce(async () => TEST_BITCOIN_REGTEST_NATIVE_SEGWIT_UTXOS_1);
+
+      const depositTransaction = await createFundingTransaction(
+        TEST_REGTEST_BITCOIN_BLOCKCHAIN_API,
+        regtest,
+        9900n,
+        multisigPayment,
+        depositPayment,
+        TEST_FEE_RATE_1,
+        TEST_FEE_RECIPIENT_PUBLIC_KEY_1,
+        TEST_FEE_DEPOSIT_BASIS_POINTS_1
+      );
+
+      expect(depositTransaction).toBeDefined();
+      expect(depositTransaction.inputsLength).toBe(1);
+      expect(depositTransaction.outputsLength).toBe(2);
+      expect(depositTransaction.getOutput(0).amount?.toString()).toBe('9900');
+      expect(depositTransaction.getOutput(0).script).toStrictEqual(multisigPayment.script);
+      expect(depositTransaction.getOutput(1).amount?.toString()).toBe('99989182');
+      expect(depositTransaction.getOutput(1).script).toStrictEqual(depositPayment.script);
       expect(() =>
         depositTransaction.sign(
           deriveUnhardenedKeyPairFromRootPrivateKey(

@@ -17,6 +17,7 @@ import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
+import { DUST_LIMIT } from '../../constants/dlc-handler.constants.js';
 import {
   BitcoinInputSigningConfig,
   BitcoinTransaction,
@@ -44,6 +45,17 @@ initEccLib(ellipticCurveCryptography);
 export function getFeeAmount(bitcoinAmount: number, feeBasisPoints: number): number {
   const feePercentage = new Decimal(feeBasisPoints).dividedBy(10000);
   return new Decimal(bitcoinAmount).times(feePercentage).trunc().toNumber();
+}
+
+export function removeDustOutputs(
+  outputs: { address: string; amount: bigint }[],
+  dustLimit = DUST_LIMIT
+): void {
+  for (let i = outputs.length - 1; i >= 0; i--) {
+    if (outputs[i].amount < dustLimit) {
+      outputs.splice(i, 1);
+    }
+  }
 }
 
 /**

@@ -12,6 +12,7 @@ import {
   getInputIndicesByScript,
   getScriptMatchingOutputFromTransaction,
   getUnspendableKeyCommittedToUUID,
+  removeDustOutputs,
 } from '../../src/functions/bitcoin/bitcoin-functions';
 import {
   TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
@@ -31,6 +32,7 @@ import {
   TEST_ALICE_NATIVE_SEGWIT_PUBLIC_KEY_2,
   TEST_ALICE_TAPROOT_PUBLIC_KEY_1,
   TEST_ALICE_TAPROOT_PUBLIC_KEY_2,
+  TEST_OUTPUTS,
   TEST_TAPROOT_MULTISIG_PAYMENT_SCRIPT_1,
   TEST_TAPROOT_UNHARDENED_DERIVED_PUBLIC_KEY_1,
   TEST_UNHARDENED_DERIVED_UNSPENDABLE_KEY_COMMITED_TO_UUID_1,
@@ -65,6 +67,26 @@ describe('Bitcoin Functions', () => {
       const aliceScript = hexToBytes(TEST_ALICE_NATIVE_SEGWIT_PAYMENT_SCRIPT_1);
       const inputIndices = getInputIndicesByScript(aliceScript, transaction);
       expect(inputIndices).toEqual([]);
+    });
+  });
+
+  describe('removeDustOutputs', () => {
+    it('removes single dust output', () => {
+      const outputs = [TEST_OUTPUTS[0], TEST_OUTPUTS[1]];
+      removeDustOutputs(outputs);
+      expect(outputs).toEqual([TEST_OUTPUTS[0]]);
+    });
+
+    it('removes multiple dust outputs', () => {
+      const outputs = [...TEST_OUTPUTS];
+      removeDustOutputs(outputs);
+      expect(outputs).toEqual([TEST_OUTPUTS[0], TEST_OUTPUTS[2]]);
+    });
+
+    it('keeps all outputs if none are dust', () => {
+      const outputs = [TEST_OUTPUTS[0], TEST_OUTPUTS[2]];
+      removeDustOutputs(outputs);
+      expect(outputs).toEqual(outputs);
     });
   });
 
