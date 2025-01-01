@@ -14,6 +14,8 @@ import {
 } from '../bitcoin/bitcoin-functions.js';
 import { fetchBitcoinTransaction } from './bitcoin-request-functions.js';
 
+const DUST_LIMIT = 546n;
+
 /**
  * Creates a Funding Transaction to deposit Bitcoin into an empty Vault.
  * Uses the UTXOs of the User to create the Funding Transaction.
@@ -58,11 +60,8 @@ export async function createFundingTransaction(
 
   const psbtOutputs = [
     { address: multisigAddress, amount: depositAmount },
-    {
-      address: feeAddress,
-      amount: BigInt(feeAmount),
-    },
-  ];
+    { address: feeAddress, amount: BigInt(feeAmount) },
+  ].filter(output => output.amount >= DUST_LIMIT);
 
   const selected = selectUTXO(userUTXOs, psbtOutputs, 'default', {
     changeAddress: depositAddress,
@@ -70,7 +69,7 @@ export async function createFundingTransaction(
     bip69: false,
     createTx: true,
     network: bitcoinNetwork,
-    dust: 546n as unknown as number,
+    dust: DUST_LIMIT as unknown as number,
   });
 
   if (!selected) {
@@ -166,7 +165,7 @@ export async function createDepositTransaction(
     bip69: false,
     createTx: false,
     network: bitcoinNetwork,
-    dust: 546n as unknown as number,
+    dust: DUST_LIMIT as unknown as number,
   });
 
   if (!additionalDepositSelected) {
@@ -207,7 +206,7 @@ export async function createDepositTransaction(
       address: multisigAddress,
       amount: BigInt(depositAmount) + BigInt(vaultTransactionOutputValue),
     },
-  ];
+  ].filter(output => output.amount >= DUST_LIMIT);
 
   const depositSelected = selectUTXO(depositInputs, depositOutputs, 'all', {
     changeAddress: depositAddress,
@@ -215,7 +214,7 @@ export async function createDepositTransaction(
     bip69: false,
     createTx: true,
     network: bitcoinNetwork,
-    dust: 546n as unknown as number,
+    dust: DUST_LIMIT as unknown as number,
   });
 
   if (!depositSelected) {
@@ -327,13 +326,15 @@ export async function createWithdrawTransaction(
     });
   }
 
-  const selected = selectUTXO(inputs, outputs, 'default', {
+  const filteredOutputs = outputs.filter(output => output.amount >= DUST_LIMIT);
+
+  const selected = selectUTXO(inputs, filteredOutputs, 'default', {
     changeAddress: withdrawAddress,
     feePerByte: feeRate,
     bip69: false,
     createTx: true,
     network: bitcoinNetwork,
-    dust: 546n as unknown as number,
+    dust: DUST_LIMIT as unknown as number,
   });
 
   if (!selected) {
