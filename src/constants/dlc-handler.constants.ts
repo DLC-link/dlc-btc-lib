@@ -5,3 +5,5 @@ export const DLCHandlers = {
   LEDGER: 'ledger',
   DFNS: 'dfns',
 } as const;
+
+export const DUST_LIMIT = 546n;
