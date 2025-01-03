@@ -1,6 +1,9 @@
 import { BitGoAPI } from '@bitgo/sdk-api';
 import { Btc, Tbtc } from '@bitgo/sdk-coin-btc';
-import { CoinConstructor, EnvironmentName, Wallet } from '@bitgo/sdk-core';
+import { CoinConstructor, EnvironmentName, Wallet, hexToBigInt } from '@bitgo/sdk-core';
+import { Psbt } from '@bitgo/wasm-miniscript';
+import { hexToBytes } from '@noble/hashes/utils';
+import { hex } from '@scure/base';
 import { Transaction } from '@scure/btc-signer';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
@@ -154,6 +157,11 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
       .coin(this.bitGoAPIClientConfig.coin.name)
       .wallets()
       .get({ id: walletID });
+
+    const prebuilt = await bitGoWallet.prebuildTransaction({
+      recipients: [{ address: 'tb1qk5q0takwdva20adgw8zf4vy07w9529gptl6pd9', amount: 100000 }],
+    });
+    console.log('bitGoWallet', prebuilt);
 
     const walletAddress = await bitGoWallet.getAddress({
       id: addressID,
