@@ -53,6 +53,20 @@ const ethereumHardhat: EthereumNetwork = {
   defaultNodeURL: 'http://localhost:8545',
 };
 
+const ethereumAvalanche: EthereumNetwork = {
+  name: 'Avax',
+  displayName: 'Avalanche',
+  id: EthereumNetworkID.Avalanche,
+  defaultNodeURL: 'https://api.avax.network/ext/bc/C/rpc',
+};
+
+const ethereumBSC: EthereumNetwork = {
+  name: 'BSC',
+  displayName: 'Binace Smart Chain',
+  id: EthereumNetworkID.BSC,
+  defaultNodeURL: 'https://rpc.ankr.com/bsc',
+};
+
 export const supportedEthereumNetworks: EthereumNetwork[] = [
   ethereumArbitrumSepolia,
   ethereumArbitrum,
@@ -60,6 +74,8 @@ export const supportedEthereumNetworks: EthereumNetwork[] = [
   ethereumSepolia,
   ethereumBase,
   ethereumBaseSepolia,
+  ethereumAvalanche,
+  ethereumBSC,
   ethereumHardhat,
 ];
 

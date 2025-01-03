@@ -9,6 +9,8 @@ export type AttestorChainID =
   | 'evm-opsepolia'
   | 'evm-polygon'
   | 'evm-polygonsepolia'
+  | 'evm-avax'
+  | 'evm-bsc'
   | 'evm-localhost'
   | 'evm-hardhat-arb'
   | 'evm-hardhat-eth'
