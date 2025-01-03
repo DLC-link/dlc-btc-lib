@@ -11,6 +11,8 @@ export enum EthereumNetworkID {
   Mainnet = '1',
   Sepolia = '11155111',
   Arbitrum = '42161',
+  Avalanche = '43114',
+  BSC = '56',
   ArbitrumSepolia = '421614',
   Base = '8453',
   BaseSepolia = '84532',
