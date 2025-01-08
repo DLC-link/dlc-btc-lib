@@ -49,11 +49,11 @@ describe('Bitcoin Functions', () => {
         'https://mempool.space/testnet/api/v1/fees/recommended'
       );
       await bitGoDLCHandler.connect('dani@dlc.link', 'J7yW9!vs%ve@93', '000000');
-      const walletsWithAddresses = await bitGoDLCHandler.getWalletsWithAddresses();
-      const walletID = walletsWithAddresses[0].wallet.id();
-      const addressID = await walletsWithAddresses[0].walletAddresses[0].id;
+      // const walletsWithAddresses = await bitGoDLCHandler.getWalletsWithAddresses();
+      // const walletID = walletsWithAddresses[0].wallet.id();
+      // const addressID = await walletsWithAddresses[0].walletAddresses[0].id;
 
-      await bitGoDLCHandler.initializeWalletByID(walletID, addressID);
+      await bitGoDLCHandler.initializeWalletByID('6626365d9657094305731de7f0d3795f');
     }, 30000);
   });
   xdescribe('getInputIndicesByScript', () => {

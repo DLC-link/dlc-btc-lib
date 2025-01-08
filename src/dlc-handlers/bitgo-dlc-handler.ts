@@ -1,23 +1,26 @@
+import { AbstractUtxoCoin } from '@bitgo/abstract-utxo';
+import { createDescriptorWalletWithWalletPassphrase } from '@bitgo/abstract-utxo/dist/src/descriptor/createWallet/createDescriptorWallet.js';
+import { DefaultIBTC } from '@bitgo/abstract-utxo/dist/src/descriptor/createWallet/createDescriptors.js';
 import { BitGoAPI } from '@bitgo/sdk-api';
 import { Btc, Tbtc } from '@bitgo/sdk-coin-btc';
-import { CoinConstructor, EnvironmentName, Wallet, hexToBigInt } from '@bitgo/sdk-core';
-import { Psbt } from '@bitgo/wasm-miniscript';
-import { hexToBytes } from '@noble/hashes/utils';
-import { hex } from '@scure/base';
+import { CoinConstructor, EnvironmentName, Wallet } from '@bitgo/sdk-core';
 import { Transaction } from '@scure/btc-signer';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
-import { any, isNil } from 'ramda';
-
 import {
-  createBitGoPayment,
-  createBitGoTaprootMultisigPayment,
-} from '../functions/bitcoin/bitcoin-functions.js';
+  deriveUnhardenedPublicKey,
+  getFeeAmount,
+  getFeeRecipientAddress,
+  getUnspendableKeyCommittedToUUID,
+} from 'src/functions/bitcoin/bitcoin-functions.js';
+import { RawVault } from 'src/models/ethereum-models.js';
+
 import { FundingPaymentType, TransactionType } from '../models/dlc-handler.models.js';
 import {
   BitGoAPIClientNotSetError,
-  BitGoAddressIDNotSetError,
-  BitGoWalletIDNotSetError,
+  BitGoDescriptorWalletIDNotSetError,
+  BitGoEnterpriseIDNotSet,
+  BitGoFundingWalletIDNotSetError,
   PaymentNotSetError,
   SignatureGenerationFailed,
   TaprootDerivedPublicKeyNotSet,
@@ -29,13 +32,7 @@ interface BitGoAPIClientConfig {
   coin: { name: string; coin: CoinConstructor };
 }
 
-interface GetWalletWithAddressesResponse {
-  wallet: Wallet;
-  walletAddresses: any[];
-}
-
 function getBitGoAPIClientConfig(bitcoinNetwork: Network): BitGoAPIClientConfig {
-  console.log('bitcoinNetwork', bitcoinNetwork);
   switch (bitcoinNetwork) {
     case bitcoin:
       return { env: 'test', coin: { name: 'btc', coin: Btc.createInstance } };
@@ -49,10 +46,11 @@ function getBitGoAPIClientConfig(bitcoinNetwork: Network): BitGoAPIClientConfig 
 export class BitGoDLCHandler extends AbstractDLCHandler {
   readonly dlcHandlerType = 'bitgo' as const;
   private _bitGoAPIClient?: BitGoAPI;
-  private _walletID?: string;
-  private _addressID?: string;
   private bitGoAPIClientConfig: BitGoAPIClientConfig;
-  private _extendedPublicKeys?: string[];
+  private _fundingWalletID?: string;
+  private _descriptorWalletID?: string;
+  private _enterpriseID?: string;
+  private _taprootDerivedPublicKey?: string;
 
   constructor(
     fundingPaymentType: FundingPaymentType = 'tr',
@@ -69,6 +67,10 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
     this.bitGoAPIClientConfig = getBitGoAPIClientConfig(bitcoinNetwork);
   }
 
+  set bitGoAPIClient(bitGoAPIClient: BitGoAPI) {
+    this._bitGoAPIClient = bitGoAPIClient;
+  }
+
   get bitGoAPIClient(): BitGoAPI {
     if (!this._bitGoAPIClient) {
       throw new BitGoAPIClientNotSetError();
@@ -76,42 +78,48 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
     return this._bitGoAPIClient;
   }
 
-  set bitGoAPIClient(bitGoAPIClient: BitGoAPI) {
-    this._bitGoAPIClient = bitGoAPIClient;
+  set fundingWalletID(fundingWalletID: string) {
+    this._fundingWalletID = fundingWalletID;
   }
 
-  set walletID(walletID: string) {
-    this._walletID = walletID;
-  }
-
-  get walletID(): string {
-    if (!this._walletID) {
-      throw new BitGoWalletIDNotSetError();
+  get fundingWalletID(): string {
+    if (!this._fundingWalletID) {
+      throw new BitGoFundingWalletIDNotSetError();
     }
-    return this._walletID;
+    return this.fundingWalletID;
   }
 
-  set addressID(addressID: string) {
-    this._addressID = addressID;
+  set descriptorWalletID(descriptorWalletID: string) {
+    this._descriptorWalletID = descriptorWalletID;
   }
 
-  get addressID(): string {
-    if (!this._addressID) {
-      throw new BitGoAddressIDNotSetError();
+  get descriptorWalletID(): string {
+    if (!this._descriptorWalletID) {
+      throw new BitGoDescriptorWalletIDNotSetError();
     }
-    return this._addressID;
+    return this._descriptorWalletID;
   }
 
-  set extendedPublicKeys(extendedPublicKeys: string[]) {
-    this._extendedPublicKeys = extendedPublicKeys;
+  set enterpriseID(enterpriseID: string) {
+    this._enterpriseID = enterpriseID;
   }
 
-  get extendedPublicKeys(): string[] {
-    if (!this._extendedPublicKeys) {
-      throw new Error('Extended public keys are undefined');
+  get enterpriseID(): string {
+    if (!this._enterpriseID) {
+      throw new BitGoEnterpriseIDNotSet();
     }
+    return this._enterpriseID;
+  }
 
-    return this._extendedPublicKeys;
+  set taprootDerivedPublicKey(taprootDerivedPublicKey: string) {
+    this._taprootDerivedPublicKey = taprootDerivedPublicKey;
+  }
+
+  getUserTaprootPublicKey(): string {
+    if (!this._taprootDerivedPublicKey) {
+      throw new TaprootDerivedPublicKeyNotSet();
+    }
+    return this._taprootDerivedPublicKey;
   }
 
   async connect(username: string, password: string, otp: string): Promise<void> {
@@ -135,108 +143,135 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
     this.bitGoAPIClient = bitGoAPIClient;
   }
 
-  async getWalletsWithAddresses(): Promise<GetWalletWithAddressesResponse[]> {
+  async getWalletsWithAddresses(): Promise<Wallet[]> {
     const response = await this.bitGoAPIClient
       .coin(this.bitGoAPIClientConfig.coin.name)
       .wallets()
       .list();
 
-    const wallets = response.wallets;
-
-    const walletsWithAddresses = await Promise.all(
-      wallets.map(async wallet => {
-        const addresses = await wallet.addresses({ chains: [30] });
-        return { wallet: wallet, walletAddresses: addresses.addresses };
-      })
-    );
-    return walletsWithAddresses;
+    return response.wallets;
   }
 
-  async initializeWalletByID(walletID: string, addressID: string): Promise<void> {
-    const bitGoWallet = await this.bitGoAPIClient
+  async initializeWalletByID(walletID: string): Promise<void> {
+    const fundingWallet = await this.bitGoAPIClient
       .coin(this.bitGoAPIClientConfig.coin.name)
       .wallets()
       .get({ id: walletID });
 
-    const prebuilt = await bitGoWallet.prebuildTransaction({
-      recipients: [{ address: 'tb1qk5q0takwdva20adgw8zf4vy07w9529gptl6pd9', amount: 100000 }],
-    });
-    console.log('bitGoWallet', prebuilt);
-
-    const walletAddress = await bitGoWallet.getAddress({
-      id: addressID,
-    });
-
-    console.log('walletAddress', walletAddress);
-
-    const walletKeychains = await this.bitGoAPIClient
+    const descriptorWalletKeychains = await this.bitGoAPIClient
       .coin(this.bitGoAPIClientConfig.coin.name)
       .keychains()
-      .getKeysForSigning({ wallet: bitGoWallet });
+      .getKeysForSigning({ wallet: fundingWallet });
 
-    const extendedPublicKeys = walletKeychains.map(keychain => keychain.pub);
+    console.log(descriptorWalletKeychains);
 
-    if (any(extendedPublicKey => isNil(extendedPublicKey), extendedPublicKeys)) {
-      throw new Error('Extended public keys are undefined');
-    }
-
-    createBitGoPayment(extendedPublicKeys as string[], this.bitcoinNetwork);
-
-    createBitGoTaprootMultisigPayment(
-      Buffer.from('02b733c776dd7776657c20a58f1f009567afc75db226965bce83d5d0afc29e46c9', 'hex'),
-      'xpub6C1F2SwADP3TNajQjg2PaniEGpZLvWdMiFP8ChPjQBRWD1XUBeMdE4YkQYvnNhAYGoZKfcQbsRCefserB5DyJM7R9VR6ce6vLrXHVfeqyH3',
-      extendedPublicKeys as string[],
-      this.bitcoinNetwork
-    );
-
-    this.extendedPublicKeys = extendedPublicKeys as string[];
-    this.walletID = bitGoWallet.id();
-    this.addressID = walletAddress.id;
+    this.fundingWalletID = fundingWallet.id();
+    this.enterpriseID = fundingWallet._wallet.enterprise;
   }
 
-  // protected async createPaymentInformation(
-  //   vaultUUID: string,
-  //   attestorGroupPublicKey: string
-  // ): Promise<PaymentInformation> {
-  //   let fundingPayment: P2Ret | P2TROut;
+  private async getDescriptorWalletByUUID(vaultUUID: string): Promise<Wallet | undefined> {
+    const descriptorWalletLabel = `[iBTC]${vaultUUID}`;
 
-  //   if (this.fundingPaymentType === 'wpkh') {
-  //     const fundingPublicKeyBuffer = Buffer.from(this.getUserFundingPublicKey(), 'hex');
-  //     fundingPayment = createNativeSegwitPayment(fundingPublicKeyBuffer, this.bitcoinNetwork);
-  //   } else {
-  //     const fundingPublicKeyBuffer = Buffer.from(this.getUserFundingPublicKey(), 'hex');
-  //     const fundingSchnorrPublicKeyBuffer = ecdsaPublicKeyToSchnorr(fundingPublicKeyBuffer);
-  //     fundingPayment = createTaprootPayment(fundingSchnorrPublicKeyBuffer, this.bitcoinNetwork);
-  //   }
+    const wallets = await this.bitGoAPIClient
+      .coin(this.bitGoAPIClientConfig.coin.name)
+      .wallets()
+      .list();
 
-  //   const unspendablePublicKey = getUnspendableKeyCommittedToUUID(vaultUUID, this.bitcoinNetwork);
-  //   const unspendableDerivedPublicKey = deriveUnhardenedPublicKey(
-  //     unspendablePublicKey,
-  //     this.bitcoinNetwork
-  //   );
+    return wallets.wallets.find(wallet => wallet.label() === descriptorWalletLabel);
+  }
 
-  //   const attestorDerivedPublicKey = deriveUnhardenedPublicKey(
-  //     attestorGroupPublicKey,
-  //     this.bitcoinNetwork
-  //   );
+  private async createDescriptorWallet(
+    vaultUUID: string
+    // attestorGroupPublicKey: string // TODO: Add attestorGroupPublicKey as a parameter to createDescriptorWalletWithWalletPassphrase
+  ): Promise<Wallet> {
+    const descriptorWalletLabel = `[iBTC]${vaultUUID}`;
 
-  //   const taprootPublicKeyBuffer = Buffer.from(this.getUserTaprootPublicKey(), 'hex');
+    // TODO: Add unspendableDerivedPublicKey as a parameter to createDescriptorWalletWithWalletPassphrase
 
-  //   const multisigPayment = createTaprootMultisigPayment(
-  //     unspendableDerivedPublicKey,
-  //     attestorDerivedPublicKey,
-  //     taprootPublicKeyBuffer,
-  //     this.bitcoinNetwork
-  //   );
+    // const unspendablePublicKey = getUnspendableKeyCommittedToUUID(vaultUUID, this.bitcoinNetwork);
+    // const unspendableDerivedPublicKey = deriveUnhardenedPublicKey(
+    //   unspendablePublicKey,
+    //   this.bitcoinNetwork
+    // );
 
-  //   const paymentInformation = { fundingPayment, multisigPayment };
+    const result = await createDescriptorWalletWithWalletPassphrase(
+      this.bitGoAPIClient,
+      this.bitGoAPIClientConfig.coin.coin(this.bitGoAPIClient) as AbstractUtxoCoin,
+      {
+        enterprise: this.enterpriseID,
+        label: descriptorWalletLabel,
+        walletPassphrase: '0000000000000000000000000000000000000000000000000000000000000000', // TODO: Use a real Wallet Passphrase
+        descriptorsFromKeys: DefaultIBTC,
+      }
+    );
 
-  //   this.payment = paymentInformation;
-  //   return paymentInformation;
-  // }
+    const descriptorWalletID = result._wallet.id;
 
-  getUserTaprootPublicKey(tweaked: boolean = false): string {
-    throw new PaymentNotSetError();
+    this.descriptorWalletID = descriptorWalletID;
+
+    const descriptorWallet = await this.bitGoAPIClient
+      .coin(this.bitGoAPIClientConfig.coin.name)
+      .wallets()
+      .get({ id: descriptorWalletID });
+
+    return descriptorWallet;
+  }
+
+  async createFundingPSBT(
+    vault: RawVault,
+    depositAmount: bigint,
+    attestorGroupPublicKey: string,
+    feeRateMultiplier?: number,
+    customFeeRate?: bigint
+  ): Promise<Transaction> {
+    try {
+      let descriptorWallet = await this.getDescriptorWalletByUUID(vault.uuid);
+
+      if (!descriptorWallet) {
+        descriptorWallet = await this.createDescriptorWallet(vault.uuid);
+      }
+
+      const descriptorWalletKeychains = await this.bitGoAPIClient
+        .coin(this.bitGoAPIClientConfig.coin.name)
+        .keychains()
+        .getKeysForSigning({ wallet: descriptorWallet });
+
+      const concatonatedExtendedPublicKeys = descriptorWalletKeychains
+        .map(keychain => {
+          if (!keychain.pub) {
+            throw new Error('Missing Keychain Public Key');
+          }
+          return keychain.pub;
+        })
+        .sort((a, b) => (a > b ? 1 : -1))
+        .join(',');
+
+      this.taprootDerivedPublicKey = concatonatedExtendedPublicKeys;
+
+      const fundingWallet = await this.bitGoAPIClient
+        .coin(this.bitGoAPIClientConfig.coin.name)
+        .wallets()
+        .get({ id: this.fundingWalletID });
+
+      const feeAddress = getFeeRecipientAddress(vault.btcFeeRecipient, this.bitcoinNetwork);
+      const feeAmount = getFeeAmount(
+        Number(depositAmount),
+        Number(vault.btcMintFeeBasisPoints.toBigInt())
+      );
+
+      fundingWallet.prebuildAndSignTransaction({
+        recipients: [
+          {
+            address: descriptorWallet._wallet.receiveAddress.address,
+            amount: depositAmount.toString(),
+          },
+        ],
+      });
+
+      return Transaction.fromPSBT(formattedFundingPSBT.toBuffer());
+    } catch (error: any) {
+      throw new Error(`Error creating Funding PSBT: ${error}`);
+    }
   }
 
   getUserFundingPublicKey(): string {

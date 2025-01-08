@@ -96,21 +96,30 @@ export class BitGoAPIClientNotSetError extends DLCHandlerError {
   }
 }
 
-export class BitGoWalletIDNotSetError extends DLCHandlerError {
+export class BitGoFundingWalletIDNotSetError extends DLCHandlerError {
   constructor(
-    message: string = 'BitGo Wallet ID not set. Make sure to initialize the wallet before attempting to access it.'
+    message: string = 'BitGo Funding Wallet ID not set. Make sure to initialize the wallet before attempting to access it.'
   ) {
     super(message);
-    this.name = 'BitGoWalletIDNotSetError';
+    this.name = 'BitGoFundingWalletIDNotSetError';
   }
 }
 
-export class BitGoAddressIDNotSetError extends DLCHandlerError {
+export class BitGoDescriptorWalletIDNotSetError extends DLCHandlerError {
   constructor(
-    message: string = 'BitGo Address ID not set. Make sure to initialize the wallet before attempting to access it.'
+    message: string = 'BitGo Descriptor Wallet ID not set. Make sure to initialize the wallet before attempting to access it.'
   ) {
     super(message);
-    this.name = 'BitGoAddressIDNotSetError';
+    this.name = 'BitGoDescriptorWalletIDNotSetError';
+  }
+}
+
+export class BitGoEnterpriseIDNotSet extends DLCHandlerError {
+  constructor(
+    message: string = 'BitGo Enterprise ID not set. Make sure to initialize the wallet before attempting to access it.'
+  ) {
+    super(message);
+    this.name = 'BitGoEnterpriseIDNotSet';
   }
 }
 

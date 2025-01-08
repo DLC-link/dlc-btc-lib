@@ -59,8 +59,9 @@
     "typescript-eslint": "^7.7.0"
   },
   "dependencies": {
-    "@bitgo/sdk-api": "^1.57.1",
-    "@bitgo/sdk-coin-btc": "^2.4.2",
+    "@bitgo/abstract-utxo": "file:../BitGoJS/modules/abstract-utxo",
+    "@bitgo/sdk-api": "file:../BitGoJS/modules/sdk-api",
+    "@bitgo/sdk-coin-btc": "file:../BitGoJS/modules/sdk-coin-btc",
     "@bitgo/wasm-miniscript": "^1.9.0",
     "@dfns/sdk": "^0.5.9",
     "@dfns/sdk-browser": "^0.5.9",
@@ -83,5 +84,10 @@
     "scure": "1.6.0",
     "tiny-secp256k1": "2.2.3",
     "xrpl": "4.0.0"
+  },
+  "resolutions": {
+    "@bitgo/abstract-utxo": "file:../BitGoJS/modules/abstract-utxo",
+    "@bitgo/sdk-api": "file:../BitGoJS/modules/sdk-api",
+    "@bitgo/sdk-coin-btc": "file:../BitGoJS/modules/sdk-coin-btc"
   }
 }

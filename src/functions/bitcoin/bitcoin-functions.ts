@@ -45,6 +45,13 @@ export function getFeeAmount(bitcoinAmount: number, feeBasisPoints: number): num
   return new Decimal(bitcoinAmount).times(feePercentage).trunc().toNumber();
 }
 
+export function getBIP32InterfaceFromExtendedPublicKey(
+  extendedPublicKey: string,
+  bitcoinNetwork?: Network
+): BIP32Interface {
+  return bip32.fromBase58(extendedPublicKey, bitcoinNetwork);
+}
+
 /**
  * Derives the Public Key at the Unhardened Path (0/0) from a given Extended Public Key.
  * @param extendedPublicKey - The base58-encoded Extended Public Key.
@@ -68,6 +75,9 @@ export function createNativeSegwitPayment(publicKey: Buffer, bitcoinNetwork: Net
   return p2wpkh(publicKey, bitcoinNetwork);
 }
 
+export function createPrivateKey(seedString: string): BIP32Interface {
+  return bip32.fromSeed(Buffer.from(seedString, 'hex'));
+}
 /**
  * Derives the Account Key Pair from the Root Private Key.
  * @param rootPrivateKey - The Root Private Key.
