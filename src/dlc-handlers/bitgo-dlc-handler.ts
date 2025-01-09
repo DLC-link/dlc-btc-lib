@@ -4,13 +4,12 @@ import { DefaultIBTC } from '@bitgo/abstract-utxo/dist/src/descriptor/createWall
 import { BitGoAPI } from '@bitgo/sdk-api';
 import { Btc, Tbtc } from '@bitgo/sdk-coin-btc';
 import { CoinConstructor, EnvironmentName, Keychain, Wallet } from '@bitgo/sdk-core';
-import { hexToBytes } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { Transaction, selectUTXO } from '@scure/btc-signer';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
-import { DUST_LIMIT } from 'src/constants/dlc-handler.constants.js';
-import { createRangeFromLength } from 'src/utilities/index.js';
 
+import { DUST_LIMIT } from '../constants/dlc-handler.constants.js';
 import {
   deriveUnhardenedPublicKey,
   getAddressAndScriptPublicKeyFromDescriptor,
@@ -30,6 +29,7 @@ import {
   TaprootDerivedPublicKeyNotSet,
 } from '../models/errors/dlc-handler.errors.models.js';
 import { RawVault } from '../models/ethereum-models.js';
+import { compareUint8Arrays, createRangeFromLength } from '../utilities/index.js';
 import { AbstractDLCHandler } from './abstract-dlc-handler.js';
 
 interface BitGoAPIClientConfig {
@@ -300,7 +300,7 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
 
       console.log('before prebuildAndSignTransaction');
 
-      const response = await fundingWallet.prebuildAndSignTransaction({
+      const response = await fundingWallet.prebuildTransaction({
         recipients: psbtOutputs,
         txFormat: 'psbt',
       });
@@ -310,8 +310,6 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
       const fundingTransactionHex = (response as any).txHex;
 
       const fundingTransaction = Transaction.fromPSBT(Buffer.from(fundingTransactionHex, 'hex'));
-
-      fundingTransaction.finalize();
 
       return fundingTransaction;
     } catch (error: any) {
@@ -398,7 +396,7 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
 
     removeDustOutputs(outputs);
 
-    const response = await fundingWallet.prebuildAndSignTransaction({
+    const response = await fundingWallet.prebuildTransaction({
       recipients: outputs,
       changeAddress: fundingWallet._wallet.receiveAddress.address,
       txFormat: 'psbt',
@@ -596,7 +594,88 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
     throw new TaprootDerivedPublicKeyNotSet();
   }
 
-  //   async signPSBT(transaction: Transaction, transactionType: TransactionType): Promise<Transaction> {
-  //     throw new SignatureGenerationFailed();
-  //   }
+  async signBitGoPSBT(
+    transaction: Transaction,
+    transactionType: TransactionType,
+    vaultUUID: string,
+    attestorGroupPublicKey: string
+  ): Promise<Transaction> {
+    const descriptorWallet = await this.getDescriptorWalletByUUID(vaultUUID);
+
+    if (!descriptorWallet) {
+      throw new Error('Descriptor Wallet not found');
+    }
+
+    const fundingWallet = await this.bitGoAPIClient
+      .coin(this.bitGoAPIClientConfig.coin.name)
+      .wallets()
+      .get({ id: this.fundingWalletID });
+
+    if (transactionType === 'funding') {
+      const response = await fundingWallet.signTransaction({
+        txHex: bytesToHex(transaction.toPSBT()),
+      });
+      const fundingTransactionHex = (response as any).txHex;
+
+      const fundingTransaction = Transaction.fromPSBT(Buffer.from(fundingTransactionHex, 'hex'));
+      fundingTransaction.finalize();
+      return fundingTransaction;
+    } else if (transactionType === 'deposit') {
+      const response = await fundingWallet.signTransaction({
+        txHex: bytesToHex(transaction.toPSBT()),
+      });
+
+      const depositTransactionHex = (response as any).txHex;
+
+      const descriptorWalletResponse = await descriptorWallet.signTransaction({
+        txHex: depositTransactionHex,
+      });
+
+      const signedTransactionHex = (descriptorWalletResponse as any).txHex;
+
+      const signedTransaction = Transaction.fromPSBT(Buffer.from(signedTransactionHex, 'hex'));
+
+      const unspendableDerivedPublicKey = this.getUnspendableDerivedPublicKey(vaultUUID);
+
+      const descriptorWalletKeychains = await this.bitGoAPIClient
+        .coin(this.bitGoAPIClientConfig.coin.name)
+        .keychains()
+        .getKeysForSigning({ wallet: descriptorWallet });
+
+      const { scriptPublicKey } = getAddressAndScriptPublicKeyFromDescriptor(
+        unspendableDerivedPublicKey,
+        attestorGroupPublicKey,
+        this.getExtendedPublicKeys(descriptorWalletKeychains),
+        this.bitcoinNetwork
+      );
+
+      createRangeFromLength(signedTransaction.inputsLength).forEach(index => {
+        const inputScript = signedTransaction.getInput(index).witnessUtxo?.script;
+
+        if (!inputScript) {
+          throw new Error('Could not get script from input');
+        }
+
+        if (inputScript && compareUint8Arrays(inputScript, scriptPublicKey))
+          transaction.finalizeIdx(index);
+      });
+
+      return signedTransaction;
+    } else if (transactionType === 'withdraw') {
+      const descriptorWalletResponse = await descriptorWallet.signTransaction({
+        txHex: bytesToHex(transaction.toPSBT()),
+      });
+
+      const signedTransactionHex = (descriptorWalletResponse as any).txHex;
+
+      const signedTransaction = Transaction.fromPSBT(Buffer.from(signedTransactionHex, 'hex'));
+      return signedTransaction;
+    } else {
+      throw new Error('Invalid Transaction Type');
+    }
+  }
+
+  signPSBT(transaction: Transaction, transactionType: TransactionType): Promise<Transaction> {
+    throw new SignatureGenerationFailed();
+  }
 }

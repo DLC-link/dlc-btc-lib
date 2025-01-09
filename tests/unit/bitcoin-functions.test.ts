@@ -51,7 +51,7 @@ describe('Bitcoin Functions', () => {
         'https://mempool.space/testnet',
         'https://mempool.space/testnet/api/v1/fees/recommended'
       );
-      await bitGoDLCHandler.connect('dani@dlc.link', 'J7yW9!vs%ve@93', '000000');
+      await bitGoDLCHandler.connect('dani@dlc.link', '', '000000');
 
       await bitGoDLCHandler.initializeWalletByID('677e7f88eeeb235f3a7a949789981968');
 
