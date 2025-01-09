@@ -1,6 +1,7 @@
 import { Transaction } from '@scure/btc-signer';
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Network } from 'bitcoinjs-lib';
+import { regtest } from 'bitcoinjs-lib/src/networks.js';
 
 import {
   createNativeSegwitPayment,
@@ -133,11 +134,16 @@ export abstract class AbstractDLCHandler {
     }
   }
 
-  private async getFeeRate(feeRateMultiplier?: number, customFeeRate?: bigint): Promise<bigint> {
-    return (
-      customFeeRate ??
-      BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier))
-    );
+  protected async getFeeRate(feeRateMultiplier?: number, customFeeRate?: bigint): Promise<bigint> {
+    if (customFeeRate) {
+      return customFeeRate;
+    }
+
+    if (this.bitcoinNetwork === regtest) {
+      return BigInt(2);
+    }
+
+    return BigInt(await getFeeRate(this.bitcoinBlockchainFeeRecommendationAPI, feeRateMultiplier));
   }
 
   async createFundingPSBT(

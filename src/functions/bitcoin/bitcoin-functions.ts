@@ -13,16 +13,19 @@ import {
 import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { TransactionInput } from '@scure/btc-signer/psbt';
 import { BIP32Factory, BIP32Interface } from 'bip32';
-import { Network, address, initEccLib, payments } from 'bitcoinjs-lib';
+import { Network, address, initEccLib } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
+import { DUST_LIMIT } from '../../constants/dlc-handler.constants.js';
 import {
   BitcoinInputSigningConfig,
   BitcoinTransaction,
   BitcoinTransactionVectorOutput,
+  BlockData,
   FeeRates,
+  HistoricalFeeRate,
   PaymentTypes,
   UTXO,
 } from '../../models/bitcoin-models.js';
@@ -50,6 +53,22 @@ export function getBIP32InterfaceFromExtendedPublicKey(
   bitcoinNetwork?: Network
 ): BIP32Interface {
   return bip32.fromBase58(extendedPublicKey, bitcoinNetwork);
+}
+
+export function removeDustOutputs(
+  outputs: { address: string; amount: bigint | string }[],
+  dustLimit = DUST_LIMIT
+): void {
+  for (let i = outputs.length - 1; i >= 0; i--) {
+    const amount =
+      typeof outputs[i].amount === 'string'
+        ? BigInt(outputs[i].amount)
+        : (outputs[i].amount as bigint);
+
+    if (amount < dustLimit) {
+      outputs.splice(i, 1);
+    }
+  }
 }
 
 /**
@@ -129,6 +148,45 @@ export function getXOnlyPublicKey(publicKey: Buffer): Buffer {
   return publicKey.length === 32 ? publicKey : publicKey.subarray(1);
 }
 
+function iBTCMulti(m: number, n: number, keys: BIP32Interface[] | string[], path: string): string {
+  if (n < m) {
+    throw new Error(`Cannot create ${m} of ${n} multisig`);
+  }
+  if (keys.length < n) {
+    throw new Error(`Not enough keys for ${m} of ${n} multisig: keys.length=${keys.length}`);
+  }
+  keys = keys.slice(0, n);
+
+  return `multi_a(${m},${keys
+    .map(k => `${k}/${path}`)
+    .sort((a, b) => (a > b ? 1 : -1))
+    .join(',')})`;
+}
+
+export function getAddressAndScriptPublicKeyFromDescriptor(
+  unspendableDerivedPublicKey: string,
+  attestorGroupPublicKey: string,
+  extendedPublicKeys: string[],
+  bitcoinNetwork: Network
+): { address: string; scriptPublicKey: Buffer } {
+  const descriptorString = `tr(02b733c776dd7776657c20a58f1f009567afc75db226965bce83d5d0afc29e46c9,and_v(v:pk(xpub6C1F2SwADP3TNajQjg2PaniEGpZLvWdMiFP8ChPjQBRWD1XUBeMdE4YkQYvnNhAYGoZKfcQbsRCefserB5DyJM7R9VR6ce6vLrXHVfeqyH3),${iBTCMulti(
+    2,
+    3,
+    extendedPublicKeys,
+    '0/*'
+  )}))`;
+
+  const descriptor = Descriptor.fromString(descriptorString, 'derivable');
+
+  const derivedDescriptor = descriptor.atDerivationIndex(0);
+
+  const scriptPublicKey = Buffer.from(derivedDescriptor.scriptPubkey());
+
+  const addressAtDerivationIndexZero = address.fromOutputScript(scriptPublicKey, bitcoinNetwork);
+
+  return { address: addressAtDerivationIndexZero, scriptPublicKey };
+}
+
 /**
  * Creates a Taproot Multisig Payment.
  * @param unspendableDerivedPublicKey - The Unspendable Derived Public Key.
@@ -154,106 +212,94 @@ export function createTaprootMultisigPayment(
 }
 
 /**
- * Creates a Taproot Multisig Payment.
- * @param unspendableDerivedPublicKey - The Unspendable Derived Public Key.
- * @param attestorDerivedPublicKey - The Attestor Derived Public Key.
- * @param userDerivedPublicKey - The User Derived Public Key.
- * @param bitcoinNetwork - The Bitcoin Network to use.
- * @returns The Taproot Multisig Payment.
- */
-export function createBitGoTaprootMultisigPayment(
-  unspendableDerivedPublicKey: Buffer,
-  attestorGroupPublicKey: string,
-  bitGoPublicKeys: string[],
-  bitcoinNetwork: Network
-): void {
-  // const unspendableDerivedPublicKeyFormatted = getXOnlyPublicKey(unspendableDerivedPublicKey);
-
-  const sortedBitGoPublicKeys = bitGoPublicKeys.sort((a, b) => (a > b ? 1 : -1));
-
-  const descriptorString = `tr(${'02b733c776dd7776657c20a58f1f009567afc75db226965bce83d5d0afc29e46c9'},and_v(v:pk(${attestorGroupPublicKey}),multi_a(2,${sortedBitGoPublicKeys[0]},${sortedBitGoPublicKeys[1]},${sortedBitGoPublicKeys[2]})))`;
-
-  console.log('descriptorString', descriptorString);
-
-  const descriptor = Descriptor.fromString(descriptorString, 'derivable');
-
-  const scriptPubKey = Buffer.from(descriptor.atDerivationIndex(0).scriptPubkey());
-
-  console.log('scriptPubKey', scriptPubKey);
-
-  const bitcoinJSPayment = payments.p2tr({ output: scriptPubKey, network: bitcoinNetwork });
-
-  console.log('bitcoinJSPayment', JSON.stringify(bitcoinJSPayment, null, 2));
-
-  console.log('bitcoinJSPayment.pubkey', bitcoinJSPayment.pubkey);
-
-  const payment = p2tr(bitcoinJSPayment.pubkey, undefined, bitcoinNetwork);
-  console.log('payment', payment.address);
-}
-
-export function createBitGoPayment(bitGoPublicKeys: string[], bitcoinNetwork: Network): void {
-  // const unspendableDerivedPublicKeyFormatted = getXOnlyPublicKey(unspendableDerivedPublicKey);
-
-  const sortedBitGoPublicKeys = bitGoPublicKeys.sort((a, b) => (a > b ? 1 : -1));
-
-  const descriptorString = `tr(multi_a(2,${sortedBitGoPublicKeys[0]},${sortedBitGoPublicKeys[1]},${sortedBitGoPublicKeys[2]})))`;
-  console.log('descriptorString', descriptorString);
-
-  const descriptor = Descriptor.fromString(descriptorString, 'derivable');
-
-  const scriptPubKey = Buffer.from(descriptor.atDerivationIndex(0).scriptPubkey());
-
-  console.log('scriptPubKey', scriptPubKey);
-
-  const bitcoinJSPayment = payments.p2tr({ output: scriptPubKey, network: bitcoinNetwork });
-
-  console.log('bitcoinJSPayment', JSON.stringify(bitcoinJSPayment, null, 2));
-
-  console.log('bitcoinJSPayment.pubkey', bitcoinJSPayment.pubkey);
-
-  const payment = p2tr(bitcoinJSPayment.pubkey, undefined, bitcoinNetwork);
-  console.log('payment', payment.address);
-}
-
-/**
- * Evaluates the fee rate from the bitcoin blockchain API.
+ * Fetches the last two blocks' fee rates from the bitcoin blockchain API.
  *
- * @returns The fee rate.
+ * @returns A promise that resolves to the last two blocks' median fee rates.
  */
-function checkFeeRate(feeRate: number | undefined): number {
-  if (!feeRate || feeRate < 2) {
-    return 2;
-  }
-  return feeRate;
-}
-
-/**
- * Fetches the fee rate from the bitcoin blockchain API.
- *
- * @returns A promise that resolves to the hour fee rate.
- */
-export async function getFeeRate(
-  bitcoinBlockchainAPIFeeURL: string,
-  feeRateMultiplier?: number
+export async function getLastTwoBlocksFeeRateAverage(
+  bitcoinBlockchainAPIFeeURL: string
 ): Promise<number> {
-  const response = await fetch(bitcoinBlockchainAPIFeeURL);
+  const dayFeeRateAPI = `${bitcoinBlockchainAPIFeeURL}/api/v1/mining/blocks/fee-rates/24h`;
+
+  const response = await fetch(dayFeeRateAPI);
 
   if (!response.ok) {
     throw new Error(`Bitcoin Blockchain Fee Rate Response was not OK: ${response.statusText}`);
   }
 
-  let feeRates: FeeRates;
+  const historicalFeeRates: HistoricalFeeRate[] = await response.json();
 
-  try {
-    feeRates = await response.json();
-  } catch (error) {
-    throw new Error(`Error parsing Bitcoin Blockchain Fee Rate Response JSON: ${error}`);
+  return (
+    historicalFeeRates
+      .slice(historicalFeeRates.length - 2)
+      .map(rate => rate.avgFee_50)
+      .reduce((a, b) => a + b) / 2
+  );
+}
+
+/**
+ * Fetches the current mempool block median fee rate from the bitcoin blockchain API.
+ *
+ * @param bitcoinBlockchainAPIFeeURL
+ * @returns
+ */
+export async function getCurrentMempoolBlockFeeRate(
+  bitcoinBlockchainAPIFeeURL: string
+): Promise<number> {
+  const mempoolBlocksAPI = `${bitcoinBlockchainAPIFeeURL}/api/v1/fees/mempool-blocks`;
+
+  const response = await fetch(mempoolBlocksAPI);
+
+  if (!response.ok) {
+    throw new Error(`Bitcoin Blockchain Fee Rate Response was not OK: ${response.statusText}`);
   }
 
-  const feeRate = checkFeeRate(feeRates.fastestFee);
-  const multipliedFeeRate = feeRate * (feeRateMultiplier ?? 1);
+  const currentBlockFeeRate: BlockData[] = await response.json();
 
-  return multipliedFeeRate;
+  return currentBlockFeeRate[0].medianFee;
+}
+
+/**
+ * Fetches the estimated fee rate from the bitcoin blockchain API.
+ *
+ * @returns A promise that resolves to the fastest fee rate.
+ */
+export async function getEstimatedFeeRate(bitcoinBlockchainAPIFeeURL: string): Promise<number> {
+  const estimatedFeeAPI = `${bitcoinBlockchainAPIFeeURL}/api/v1/fees/recommended`;
+
+  const response = await fetch(estimatedFeeAPI);
+
+  if (!response.ok) {
+    throw new Error(`Bitcoin Blockchain Fee Rate Response was not OK: ${response.statusText}`);
+  }
+
+  const feeRates: FeeRates = await response.json();
+
+  return feeRates.fastestFee;
+}
+
+/**
+ * Return the fee rate for the transaction.
+ *
+ * @returns A promise that resolves to the fee rate.
+ */
+export async function getFeeRate(
+  bitcoinBlockchainAPIFeeURL: string,
+  feeRateMultiplier = 1
+): Promise<number> {
+  const [lastTwoBlocksFeeRateAverage, currentBlockFeeRate, estimatedFeeRate] = await Promise.all([
+    getLastTwoBlocksFeeRateAverage(bitcoinBlockchainAPIFeeURL),
+    getCurrentMempoolBlockFeeRate(bitcoinBlockchainAPIFeeURL),
+    getEstimatedFeeRate(bitcoinBlockchainAPIFeeURL),
+  ]);
+
+  return Math.ceil(
+    Math.max(
+      lastTwoBlocksFeeRateAverage * feeRateMultiplier,
+      currentBlockFeeRate * feeRateMultiplier,
+      estimatedFeeRate * feeRateMultiplier
+    )
+  );
 }
 
 /**

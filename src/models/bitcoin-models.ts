@@ -21,6 +21,27 @@ export interface FeeRates {
   minimumFee: number;
 }
 
+export interface BlockData {
+  blockSize: number;
+  blockVSize: number;
+  nTx: number;
+  totalFees: number;
+  medianFee: number;
+  feeRange: number[];
+}
+
+export interface HistoricalFeeRate {
+  avgHeight: number;
+  timestamp: number;
+  avgFee_0: number;
+  avgFee_10: number;
+  avgFee_25: number;
+  avgFee_50: number;
+  avgFee_75: number;
+  avgFee_90: number;
+  avgFee_100: number;
+}
+
 export interface PaymentInformation {
   fundingPayment: P2Ret | P2TROut;
   multisigPayment: P2TROut;

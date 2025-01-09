@@ -6,3 +6,5 @@ export const DLCHandlers = {
   DFNS: 'dfns',
   BITGO: 'bitgo',
 } as const;
+
+export const DUST_LIMIT = 546n;

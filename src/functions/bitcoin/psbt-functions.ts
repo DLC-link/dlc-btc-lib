@@ -4,6 +4,7 @@ import { P2Ret, P2TROut } from '@scure/btc-signer/payment';
 import { Network, Psbt } from 'bitcoinjs-lib';
 import { PartialSignature } from 'ledger-bitcoin/build/main/lib/appClient.js';
 
+import { DUST_LIMIT } from '../../constants/dlc-handler.constants.js';
 import { BitcoinInputSigningConfig, PaymentTypes } from '../../models/bitcoin-models.js';
 import { reverseBytes } from '../../utilities/index.js';
 import {
@@ -11,6 +12,7 @@ import {
   getFeeAmount,
   getFeeRecipientAddress,
   getUTXOs,
+  removeDustOutputs,
 } from '../bitcoin/bitcoin-functions.js';
 import { fetchBitcoinTransaction } from './bitcoin-request-functions.js';
 
@@ -64,13 +66,15 @@ export async function createFundingTransaction(
     },
   ];
 
+  removeDustOutputs(psbtOutputs);
+
   const selected = selectUTXO(userUTXOs, psbtOutputs, 'default', {
     changeAddress: depositAddress,
     feePerByte: feeRate,
     bip69: false,
     createTx: true,
     network: bitcoinNetwork,
-    dust: 546n as unknown as number,
+    dust: DUST_LIMIT as unknown as number,
   });
 
   if (!selected) {
@@ -166,7 +170,7 @@ export async function createDepositTransaction(
     bip69: false,
     createTx: false,
     network: bitcoinNetwork,
-    dust: 546n as unknown as number,
+    dust: DUST_LIMIT as unknown as number,
   });
 
   if (!additionalDepositSelected) {
@@ -209,13 +213,15 @@ export async function createDepositTransaction(
     },
   ];
 
+  removeDustOutputs(depositOutputs);
+
   const depositSelected = selectUTXO(depositInputs, depositOutputs, 'all', {
     changeAddress: depositAddress,
     feePerByte: feeRate,
     bip69: false,
     createTx: true,
     network: bitcoinNetwork,
-    dust: 546n as unknown as number,
+    dust: DUST_LIMIT as unknown as number,
   });
 
   if (!depositSelected) {
@@ -327,13 +333,15 @@ export async function createWithdrawTransaction(
     });
   }
 
+  removeDustOutputs(outputs);
+
   const selected = selectUTXO(inputs, outputs, 'default', {
     changeAddress: withdrawAddress,
     feePerByte: feeRate,
     bip69: false,
     createTx: true,
     network: bitcoinNetwork,
-    dust: 546n as unknown as number,
+    dust: DUST_LIMIT as unknown as number,
   });
 
   if (!selected) {

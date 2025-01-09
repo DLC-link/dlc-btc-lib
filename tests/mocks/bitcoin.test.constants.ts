@@ -46,3 +46,10 @@ export const TEST_FEE_RECIPIENT_PUBLIC_KEY_1 =
 export const TEST_FEE_DEPOSIT_BASIS_POINTS_1 = 100n;
 
 export const TEST_FEE_RATE_1 = 6n;
+
+export const TEST_OUTPUTS = [
+  { address: 'addr1', amount: 1000n },
+  { address: 'addr2', amount: 545n },
+  { address: 'addr3', amount: 546n },
+  { address: 'addr4', amount: 100n },
+];

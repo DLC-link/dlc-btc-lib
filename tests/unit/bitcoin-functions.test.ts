@@ -13,6 +13,7 @@ import {
   getInputIndicesByScript,
   getScriptMatchingOutputFromTransaction,
   getUnspendableKeyCommittedToUUID,
+  removeDustOutputs,
 } from '../../src/functions/bitcoin/bitcoin-functions';
 import {
   TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
@@ -32,11 +33,13 @@ import {
   TEST_ALICE_NATIVE_SEGWIT_PUBLIC_KEY_2,
   TEST_ALICE_TAPROOT_PUBLIC_KEY_1,
   TEST_ALICE_TAPROOT_PUBLIC_KEY_2,
+  TEST_OUTPUTS,
   TEST_TAPROOT_MULTISIG_PAYMENT_SCRIPT_1,
   TEST_TAPROOT_UNHARDENED_DERIVED_PUBLIC_KEY_1,
   TEST_UNHARDENED_DERIVED_UNSPENDABLE_KEY_COMMITED_TO_UUID_1,
   TEST_UNSPENDABLE_KEY_COMMITED_TO_UUID_1,
 } from '../mocks/bitcoin.test.constants';
+import { TEST_VAULT_1 } from '../mocks/ethereum-vault.test.constants';
 import { TEST_VAULT_UUID_1 } from '../mocks/ethereum.test.constants';
 
 describe('Bitcoin Functions', () => {
@@ -49,11 +52,15 @@ describe('Bitcoin Functions', () => {
         'https://mempool.space/testnet/api/v1/fees/recommended'
       );
       await bitGoDLCHandler.connect('dani@dlc.link', 'J7yW9!vs%ve@93', '000000');
-      // const walletsWithAddresses = await bitGoDLCHandler.getWalletsWithAddresses();
-      // const walletID = walletsWithAddresses[0].wallet.id();
-      // const addressID = await walletsWithAddresses[0].walletAddresses[0].id;
 
-      await bitGoDLCHandler.initializeWalletByID('6626365d9657094305731de7f0d3795f');
+      await bitGoDLCHandler.initializeWalletByID('677e7f88eeeb235f3a7a949789981968');
+
+      const transaction = await bitGoDLCHandler.createFundingPSBT(
+        TEST_VAULT_1,
+        1000000n,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1
+      );
+      console.log(transaction);
     }, 30000);
   });
   xdescribe('getInputIndicesByScript', () => {
@@ -82,6 +89,26 @@ describe('Bitcoin Functions', () => {
       const aliceScript = hexToBytes(TEST_ALICE_NATIVE_SEGWIT_PAYMENT_SCRIPT_1);
       const inputIndices = getInputIndicesByScript(aliceScript, transaction);
       expect(inputIndices).toEqual([]);
+    });
+  });
+
+  xdescribe('removeDustOutputs', () => {
+    it('removes single dust output', () => {
+      const outputs = [TEST_OUTPUTS[0], TEST_OUTPUTS[1]];
+      removeDustOutputs(outputs);
+      expect(outputs).toEqual([TEST_OUTPUTS[0]]);
+    });
+
+    it('removes multiple dust outputs', () => {
+      const outputs = [...TEST_OUTPUTS];
+      removeDustOutputs(outputs);
+      expect(outputs).toEqual([TEST_OUTPUTS[0], TEST_OUTPUTS[2]]);
+    });
+
+    it('keeps all outputs if none are dust', () => {
+      const outputs = [TEST_OUTPUTS[0], TEST_OUTPUTS[2]];
+      removeDustOutputs(outputs);
+      expect(outputs).toEqual(outputs);
     });
   });
 
