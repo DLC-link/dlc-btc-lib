@@ -199,10 +199,12 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
       {
         enterprise: this.enterpriseID,
         label: descriptorWalletLabel,
-        walletPassphrase: '0000000000000000000000000000000000000000000000000000000000000001', // TODO: Use a real Wallet Passphrase
+        walletPassphrase: '0000000000000000000000000000000000000000000000000000000000000000', // TODO: Use a real Wallet Passphrase
         descriptorsFromKeys: DefaultIBTC,
       }
     );
+
+    console.log('result', result);
 
     const descriptorWalletID = result._wallet.id;
 
@@ -335,6 +337,8 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
       );
     }
 
+    console.log('descriptorWallet', descriptorWallet);
+
     const descriptorWalletKeychains = await this.bitGoAPIClient
       .coin(this.bitGoAPIClientConfig.coin.name)
       .keychains()
@@ -354,6 +358,8 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
       fundingTransactionID,
       this.bitcoinBlockchainAPI
     );
+
+    console.log('fundingTransaction', fundingTransaction);
 
     const fundingTransactionOutputIndex = fundingTransaction.vout.findIndex(
       output => output.scriptpubkey_address === descriptorWallet._wallet.receiveAddress.address
@@ -396,10 +402,11 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
 
     removeDustOutputs(outputs);
 
-    const response = await fundingWallet.prebuildTransaction({
+    const response = await fundingWallet.prebuildAndSignTransaction({
       recipients: outputs,
       changeAddress: fundingWallet._wallet.receiveAddress.address,
       txFormat: 'psbt',
+      walletPassphrase: '0000000000000000000000000000000000000000000000000000000000000000',
     });
 
     console.log('response', response);
