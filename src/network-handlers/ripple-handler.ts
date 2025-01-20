@@ -262,6 +262,7 @@ export class RippleHandler {
     timeStamp: number,
     btcMintFeeBasisPoints: number,
     btcRedeemFeeBasisPoints: number,
+    btcFeeRecipientAddress: string,
     ticket: string,
     autoFillValues?: AutoFillValues[]
   ): Promise<MultisignatureTransactionResponse[]> {
@@ -273,6 +274,7 @@ export class RippleHandler {
         newVault.timestamp = BigNumber.from(timeStamp);
         newVault.btcMintFeeBasisPoints = BigNumber.from(btcMintFeeBasisPoints);
         newVault.btcRedeemFeeBasisPoints = BigNumber.from(btcRedeemFeeBasisPoints);
+        newVault.btcFeeRecipient = btcFeeRecipientAddress;
 
         return [
           await this.mintNFT(

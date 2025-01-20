@@ -55,3 +55,39 @@ export const TEST_VAULT_3: RawVault = {
   taprootPubKey: 'b362931e3e4cf3cc20f75ae11ff5a4c115ec1548cb5f2c7c48294929f1e8979c',
   icyIntegrationAddress: '',
 };
+
+export const TEST_VAULT_4: RawVault = {
+  uuid: '0x400ca1a687f9c8241566d334fcb4b33efab8e540b943be1455143284c5afc962',
+  protocolContract: 'rfvtbrXSxLsxVWDktR4sdzjJgv8EnMKFKG',
+  timestamp: BigNumber.from('0x665da025'),
+  valueLocked: BigNumber.from('0x0f4240'),
+  valueMinted: BigNumber.from('0x0f4240'),
+  creator: 'rfvtbrXSxLsxVWDktR4sdzjJgv8EnMKFKG',
+  status: 0,
+  fundingTxId: '',
+  closingTxId: '',
+  wdTxId: '',
+  btcFeeRecipient: '2MzQwSSnBHWHqSAqtTVQ6v47XtaisrJa1Vc',
+  btcMintFeeBasisPoints: BigNumber.from('0x64'),
+  btcRedeemFeeBasisPoints: BigNumber.from('0x64'),
+  taprootPubKey: '0'.repeat(64),
+  icyIntegrationAddress: '',
+};
+
+export const TEST_VAULT_5: RawVault = {
+  uuid: '0x400ca1a687f9c8241566d334fcb4b33efab8e540b943be1455143284c5afc962',
+  protocolContract: 'rfvtbrXSxLsxVWDktR4sdzjJgv8EnMKFKG',
+  timestamp: BigNumber.from('0x665da025'),
+  valueLocked: BigNumber.from('0x0f4240'),
+  valueMinted: BigNumber.from('0x0f4240'),
+  creator: 'rfvtbrXSxLsxVWDktR4sdzjJgv8EnMKFKG',
+  status: 0,
+  fundingTxId: '',
+  closingTxId: '',
+  wdTxId: '',
+  btcFeeRecipient: '031131cd88bcea8c1d84da8e034bb24c2f6e748c571922dc363e7e088f5df0436c',
+  btcMintFeeBasisPoints: BigNumber.from('0x64'),
+  btcRedeemFeeBasisPoints: BigNumber.from('0x64'),
+  taprootPubKey: '0'.repeat(64),
+  icyIntegrationAddress: '',
+};
