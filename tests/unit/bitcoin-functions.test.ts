@@ -42,15 +42,32 @@ import {
 import { TEST_VAULT_1 } from '../mocks/ethereum-vault.test.constants';
 import { TEST_VAULT_UUID_1 } from '../mocks/ethereum.test.constants';
 
+const LOCAL_EXTENDED_GROUP_PUBLIC_KEY =
+  'tpubDD8dCy2CrA7VgZdyLLmJB75nxWaokiCSZsPpqkj1uWjbLtxzuBCZQBtBMHpq9GU16v5RrhRz9EfhyK8QyenS3EtL7DAeEi6EBXRiaM2Usdm';
+
 describe('Bitcoin Functions', () => {
   describe('bitGoDLCHandler', () => {
     it('should create a bitGoDLCHandler', async () => {
-      // const derivedUnhardenedAttestorPublicKey =
-      //   '027eda4d625f781dcc98bf68901360fdaaacce8ed466096c1dfe4865209b28c058';
-      // const derivedUnspendablePublicKey =
-      //   '02df5cdcb37eaa862f950e2604887b19d4400905464b78a0a4774bc096d9824a87';
+      // const derivedUnhardenedPublicKey = deriveUnhardenedPublicKey(
+      //   getUnspendableKeyCommittedToUUID(TEST_VAULT_1.uuid, testnet),
+      //   testnet
+      // ).toString('hex');
 
-      // `tr(02df5cdcb37eaa862f950e2604887b19d4400905464b78a0a4774bc096d9824a87,and_v(v:pk(027eda4d625f781dcc98bf68901360fdaaacce8ed466096c1dfe4865209b28c058),mutli_a(2,aliceA/0/*,aliceB/0/*,aliceC/0/*)))`
+      // const derivedAttestorPublicKey = deriveUnhardenedPublicKey(
+      //   LOCAL_EXTENDED_GROUP_PUBLIC_KEY,
+      //   testnet
+      // ).toString('hex');
+
+      // console.log('derivedUnhardenedPublicKey', derivedUnhardenedPublicKey);
+      // console.log('derivedAttestorPublicKey', derivedAttestorPublicKey);
+
+      // const derivedUnhardenedPublicKey =
+      //   '025e2fe93382caa3a091fa835244279f1ad53d63612cfe294d07c7e40884d4c307';
+
+      // const attestorPublicKey =
+      //   '025e2fe93382caa3a091fa835244279f1ad53d63612cfe294d07c7e40884d4c307';
+
+      // `tr(025e2fe93382caa3a091fa835244279f1ad53d63612cfe294d07c7e40884d4c307,and_v(v:pk(025e2fe93382caa3a091fa835244279f1ad53d63612cfe294d07c7e40884d4c307),mutli_a(2,aliceA/0/*,aliceB/0/*,aliceC/0/*)))`
 
       const bitGoDLCHandler = new BitGoDLCHandler(
         'tr',
@@ -65,11 +82,10 @@ describe('Bitcoin Functions', () => {
       const fundingTransaction = await bitGoDLCHandler.createFundingPSBT(
         TEST_VAULT_1,
         1000000n,
-        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1
+        LOCAL_EXTENDED_GROUP_PUBLIC_KEY
       );
 
       console.log('fundingTransaction', fundingTransaction);
-      // console.log('fundingTransaction', fundingTransaction);
 
       // const withdrawTransaction = await bitGoDLCHandler.createWithdrawPSBT(
       //   TEST_VAULT_1,

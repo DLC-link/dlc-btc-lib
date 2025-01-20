@@ -404,7 +404,7 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
 
     removeDustOutputs(outputs);
 
-    const response = await fundingWallet.prebuildAndSignTransaction({
+    const response = await descriptorWallet.prebuildAndSignTransaction({
       recipients: outputs,
       changeAddress: fundingWallet._wallet.receiveAddress.address,
       txFormat: 'psbt',
