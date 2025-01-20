@@ -268,6 +268,8 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
       const concatonatedExtendedPublicKeys =
         this.getExtendedPublicKeys(descriptorWalletKeychains).join(',');
 
+      console.log('concatonatedExtendedPublicKeys', concatonatedExtendedPublicKeys);
+
       this.taprootDerivedPublicKey = concatonatedExtendedPublicKeys;
 
       console.log('fundWalletID', this.fundingWalletID);

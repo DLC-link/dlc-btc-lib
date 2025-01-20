@@ -3,11 +3,11 @@ import { BigNumber } from 'ethers';
 import { RawVault } from '../../src/models/ethereum-models';
 
 export const TEST_VAULT_1: RawVault = {
-  uuid: '0x400ca1a687f9c8241566d334fcb4b33efab8e540b943be1455143284c5afc964',
+  uuid: '0x400ca1a687f9c8241566d334fcb4b33efab8e540b943be1455143284c5afc111',
   protocolContract: '0x6e692DB944162f8b4250aA25eCEe80608457D7a7',
   timestamp: BigNumber.from('0x665da025'),
-  valueLocked: BigNumber.from('0x989680'),
-  valueMinted: BigNumber.from('0x989680'),
+  valueLocked: BigNumber.from('0xF4240'),
+  valueMinted: BigNumber.from('0xF4240'),
   creator: '0x0DD4f29E21F10cb2E485cf9bDAb9F2dD1f240Bfa',
   status: 0,
   fundingTxId: 'a97d675c808a589a7f2345338cafbecc7c7c3174e753a5bd6f8c29e2f7195f3b',

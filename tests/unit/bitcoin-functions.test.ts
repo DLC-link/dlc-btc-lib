@@ -45,6 +45,13 @@ import { TEST_VAULT_UUID_1 } from '../mocks/ethereum.test.constants';
 describe('Bitcoin Functions', () => {
   describe('bitGoDLCHandler', () => {
     it('should create a bitGoDLCHandler', async () => {
+      // const derivedUnhardenedAttestorPublicKey =
+      //   '027eda4d625f781dcc98bf68901360fdaaacce8ed466096c1dfe4865209b28c058';
+      // const derivedUnspendablePublicKey =
+      //   '02df5cdcb37eaa862f950e2604887b19d4400905464b78a0a4774bc096d9824a87';
+
+      // `tr(02df5cdcb37eaa862f950e2604887b19d4400905464b78a0a4774bc096d9824a87,and_v(v:pk(027eda4d625f781dcc98bf68901360fdaaacce8ed466096c1dfe4865209b28c058),mutli_a(2,aliceA/0/*,aliceB/0/*,aliceC/0/*)))`
+
       const bitGoDLCHandler = new BitGoDLCHandler(
         'tr',
         testnet,
@@ -55,30 +62,31 @@ describe('Bitcoin Functions', () => {
 
       await bitGoDLCHandler.initializeWalletByID('677e7f88eeeb235f3a7a949789981968');
 
-      // const fundingTransaction = await bitGoDLCHandler.createFundingPSBT(
-      //   TEST_VAULT_1,
-      //   10000000n,
-      //   TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1
-      // );
-
-      // console.log('fundingTransaction', fundingTransaction);
-
-      const withdrawTransaction = await bitGoDLCHandler.createWithdrawPSBT(
+      const fundingTransaction = await bitGoDLCHandler.createFundingPSBT(
         TEST_VAULT_1,
-        10000000n,
-        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
-        'a97d675c808a589a7f2345338cafbecc7c7c3174e753a5bd6f8c29e2f7195f3b'
-      );
-      console.log('withdrawTransaction', withdrawTransaction);
-
-      const signedTransaction = await bitGoDLCHandler.signBitGoPSBT(
-        withdrawTransaction,
-        'withdraw',
-        TEST_VAULT_1.uuid,
+        1000000n,
         TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1
       );
 
-      console.log('signedTransaction', signedTransaction);
+      console.log('fundingTransaction', fundingTransaction);
+      // console.log('fundingTransaction', fundingTransaction);
+
+      // const withdrawTransaction = await bitGoDLCHandler.createWithdrawPSBT(
+      //   TEST_VAULT_1,
+      //   1000000n,
+      //   TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+      //   'a97d675c808a589a7f2345338cafbecc7c7c3174e753a5bd6f8c29e2f7195f3b'
+      // );
+      // console.log('withdrawTransaction', withdrawTransaction);
+
+      // const signedTransaction = await bitGoDLCHandler.signBitGoPSBT(
+      //   withdrawTransaction,
+      //   'withdraw',
+      //   TEST_VAULT_1.uuid,
+      //   TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1
+      // );
+
+      // console.log('signedTransaction', signedTransaction);
     }, 30000);
   });
   xdescribe('getInputIndicesByScript', () => {
