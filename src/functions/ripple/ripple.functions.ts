@@ -96,7 +96,10 @@ export function decodeURI(URI: string): RawVault {
       wdTxId: URI.slice(252, 316) === '0'.repeat(64) ? '' : URI.slice(252, 316),
       btcMintFeeBasisPoints: BigNumber.from(`0x${URI.slice(316, 324)}`),
       btcRedeemFeeBasisPoints: BigNumber.from(`0x${URI.slice(324, 332)}`),
-      btcFeeRecipient: URI.slice(332, 398),
+      btcFeeRecipient: (feeRecipient =>
+        feeRecipient.startsWith('02') || feeRecipient.startsWith('03')
+          ? feeRecipient
+          : feeRecipient.replace(/^0+/, ''))(URI.slice(332, 398)),
       taprootPubKey: URI.slice(398, 462),
       closingTxId: '', // Deprecated
       icyIntegrationAddress: '', // not used in xrpl
