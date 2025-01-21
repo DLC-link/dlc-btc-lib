@@ -25,6 +25,7 @@ import {
   getAllRippleVaults,
   getCheckByTXHash,
   getRippleVault,
+  getSignerListSetSignature,
   multiSignTransaction,
 } from '../functions/ripple/ripple.functions.js';
 import { RippleError } from '../models/errors.js';
@@ -722,6 +723,26 @@ export class RippleHandler {
       } catch (error) {
         throw new RippleError(`Could not get Cash Check and Withdraw Signatures: ${error}`);
       }
+    });
+  }
+
+  async setSignerList(
+    signerList: string[],
+    signerQuorum: number,
+    ticket: number,
+    autoFillValues?: AutoFillValues
+  ): Promise<MultisignatureTransactionResponse> {
+    return await this.withConnectionMgmt(async () => {
+      return await getSignerListSetSignature(
+        this.client,
+        this.wallet,
+        ticket,
+        this.issuerAddress,
+        signerList,
+        signerQuorum,
+        this.minSigners,
+        autoFillValues
+      );
     });
   }
 

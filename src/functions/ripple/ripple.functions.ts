@@ -9,6 +9,7 @@ import {
   CheckCreate,
   Client,
   LedgerEntry,
+  SignerListSet,
   SubmittableTransaction,
   Transaction,
   TransactionMetadataBase,
@@ -26,7 +27,11 @@ import {
 } from '../../constants/ripple.constants.js';
 import { RippleError } from '../../models/errors.js';
 import { RawVault } from '../../models/ethereum-models.js';
-import { SignResponse } from '../../models/ripple.model.js';
+import {
+  AutoFillValues,
+  MultisignatureTransactionResponse,
+  SignResponse,
+} from '../../models/ripple.model.js';
 import { shiftValue, unshiftValue } from '../../utilities/index.js';
 
 function hexFieldsToLowercase(vault: RawVault): RawVault {
@@ -377,6 +382,65 @@ export async function createCheck(
   } catch (error) {
     throw new RippleError(`Error creating Check for Vault ${vaultUUID}: ${error}`);
   }
+}
+
+export async function getSignerListSetSignature(
+  xrplClient: Client,
+  wallet: Wallet,
+  ticket: number,
+  issuerAddress: string,
+  signerList: string[],
+  signerQuorum: number,
+  minSigners: number,
+  autoFillValues?: AutoFillValues
+): Promise<MultisignatureTransactionResponse> {
+  console.log('Creating and signing the SignerListSet transaction');
+
+  const signerEntries = signerList.map(address => ({
+    SignerEntry: {
+      Account: address,
+      SignerWeight: 1,
+    },
+  }));
+
+  console.log(`SignerListSet entries: ${signerEntries}, signerQuorum: ${signerQuorum}`);
+
+  const mintTransactionJson: SignerListSet = {
+    TransactionType: 'SignerListSet',
+    Account: issuerAddress,
+    SignerQuorum: signerQuorum,
+    SignerEntries: signerEntries,
+    TicketSequence: ticket,
+  };
+
+  // even if autofills are provided, we still need to use autofill to have all the fields filled in
+  const preparedSignerListSet = await xrplClient.autofill(mintTransactionJson, minSigners);
+  if (autoFillValues) {
+    preparedSignerListSet.Fee = autoFillValues.Fee;
+    preparedSignerListSet.LastLedgerSequence = autoFillValues.LastLedgerSequence;
+    preparedSignerListSet.Sequence = autoFillValues.Sequence;
+  } else {
+    // set the LastLedgerSequence to be rounded up to the nearest 10000.
+    // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
+    // The request has a timeout, so this shouldn't end up being a hanging request
+    // Using the ticket system would likely be a better way:
+    // https://xrpl.org/docs/concepts/accounts/tickets
+    preparedSignerListSet.LastLedgerSequence =
+      Math.ceil(preparedSignerListSet.LastLedgerSequence! / 10000 + 1) * 10000;
+  }
+
+  console.log('preparedSignerListSet ', preparedSignerListSet);
+
+  const mintTransactionSignature = wallet.sign(preparedSignerListSet, true).tx_blob;
+  return {
+    tx_blob: mintTransactionSignature,
+    autoFillValues: {
+      signatureType: 'signerListSet',
+      LastLedgerSequence: preparedSignerListSet.LastLedgerSequence!,
+      Sequence: preparedSignerListSet.Sequence!,
+      Fee: preparedSignerListSet.Fee!,
+    },
+  };
 }
 
 export async function getCheckByTXHash(
