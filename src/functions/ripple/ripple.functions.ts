@@ -3,6 +3,7 @@ import { BigNumber } from 'ethers';
 import {
   AccountLinesRequest,
   AccountLinesResponse,
+  AccountLinesTrustline,
   AccountNFToken,
   AccountNFTsRequest,
   AccountObjectsRequest,
@@ -22,7 +23,7 @@ import {
 
 import {
   TRANSACTION_SUCCESS_CODE,
-  XRPL_DLCBTC_CURRENCY_HEX,
+  XRPL_IBTC_CURRENCY_HEX,
 } from '../../constants/ripple.constants.js';
 import { RippleError } from '../../models/errors.js';
 import { RawVault } from '../../models/ethereum-models.js';
@@ -177,7 +178,7 @@ export async function setTrustLine(
   }: AccountLinesResponse = await rippleClient.request(accountNonXRPBalancesRequest);
 
   if (
-    lines.some(line => line.currency === XRPL_DLCBTC_CURRENCY_HEX && line.account === issuerAddress)
+    lines.some(line => line.currency === XRPL_IBTC_CURRENCY_HEX && line.account === issuerAddress)
   ) {
     console.log(`Trust Line already exists for Issuer: ${issuerAddress}`);
     return;
@@ -187,7 +188,7 @@ export async function setTrustLine(
     TransactionType: 'TrustSet',
     Account: ownerAddress,
     LimitAmount: {
-      currency: XRPL_DLCBTC_CURRENCY_HEX,
+      currency: XRPL_IBTC_CURRENCY_HEX,
       issuer: issuerAddress,
       value: '10000000000',
     },
@@ -329,7 +330,7 @@ export async function getDLCBTCBalance(
     }: AccountLinesResponse = await rippleClient.request(accountNonXRPBalancesRequest);
 
     const dlcBTCBalance = lines.find(
-      line => line.currency === XRPL_DLCBTC_CURRENCY_HEX && line.account === issuerAddress
+      line => line.currency === XRPL_IBTC_CURRENCY_HEX && line.account === issuerAddress
     );
     if (!dlcBTCBalance) {
       return 0;
@@ -363,7 +364,7 @@ export async function createCheck(
       Destination: destinationAddress,
       DestinationTag: destinationTag,
       SendMax: {
-        currency: XRPL_DLCBTC_CURRENCY_HEX,
+        currency: XRPL_IBTC_CURRENCY_HEX,
         value: shiftedAmountAsNumber.toString(),
         issuer: destinationAddress,
       },
@@ -419,6 +420,38 @@ export async function getCheckByTXHash(
     return check as LedgerEntry.Check;
   } catch (error) {
     throw new RippleError(`Error getting Check by TX Hash: ${error}`);
+  }
+}
+
+export async function getTotalIssuance(xrplClient: Client, issuerAddress: string): Promise<number> {
+  try {
+    let marker: any = undefined;
+    const limit = 100;
+    let allAccountLines: AccountLinesTrustline[] = [];
+
+    do {
+      const accountNonXRPBalancesRequest: AccountLinesRequest = {
+        command: 'account_lines',
+        account: issuerAddress,
+        ledger_index: 'validated',
+        marker,
+        limit,
+      };
+
+      const {
+        result: { lines, marker: newMarker },
+      }: AccountLinesResponse = await xrplClient.request(accountNonXRPBalancesRequest);
+
+      allAccountLines = allAccountLines.concat(lines);
+
+      marker = newMarker;
+    } while (marker);
+
+    return allAccountLines
+      .filter(line => line.currency === XRPL_IBTC_CURRENCY_HEX)
+      .reduce((sum, line) => sum + new Decimal(line.balance).negated().toNumber(), 0);
+  } catch (error) {
+    throw new RippleError(`Error getting total issuance: ${error}`);
   }
 }
 
