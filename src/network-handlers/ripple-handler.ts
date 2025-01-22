@@ -16,7 +16,7 @@ import xrpl, {
 } from 'xrpl';
 import { NFTokenMintMetadata } from 'xrpl/dist/npm/models/transactions/NFTokenMint.js';
 
-import { XRPL_DLCBTC_CURRENCY_HEX } from '../constants/ripple.constants.js';
+import { XRPL_IBTC_CURRENCY_HEX } from '../constants/ripple.constants.js';
 import {
   checkRippleTransactionResult,
   connectRippleClient,
@@ -742,7 +742,7 @@ export class RippleHandler {
           TicketSequence: new Decimal(ticket).toNumber(),
           Sequence: 0,
           Amount: {
-            currency: XRPL_DLCBTC_CURRENCY_HEX,
+            currency: XRPL_IBTC_CURRENCY_HEX,
             value: dlcBTCAmount,
             issuer: this.issuerAddress,
           },
@@ -816,7 +816,7 @@ export class RippleHandler {
           Destination: destinationAddress,
           DestinationTag: 1,
           Amount: {
-            currency: XRPL_DLCBTC_CURRENCY_HEX,
+            currency: XRPL_IBTC_CURRENCY_HEX,
             value: dlcBTCAmount,
             issuer: this.issuerAddress,
           },
