@@ -422,6 +422,26 @@ export async function getCheckByTXHash(
   }
 }
 
+export async function getTotalIssuance(xrplClient: Client, issuerAddress: string): Promise<number> {
+  try {
+    const accountNonXRPBalancesRequest: AccountLinesRequest = {
+      command: 'account_lines',
+      account: issuerAddress,
+      ledger_index: 'validated',
+    };
+
+    const {
+      result: { lines },
+    }: AccountLinesResponse = await xrplClient.request(accountNonXRPBalancesRequest);
+
+    return lines
+      .filter(line => line.currency === XRPL_DLCBTC_CURRENCY_HEX)
+      .reduce((sum, line) => sum + new Decimal(line.balance).negated().toNumber(), 0);
+  } catch (error) {
+    throw new RippleError(`Error getting total issuance: ${error}`);
+  }
+}
+
 export function multiSignTransaction(signedTransactions: string[]): string {
   try {
     return multisign(signedTransactions);
