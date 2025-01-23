@@ -7,11 +7,15 @@ import {
   AccountNFToken,
   AccountNFTsRequest,
   AccountObjectsRequest,
+  AccountTxRequest,
+  AccountTxResponse,
+  AccountTxTransaction,
   CheckCreate,
   Client,
   LedgerEntry,
   SubmittableTransaction,
   Transaction,
+  TransactionMetadata,
   TransactionMetadataBase,
   TrustSet,
   TxResponse,
@@ -450,6 +454,45 @@ export async function getTotalIssuance(xrplClient: Client, issuerAddress: string
     return allAccountLines
       .filter(line => line.currency === XRPL_IBTC_CURRENCY_HEX)
       .reduce((sum, line) => sum + new Decimal(line.balance).negated().toNumber(), 0);
+  } catch (error) {
+    throw new RippleError(`Error getting total issuance: ${error}`);
+  }
+}
+
+export async function getPaymentAndCheckCashEvents(
+  xrplClient: Client,
+  issuerAddress: string
+): Promise<any[]> {
+  try {
+    let marker: any = undefined;
+    const limit = 100;
+    let allTransactions: AccountTxTransaction[] = [];
+
+    do {
+      const accountTXRequest: AccountTxRequest = {
+        command: 'account_tx',
+        account: issuerAddress,
+        marker,
+        limit,
+      };
+
+      const {
+        result: { transactions, marker: newMarker },
+      }: AccountTxResponse = await xrplClient.request(accountTXRequest);
+
+      allTransactions = allTransactions.concat(transactions);
+
+      marker = newMarker;
+    } while (marker);
+
+    return allTransactions.filter(({ tx_json, meta }) => {
+      if (!tx_json) return false;
+
+      return (
+        (tx_json.TransactionType === 'Payment' || tx_json.TransactionType === 'CheckCash') &&
+        (meta as TransactionMetadata).TransactionResult === 'tesSUCCESS'
+      );
+    });
   } catch (error) {
     throw new RippleError(`Error getting total issuance: ${error}`);
   }

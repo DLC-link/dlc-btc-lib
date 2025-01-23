@@ -79,6 +79,6 @@
     "ripple-binary-codec": "2.1.0",
     "scure": "1.6.0",
     "tiny-secp256k1": "2.2.3",
-    "xrpl": "4.0.0"
+    "xrpl": "4.1.0"
   }
 }
