@@ -1,11 +1,11 @@
 import { AbstractUtxoCoin } from '@bitgo/abstract-utxo';
 import { createDescriptorWalletWithWalletPassphrase } from '@bitgo/abstract-utxo/dist/src/descriptor/createWallet/createDescriptorWallet.js';
-import { DefaultIBTC } from '@bitgo/abstract-utxo/dist/src/descriptor/createWallet/createDescriptors.js';
 import { BitGoAPI } from '@bitgo/sdk-api';
 import { Btc, Tbtc } from '@bitgo/sdk-coin-btc';
 import { CoinConstructor, EnvironmentName, Keychain, Wallet } from '@bitgo/sdk-core';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { Transaction, selectUTXO } from '@scure/btc-signer';
+import { BIP32Interface } from 'bip32';
 import { Network } from 'bitcoinjs-lib';
 import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
 
@@ -16,6 +16,7 @@ import {
   getFeeAmount,
   getFeeRecipientAddress,
   getUnspendableKeyCommittedToUUID,
+  getXOnlyPublicKey,
   removeDustOutputs,
 } from '../functions/bitcoin/bitcoin-functions.js';
 import { fetchBitcoinTransaction } from '../functions/bitcoin/bitcoin-request-functions.js';
@@ -186,6 +187,57 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
     return wallets.wallets.find(wallet => wallet.label() === descriptorWalletLabel);
   }
 
+  private getNamedDescriptor(
+    userKey: BIP32Interface,
+    cosigners: BIP32Interface[],
+    unspendableDerivedPublicKey: string,
+    attestorGroupPublicKey: string
+  ): { name: string; value: string }[] {
+    const multiA = this.iBTCMultiA(2, 3, [userKey, ...cosigners], '0/*');
+
+    console.log('multiA', multiA);
+
+    const descriptor = `tr(${unspendableDerivedPublicKey},and_v(v:pk(${attestorGroupPublicKey}),${multiA}))`;
+    const namedDescriptor = [
+      {
+        name: `[iBTC]${unspendableDerivedPublicKey}`,
+        value: descriptor,
+      },
+    ];
+    console.log('namedDescriptor', namedDescriptor);
+
+    return namedDescriptor;
+  }
+
+  private toXOnlyPublicKey(k: BIP32Interface | string): string {
+    if (typeof k === 'string') {
+      return k;
+    }
+    return k.neutered().toBase58();
+  }
+
+  private iBTCMultiA(
+    m: number,
+    n: number,
+    keys: BIP32Interface[] | string[],
+    path: string
+  ): string {
+    if (n < m) {
+      throw new Error(`Cannot create ${m} of ${n} multisig`);
+    }
+
+    if (keys.length < n) {
+      throw new Error(`Not enough keys for ${m} of ${n} multisig: keys.length=${keys.length}`);
+    }
+
+    keys = keys.slice(0, n);
+
+    return `multi_a(${m},${keys
+      .map(k => `${this.toXOnlyPublicKey(k)}/${path}`)
+      .sort((a, b) => (a > b ? 1 : -1))
+      .join(',')})`;
+  }
+
   private async createDescriptorWallet(
     vaultUUID: string,
     unspendableDerivedPublicKey: string, // TODO: Add unspendableDerivedPublicKey as a parameter to createDescriptorWalletWithWalletPassphrase
@@ -200,11 +252,18 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
         enterprise: this.enterpriseID,
         label: descriptorWalletLabel,
         walletPassphrase: '0000000000000000000000000000000000000000000000000000000000000000', // TODO: Use a real Wallet Passphrase
-        descriptorsFromKeys: DefaultIBTC,
+        descriptorsFromKeys: (userKey, cosigners) => {
+          return this.getNamedDescriptor(
+            userKey,
+            cosigners,
+            unspendableDerivedPublicKey,
+            attestorGroupPublicKey
+          );
+        },
       }
     );
 
-    console.log('result', result);
+    console.log('Descriptor Wallet', result);
 
     const descriptorWalletID = result._wallet.id;
 
@@ -248,13 +307,18 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
     try {
       const unspendableDerivedPublicKey = this.getUnspendableDerivedPublicKey(vault.uuid);
 
+      const attestorDerivedPublicKey = deriveUnhardenedPublicKey(
+        attestorGroupPublicKey,
+        this.bitcoinNetwork
+      );
+
       let descriptorWallet = await this.getDescriptorWalletByUUID(vault.uuid);
 
       if (!descriptorWallet) {
         descriptorWallet = await this.createDescriptorWallet(
           vault.uuid,
           unspendableDerivedPublicKey,
-          attestorGroupPublicKey
+          attestorDerivedPublicKey.toString('hex')
         );
       }
 
@@ -287,9 +351,14 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
         Number(vault.btcMintFeeBasisPoints.toBigInt())
       );
 
+      const descriptorReceiveAddress = descriptorWallet._wallet.receiveAddress;
+      if (!descriptorReceiveAddress) {
+        throw new Error('Descriptor Wallet does not have a receive address');
+      }
+
       const psbtOutputs = [
         {
-          address: descriptorWallet._wallet.receiveAddress.address,
+          address: descriptorReceiveAddress.address,
           amount: depositAmount.toString(),
         },
         {
@@ -363,8 +432,12 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
 
     console.log('fundingTransaction', fundingTransaction);
 
+    const descriptorReceiveAddress = descriptorWallet._wallet.receiveAddress;
+    if (!descriptorReceiveAddress) {
+      throw new Error('Descriptor Wallet does not have a receive address');
+    }
     const fundingTransactionOutputIndex = fundingTransaction.vout.findIndex(
-      output => output.scriptpubkey_address === descriptorWallet._wallet.receiveAddress.address
+      output => output.scriptpubkey_address === descriptorReceiveAddress.address
     );
 
     if (fundingTransactionOutputIndex === -1) {
@@ -397,16 +470,21 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
 
     if (remainingAmount > 0) {
       outputs.push({
-        address: descriptorWallet._wallet.receiveAddress.address,
+        address: descriptorReceiveAddress.address,
         amount: remainingAmount.toString(),
       });
     }
 
     removeDustOutputs(outputs);
 
+    const fundingWalletReceiveAddress = fundingWallet._wallet.receiveAddress;
+    if (!fundingWalletReceiveAddress) {
+      throw new Error('Funding Wallet does not have a receive address');
+    }
+
     const response = await descriptorWallet.prebuildAndSignTransaction({
       recipients: outputs,
-      changeAddress: fundingWallet._wallet.receiveAddress.address,
+      changeAddress: fundingWalletReceiveAddress.address,
       txFormat: 'psbt',
       walletPassphrase: '0000000000000000000000000000000000000000000000000000000000000000',
     });
@@ -465,9 +543,13 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
       fundingTransactionID,
       this.bitcoinBlockchainAPI
     );
+    const descriptorReceiveAddress = descriptorWallet._wallet.receiveAddress;
+    if (!descriptorReceiveAddress) {
+      throw new Error('Descriptor Wallet does not have a receive address');
+    }
 
     const vaultTransactionOutputIndex = vaultTransaction.vout.findIndex(
-      output => output.scriptpubkey_address === descriptorWallet._wallet.receiveAddress.address
+      output => output.scriptpubkey_address === descriptorReceiveAddress.address
     );
 
     if (vaultTransactionOutputIndex === -1) {
@@ -484,7 +566,7 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
         amount: BigInt(feeAmount).toString(),
       },
       {
-        address: descriptorWallet._wallet.receiveAddress.address,
+        address: descriptorReceiveAddress.address,
         amount: BigInt(depositAmount).toString(),
       },
     ];
@@ -557,8 +639,13 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
 
     removeDustOutputs(depositOutputs);
 
+    const fundingWalletReceiveAddress = fundingWallet._wallet.receiveAddress;
+    if (!fundingWalletReceiveAddress) {
+      throw new Error('Funding Wallet does not have a receive address');
+    }
+
     const depositSelected = selectUTXO(depositInputs, depositOutputs, 'all', {
-      changeAddress: fundingWallet.receiveAddress(),
+      changeAddress: fundingWalletReceiveAddress.address,
       feePerByte: feeRate,
       bip69: false,
       createTx: true,

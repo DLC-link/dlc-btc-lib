@@ -75,25 +75,25 @@ describe('Bitcoin Functions', () => {
         'https://mempool.space/testnet/api',
         'https://mempool.space/testnet/api/v1/fees/recommended'
       );
-      await bitGoDLCHandler.connect('dani@dlc.link', '', '000000');
+      await bitGoDLCHandler.connect('dani@dlc.link', 'J7yW9!vs%ve@93', '000000');
 
       await bitGoDLCHandler.initializeWalletByID('677e7f88eeeb235f3a7a949789981968');
 
-      // const fundingTransaction = await bitGoDLCHandler.createFundingPSBT(
-      //   TEST_VAULT_1,
-      //   1000000n,
-      //   LOCAL_EXTENDED_GROUP_PUBLIC_KEY
-      // );
-
-      // console.log('fundingTransaction', fundingTransaction);
-
-      const withdrawTransaction = await bitGoDLCHandler.createWithdrawPSBT(
+      const fundingTransaction = await bitGoDLCHandler.createFundingPSBT(
         TEST_VAULT_1,
         1000000n,
-        LOCAL_EXTENDED_GROUP_PUBLIC_KEY,
-        '44ab1c8d85acb50eaa1d94e0eb6b944da562088de0a35d2ee72dd06bbcc743c8'
+        LOCAL_EXTENDED_GROUP_PUBLIC_KEY
       );
-      console.log('withdrawTransaction', withdrawTransaction);
+
+      console.log('fundingTransaction', fundingTransaction);
+
+      // const withdrawTransaction = await bitGoDLCHandler.createWithdrawPSBT(
+      //   TEST_VAULT_1,
+      //   1000000n,
+      //   LOCAL_EXTENDED_GROUP_PUBLIC_KEY,
+      //   '44ab1c8d85acb50eaa1d94e0eb6b944da562088de0a35d2ee72dd06bbcc743c8'
+      // );
+      // console.log('withdrawTransaction', withdrawTransaction);
 
       // const signedTransaction = await bitGoDLCHandler.signBitGoPSBT(
       //   withdrawTransaction,

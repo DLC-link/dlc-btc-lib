@@ -10,21 +10,6 @@
     "@jridgewell/gen-mapping" "^0.3.5"
     "@jridgewell/trace-mapping" "^0.3.24"
 
-"@api-ts/io-ts-http@1.0.0":
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/@api-ts/io-ts-http/-/io-ts-http-1.0.0.tgz#555f131d7efc4635d9ea7218f6f2935917c27fa9"
-  integrity sha512-eP3pyoR9r7y7YCkJY5avi7NMKBWFGTs4CB1RE053yXcEDgVcq+X8Oxsq4Jaq+g6IPkhGGueCo7APefRiHjTxMw==
-  dependencies:
-    "@api-ts/response" "1.0.0"
-    fp-ts "2.12.3"
-    io-ts "2.1.3"
-    io-ts-types "0.5.16"
-
-"@api-ts/response@1.0.0":
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/@api-ts/response/-/response-1.0.0.tgz#7d11fd7602a271d7964723da5f8f66cc6566b93f"
-  integrity sha512-OTrMH5yyxNzzkC3fZPcz7KFN2j8A9ZD8YhwiYxy8zGKkE5aOJ4wWQO+q44H5mQLi3txD8AlvwQfkbpo3KyCmGw==
-
 "@babel/code-frame@^7.0.0", "@babel/code-frame@^7.12.13", "@babel/code-frame@^7.22.13", "@babel/code-frame@^7.25.9", "@babel/code-frame@^7.26.0", "@babel/code-frame@^7.26.2":
   version "7.26.2"
   resolved "https://registry.yarnpkg.com/@babel/code-frame/-/code-frame-7.26.2.tgz#4b5fab97d33338eff916235055f0ebc21e573a85"
@@ -382,12 +367,12 @@
   dependencies:
     "@noble/curves" "^1.7.0"
 
-"@bitgo/abstract-utxo@^9.9.0", "@bitgo/abstract-utxo@file:../BitGoJS/modules/abstract-utxo":
-  version "9.9.1"
+"@bitgo/abstract-utxo@^9.13.1", "@bitgo/abstract-utxo@file:../BitGoJS/modules/abstract-utxo":
+  version "9.13.1"
   dependencies:
     "@bitgo/blockapis" "^1.10.9"
-    "@bitgo/sdk-api" "^1.57.5"
-    "@bitgo/sdk-core" "^28.17.2"
+    "@bitgo/sdk-api" "^1.58.4"
+    "@bitgo/sdk-core" "^28.21.1"
     "@bitgo/unspents" "^0.47.17"
     "@bitgo/utxo-lib" "^11.2.1"
     "@bitgo/wasm-miniscript" "^2.0.0-beta.2"
@@ -435,22 +420,22 @@
   dependencies:
     noble-bls12-381 "^0.7.2"
 
-"@bitgo/public-types@3.6.0":
-  version "3.6.0"
-  resolved "https://registry.yarnpkg.com/@bitgo/public-types/-/public-types-3.6.0.tgz#8cceba155372dc9e3916fef17091498dcb0a19e5"
-  integrity sha512-dvv5WOHFi1E9WnHMkLrPP8FtsVZ+956Gf8VsdFIS6EiVJMiuWVYtN4gaGN+OxqJ0ZZRUDELwkCmNn31LBlpNpw==
+"@bitgo/public-types@4.9.2":
+  version "4.9.2"
+  resolved "https://registry.yarnpkg.com/@bitgo/public-types/-/public-types-4.9.2.tgz#0e0ee6311fbfd4bdc17ee06421e64578d66c9a0f"
+  integrity sha512-yVP/duh0ION0pfSVMJt24qCQ66Vxjlg7eP9iewlaDpod1q1aGX4m0sP9GNcAWSVBHo1S0+r9YgWZIdcB/DHxTg==
   dependencies:
-    "@api-ts/io-ts-http" "1.0.0"
-    fp-ts "2.16.2"
+    fp-ts "^2.0.0"
     io-ts "npm:@bitgo-forks/io-ts@2.1.4"
-    io-ts-types "0.5.16"
-    monocle-ts "2.3.13"
-    newtype-ts "0.3.5"
+    io-ts-types "^0.5.16"
+    monocle-ts "^2.3.13"
+    newtype-ts "^0.3.5"
 
-"@bitgo/sdk-api@^1.57.5", "@bitgo/sdk-api@file:../BitGoJS/modules/sdk-api":
-  version "1.57.5"
+"@bitgo/sdk-api@^1.58.4", "@bitgo/sdk-api@file:../BitGoJS/modules/sdk-api":
+  version "1.58.4"
   dependencies:
-    "@bitgo/sdk-core" "^28.17.2"
+    "@bitgo/sdk-core" "^28.21.1"
+    "@bitgo/sdk-hmac" "^1.1.0"
     "@bitgo/sjcl" "^1.0.1"
     "@bitgo/unspents" "^0.47.17"
     "@bitgo/utxo-lib" "^11.2.1"
@@ -467,23 +452,23 @@
     superagent "^9.0.1"
 
 "@bitgo/sdk-coin-btc@file:../BitGoJS/modules/sdk-coin-btc":
-  version "2.4.6"
+  version "2.4.12"
   dependencies:
-    "@bitgo/abstract-utxo" "^9.9.0"
-    "@bitgo/sdk-core" "^28.17.2"
+    "@bitgo/abstract-utxo" "^9.13.1"
+    "@bitgo/sdk-core" "^28.21.1"
     "@bitgo/utxo-lib" "^11.2.1"
-    "@bitgo/utxo-ord" "^1.20.61"
+    "@bitgo/utxo-ord" "^1.20.67"
 
-"@bitgo/sdk-core@^28.17.2", "@bitgo/sdk-core@^28.18.0":
-  version "28.18.0"
-  resolved "https://registry.yarnpkg.com/@bitgo/sdk-core/-/sdk-core-28.18.0.tgz#206e0c583f32fb06922711604727dd55e4008cea"
-  integrity sha512-VQLCRuk763J3MwpsR8BtTKpTqGg4lXBpW8L6mBquoXTlN7VSL+z1KyvipSkj/EvGISNg5Fektdig4R6umIlM9Q==
+"@bitgo/sdk-core@^28.21.1":
+  version "28.21.1"
+  resolved "https://registry.yarnpkg.com/@bitgo/sdk-core/-/sdk-core-28.21.1.tgz#f6faa358a051c3bf04346091b9cb7393db844a7e"
+  integrity sha512-hlIteYStIKwaS5hS6ozrPT2B2jx3l6ldnNPluJrRy+7fFV/s3dJqaZF6/tevqam1JbospTDe11ftArx3izbf3Q==
   dependencies:
     "@bitgo/bls-dkg" "^1.3.1"
-    "@bitgo/public-types" "3.6.0"
+    "@bitgo/public-types" "4.9.2"
     "@bitgo/sdk-lib-mpc" "^10.1.0"
     "@bitgo/sjcl" "^1.0.1"
-    "@bitgo/statics" "^50.17.0"
+    "@bitgo/statics" "^50.21.1"
     "@bitgo/utxo-lib" "^11.2.1"
     "@noble/secp256k1" "1.6.3"
     "@stablelib/hex" "^1.0.0"
@@ -503,7 +488,7 @@
     ethereumjs-util "7.1.5"
     fp-ts "^2.12.2"
     io-ts "npm:@bitgo-forks/io-ts@2.1.4"
-    io-ts-types "0.5.16"
+    io-ts-types "^0.5.16"
     keccak "3.0.3"
     libsodium-wrappers-sumo "^0.7.9"
     lodash "^4.17.15"
@@ -516,6 +501,13 @@
     superagent "^9.0.1"
     tweetnacl "^1.0.3"
     uuid "^8.3.2"
+
+"@bitgo/sdk-hmac@^1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@bitgo/sdk-hmac/-/sdk-hmac-1.1.0.tgz#390228b2ffa5c50a00794092986ebc7c3c8f6d65"
+  integrity sha512-l6eq/ZQxahuWjESPQM/7JfoYJVeMFN8seKu9KTdzhajkVlHkoMSNAuulrFECtyySzGC5SHnoyubEceZANyZbXg==
+  dependencies:
+    "@bitgo/sjcl" "^1.0.1"
 
 "@bitgo/sdk-lib-mpc@^10.1.0":
   version "10.1.0"
@@ -542,10 +534,10 @@
   resolved "https://registry.yarnpkg.com/@bitgo/sjcl/-/sjcl-1.0.1.tgz#633fa84608c1cb7461b17ceb6131d96722921fd3"
   integrity sha512-dBICMzShC8gXdpSj9cvl4wl9Jkt4h14wt4XQ+/6V6qcC2IObyKRJfaG5TYUU6RvVknhPBPyBx9v84vNKODM5fQ==
 
-"@bitgo/statics@^50.17.0":
-  version "50.17.0"
-  resolved "https://registry.yarnpkg.com/@bitgo/statics/-/statics-50.17.0.tgz#2ae92e834799afa9e2024045cb0d1fb523e54969"
-  integrity sha512-ATEKoBUVjrDwSiwUbkVMr8h/Bjq8xJFPxEfZo2WDivi82gBUDz9zUFgf019ymflJrZLDyJaiVa8pQpmAyAnx6A==
+"@bitgo/statics@^50.21.1":
+  version "50.21.1"
+  resolved "https://registry.yarnpkg.com/@bitgo/statics/-/statics-50.21.1.tgz#11214f4782c64e51dab3be2cfeae353fadda5c0c"
+  integrity sha512-JRZxl78/eV9rQnYXZVGfakEEYq5qKZuMyGWz2eFLEVkDZgZagx8LZZGGG7HmSd8BRR8f1KhOx7AQaJyYvHT85g==
 
 "@bitgo/unspents@^0.47.17":
   version "0.47.17"
@@ -581,12 +573,12 @@
     typeforce "^1.11.3"
     varuint-bitcoin "^1.1.2"
 
-"@bitgo/utxo-ord@^1.20.61":
-  version "1.20.62"
-  resolved "https://registry.yarnpkg.com/@bitgo/utxo-ord/-/utxo-ord-1.20.62.tgz#74e010110d7505fd11c96032a8df1af4f2cbd609"
-  integrity sha512-xvw7wGPHLdzLG/xSSaHCWXr2fLYa79ElDtu7l91sn3vY/gK5hO2KZtVPP0AprLe7Es6OdeLYYYTR28G4ZccLAg==
+"@bitgo/utxo-ord@^1.20.67":
+  version "1.20.67"
+  resolved "https://registry.yarnpkg.com/@bitgo/utxo-ord/-/utxo-ord-1.20.67.tgz#1a3aac1bb525ed562ef21254305fb639761d1bdb"
+  integrity sha512-mUnoKiqEn0kj/VRoJNwryw0HW1ZeFMI3tJ8b8BjnoMvoUonqkpgYW3+0TwZMJ7lbsiy5bEgH839dbrAfRwIw9g==
   dependencies:
-    "@bitgo/sdk-core" "^28.18.0"
+    "@bitgo/sdk-core" "^28.21.1"
     "@bitgo/unspents" "^0.47.17"
     "@bitgo/utxo-lib" "^11.2.1"
 
@@ -3725,17 +3717,12 @@ formidable@^3.5.1:
     hexoid "^2.0.0"
     once "^1.4.0"
 
-fp-ts@2.12.3:
-  version "2.12.3"
-  resolved "https://registry.yarnpkg.com/fp-ts/-/fp-ts-2.12.3.tgz#d991b1e8467d325dadbb6b0ab9524f773e9c3c49"
-  integrity sha512-8m0XvW8kZbfnJOA4NvSVXu95mLbPf4LQGwQyqVukIYS4KzSNJiyKSmuZUmbVHteUi6MGkAJGPb0goPZqI+Tsqg==
-
 fp-ts@2.16.2:
   version "2.16.2"
   resolved "https://registry.yarnpkg.com/fp-ts/-/fp-ts-2.16.2.tgz#7faa90f6fc2e8cf84c711d2c4e606afe2be9e342"
   integrity sha512-CkqAjnIKFqvo3sCyoBTqgJvF+bHrSik584S9nhTjtBESLx26cbtVMR/T9a6ApChOcSDAaM3JydDmWDUn4EEXng==
 
-fp-ts@^2.12.2:
+fp-ts@^2.0.0, fp-ts@^2.12.2:
   version "2.16.9"
   resolved "https://registry.yarnpkg.com/fp-ts/-/fp-ts-2.16.9.tgz#99628fc5e0bb3b432c4a16d8f4455247380bae8a"
   integrity sha512-+I2+FnVB+tVaxcYyQkHUq7ZdKScaBlX53A41mxQtpIccsfyv8PzdzP7fzp2AY832T4aoK6UZ5WRX/ebGd8uZuQ==
@@ -4098,15 +4085,10 @@ invariant@^2.2.4:
   dependencies:
     loose-envify "^1.0.0"
 
-io-ts-types@0.5.16:
-  version "0.5.16"
-  resolved "https://registry.yarnpkg.com/io-ts-types/-/io-ts-types-0.5.16.tgz#e9eed75371e217c97050cc507915e8eedc250946"
-  integrity sha512-h9noYVfY9rlbmKI902SJdnV/06jgiT2chxG6lYDxaYNp88HscPi+SBCtmcU+m0E7WT5QSwt7sIMj93+qu0FEwQ==
-
-io-ts@2.1.3:
-  version "2.1.3"
-  resolved "https://registry.yarnpkg.com/io-ts/-/io-ts-2.1.3.tgz#02c03c375d14079496f0c046ef8a9aad4fbaeb74"
-  integrity sha512-QFMR2QEBSP6w1TPmkpfca6xkzBbXO+K7ubdbV26GlCGI7CP9LV59bfty422JYtWgbBITuL/zBb1+mziv9f5Wfg==
+io-ts-types@^0.5.16:
+  version "0.5.19"
+  resolved "https://registry.yarnpkg.com/io-ts-types/-/io-ts-types-0.5.19.tgz#9c04fa73f15992436605218a5686b610efa7a5d3"
+  integrity sha512-kQOYYDZG5vKre+INIDZbLeDJe+oM+4zLpUkjXyTMyUfoCpjJNyi29ZLkuEAwcPufaYo3yu/BsemZtbdD+NtRfQ==
 
 "io-ts@npm:@bitgo-forks/io-ts@2.1.4":
   version "2.1.4"
@@ -5079,7 +5061,7 @@ moment@^2.22.2:
   resolved "https://registry.yarnpkg.com/moment/-/moment-2.30.1.tgz#f8c91c07b7a786e30c59926df530b4eac96974ae"
   integrity sha512-uEmtNhbDOrWPFS+hdjFCBfy9f2YoyzRpwcl+DqpC6taX21FzsTLQVbMV/W7PzNSX6x/bhC1zA3c2UQ5NzH6how==
 
-monocle-ts@2.3.13:
+monocle-ts@^2.3.13:
   version "2.3.13"
   resolved "https://registry.yarnpkg.com/monocle-ts/-/monocle-ts-2.3.13.tgz#7c8af489613cd5175df2ea3c02c57c6151995e5d"
   integrity sha512-D5Ygd3oulEoAm3KuGO0eeJIrhFf1jlQIoEVV2DYsZUMz42j4tGxgct97Aq68+F8w4w4geEnwFa8HayTS/7lpKQ==
@@ -5129,7 +5111,7 @@ netmask@^2.0.2:
   resolved "https://registry.yarnpkg.com/netmask/-/netmask-2.0.2.tgz#8b01a07644065d536383835823bc52004ebac5e7"
   integrity sha512-dBpDMdxv9Irdq66304OLfEmQ9tbNRFnFTuZiLo+bD+r332bBmMJ8GBLXklIXXgxd3+v9+KUnZaUR5PJMa75Gsg==
 
-newtype-ts@0.3.5:
+newtype-ts@^0.3.5:
   version "0.3.5"
   resolved "https://registry.yarnpkg.com/newtype-ts/-/newtype-ts-0.3.5.tgz#5c113d34a04938d9e90061437638260ea965c490"
   integrity sha512-v83UEQMlVR75yf1OUdoSFssjitxzjZlqBAjiGQ4WJaML8Jdc68LJ+BaSAXUmKY4bNzp7hygkKLYTsDi14PxI2g==
