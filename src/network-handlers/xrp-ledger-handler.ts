@@ -4,7 +4,7 @@ import { CheckCreate, Client, Transaction, TrustSet } from 'xrpl';
 
 import { submitXRPLCheckToCash } from '../functions/attestor/attestor-request.functions.js';
 import {
-  checkRippleTransactionResult,
+  checkXRPLTransactionResult,
   connectRippleClient,
   createCheck,
   getDLCBTCBalance,
@@ -80,7 +80,7 @@ export class LedgerXRPHandler {
 
       console.log(`Response for submitted Transaction Request:`, submitTrustLineRequestResponse);
 
-      checkRippleTransactionResult(submitTrustLineRequestResponse);
+      checkXRPLTransactionResult(submitTrustLineRequestResponse);
     } catch (error) {
       throw new Error(`Error setting Trust Line: ${error}`);
     }
@@ -130,7 +130,7 @@ export class LedgerXRPHandler {
 
       console.log(`Response for submitted Transaction Request:`, submitCheckCreateRequestResponse);
 
-      checkRippleTransactionResult(submitCheckCreateRequestResponse);
+      checkXRPLTransactionResult(submitCheckCreateRequestResponse);
 
       return submitCheckCreateRequestResponse.result.hash;
     } catch (error) {
