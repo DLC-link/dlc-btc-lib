@@ -22,7 +22,7 @@ import {
   encodeURI,
   getAllXRPLVaults,
   getCheckByTXHash,
-  getOldestNFTokenIDForVault,
+  getPreviousNFTokenIDForVault,
   getRippleVault,
   multiSignTransaction,
   submitMultiSignedXRPLTransaction,
@@ -397,7 +397,7 @@ export class RippleHandler {
     return await this.withConnectionMgmt(async () => {
       try {
         console.log(`Getting sig for Burning Ripple Vault, vault: ${nftUUID}`);
-        const nftTokenId = await getOldestNFTokenIDForVault(
+        const nftTokenId = await getPreviousNFTokenIDForVault(
           this.client,
           this.issuerAddress,
           nftUUID

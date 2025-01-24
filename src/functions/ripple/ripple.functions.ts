@@ -304,22 +304,21 @@ export async function getAllIssuerNFTs(
  * @returns NFTokenID string from XRPL network
  * @throws RippleError if matching Vault not found or operation fails
  */
-export async function getOldestNFTokenIDForVault(
+export async function getPreviousNFTokenIDForVault(
   xrplClient: Client,
   issuerAddress: string,
   vaultUUID: string
 ): Promise<string> {
   try {
     const allNFTs = await getAllIssuerNFTs(xrplClient, issuerAddress);
-
     const matchingNFTs = allNFTs.filter(nft => decodeURI(nft.URI!).uuid.slice(2) === vaultUUID);
 
     if (!matchingNFTs.length) {
-      throw new RippleError(`Vault for UUID: ${vaultUUID} not found`);
+      throw new RippleError(`Vault ${vaultUUID} not found`);
     }
 
-    const oldestNFTForUUID = matchingNFTs.sort((a, b) => a.nft_serial - b.nft_serial)[0];
-    return oldestNFTForUUID.NFTokenID;
+    const sortedNFTs = matchingNFTs.sort((a, b) => b.nft_serial - a.nft_serial);
+    return sortedNFTs[sortedNFTs.length > 1 ? 1 : 0].NFTokenID;
   } catch (error) {
     throw new RippleError(`Could not find NFTokenID for Vault: ${error}`);
   }
