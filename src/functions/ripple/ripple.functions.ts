@@ -297,14 +297,14 @@ export async function getAllIssuerNFTs(
 }
 
 /**
- * Gets the NFTokenID of the oldest NFT (lowest serial number) for a given Vault UUID
+ * Gets the NFTokenID of an NFT for a given Vault UUID
  * @param xrplClient - Connected XRPL Client instance
  * @param issuerAddress - Address of the NFT issuer
  * @param vaultUUID - UUID of the Vault to search for
  * @returns NFTokenID string from XRPL network
  * @throws RippleError if matching Vault not found or operation fails
  */
-export async function getSecondToNewestNFTokenIDForVault(
+export async function getNFTokenIDForVault(
   xrplClient: Client,
   issuerAddress: string,
   vaultUUID: string
@@ -313,15 +313,12 @@ export async function getSecondToNewestNFTokenIDForVault(
     const allNFTs = await getAllIssuerNFTs(xrplClient, issuerAddress);
     const matchingNFTs = allNFTs.filter(nft => decodeURI(nft.URI!).uuid.slice(2) === vaultUUID);
 
-    switch (matchingNFTs.length) {
-      case 0:
-        throw new RippleError(`Vault ${vaultUUID} not found`);
-      case 1:
-        throw new RippleError(`Vault ${vaultUUID} has only one NFT, no older duplicates found`);
+    if (matchingNFTs.length === 0) {
+      throw new RippleError(`Could not find matching NFT for Vault: ${vaultUUID}`);
     }
 
     const sortedNFTs = matchingNFTs.sort((a, b) => b.nft_serial - a.nft_serial);
-    return sortedNFTs[1].NFTokenID;
+    return sortedNFTs[0].NFTokenID;
   } catch (error) {
     throw new RippleError(`Could not find NFTokenID for Vault: ${error}`);
   }

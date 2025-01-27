@@ -22,8 +22,8 @@ import {
   encodeURI,
   getAllXRPLVaults,
   getCheckByTXHash,
+  getNFTokenIDForVault,
   getRippleVault,
-  getSecondToNewestNFTokenIDForVault,
   multiSignTransaction,
   submitMultiSignedXRPLTransaction,
 } from '../functions/ripple/ripple.functions.js';
@@ -397,11 +397,7 @@ export class RippleHandler {
     return await this.withConnectionMgmt(async () => {
       try {
         console.log(`Getting sig for Burning Ripple Vault, vault: ${nftUUID}`);
-        const nftTokenId = await getSecondToNewestNFTokenIDForVault(
-          this.client,
-          this.issuerAddress,
-          nftUUID
-        );
+        const nftTokenId = await getNFTokenIDForVault(this.client, this.issuerAddress, nftUUID);
 
         const burnTransactionJson: SubmittableTransaction = {
           TransactionType: 'NFTokenBurn',
