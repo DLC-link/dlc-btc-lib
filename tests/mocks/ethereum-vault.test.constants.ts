@@ -3,7 +3,7 @@ import { BigNumber } from 'ethers';
 import { RawVault } from '../../src/models/ethereum-models';
 
 export const TEST_VAULT_1: RawVault = {
-  uuid: '0x900ca1a687f9c8241566d334fcb4b33efab8e540b943be1455143284c5afc111',
+  uuid: '0x123ca1a687f9c8241566d334fcb4b33efab8e540b943be1455143284c5afc111',
   protocolContract: '0x6e692DB944162f8b4250aA25eCEe80608457D7a7',
   timestamp: BigNumber.from('0x665da025'),
   valueLocked: BigNumber.from('0xF4240'),
