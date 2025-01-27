@@ -310,15 +310,16 @@ export async function getNFTokenIDForVault(
   vaultUUID: string
 ): Promise<string> {
   try {
-    const allNFTs = await getAllIssuerNFTs(xrplClient, issuerAddress);
-    const matchingNFTs = allNFTs.filter(nft => decodeURI(nft.URI!).uuid.slice(2) === vaultUUID);
+    const nftID = (await getAllIssuerNFTs(xrplClient, issuerAddress))
+      .filter(nft => decodeURI(nft.URI!).uuid.slice(2) === vaultUUID)
+      .sort((a, b) => b.nft_serial - a.nft_serial)
+      .at(0)?.NFTokenID;
 
-    if (matchingNFTs.length === 0) {
+    if (!nftID) {
       throw new RippleError(`Could not find matching NFT for Vault: ${vaultUUID}`);
     }
 
-    const sortedNFTs = matchingNFTs.sort((a, b) => b.nft_serial - a.nft_serial);
-    return sortedNFTs[0].NFTokenID;
+    return nftID;
   } catch (error) {
     throw new RippleError(`Could not find NFTokenID for Vault: ${error}`);
   }
