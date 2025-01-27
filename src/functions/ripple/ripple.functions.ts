@@ -12,7 +12,7 @@ import {
   LedgerEntry,
   SubmittableTransaction,
   Transaction,
-  TransactionMetadataBase,
+  TransactionMetadata,
   TrustSet,
   TxResponse,
   Wallet,
@@ -27,7 +27,7 @@ import {
 } from '../../constants/ripple.constants.js';
 import { RippleError } from '../../models/errors.js';
 import { RawVault } from '../../models/ethereum-models.js';
-import { SignResponse } from '../../models/ripple.model.js';
+import { SignResponse, SignatureType, XRPLSignatures } from '../../models/ripple.model.js';
 import { shiftValue, unshiftValue } from '../../utilities/index.js';
 
 function hexFieldsToLowercase(vault: RawVault): RawVault {
@@ -110,7 +110,12 @@ export function decodeURI(URI: string): RawVault {
   }
 }
 
-export function checkRippleTransactionResult(txResponse: TxResponse<SubmittableTransaction>): void {
+/**
+ * Validates XRPL transaction response and throws error if invalid
+ * @param txResponse - XRPL transaction response
+ * @throws RippleError if metadata missing, unreadable, or transaction failed
+ */
+export function checkXRPLTransactionResult(txResponse: TxResponse<SubmittableTransaction>): void {
   const meta = txResponse.result.meta;
 
   if (!meta) {
@@ -121,11 +126,41 @@ export function checkRippleTransactionResult(txResponse: TxResponse<SubmittableT
     throw new RippleError(`Could not read Transaction Result of: ${meta}`);
   }
 
-  const transactionResult = (meta as TransactionMetadataBase).TransactionResult;
+  const transactionResult = (meta as TransactionMetadata).TransactionResult;
 
   if (transactionResult !== TRANSACTION_SUCCESS_CODE) {
     throw new RippleError(`Transaction failed: ${transactionResult}`);
   }
+}
+
+/**
+ * Submits a multi-signed transaction to the XRPL network
+ * @param xrplClient - Connected XRPL Client instance
+ * @param targetXRPLSignatureType - Signature type to process ('mintNFT', 'mintToken', etc)
+ * @param xrplSignatures - Array of XRPL signature objects
+ * @returns Transaction response from XRPL network
+ * @throws Error if signatures not found or transaction fails
+ */
+export async function submitMultiSignedXRPLTransaction(
+  xrplClient: Client,
+  targetXRPLSignatureType: SignatureType,
+  xrplSignatures: XRPLSignatures[]
+): Promise<TxResponse<SubmittableTransaction>> {
+  const targetXRPLSignatures = xrplSignatures.find(
+    sig => sig.signatureType === targetXRPLSignatureType
+  )?.signatures;
+
+  if (!targetXRPLSignatures) throw new Error(`No Signatures found for ${targetXRPLSignatureType}`);
+
+  console.log(`Requesting [${targetXRPLSignatureType}] Transaction`);
+
+  const response = await xrplClient.submitAndWait(multiSignTransaction(targetXRPLSignatures));
+
+  checkXRPLTransactionResult(response);
+
+  console.log(`[${targetXRPLSignatureType}] Transaction was successful`);
+
+  return response;
 }
 
 export function getRippleClient(serverEndpoint: string): Client {
@@ -208,37 +243,35 @@ export async function getRippleVault(
 
     const formattedUUID = vaultUUID.substring(0, 2) === '0x' ? vaultUUID : `0x${vaultUUID}`;
 
-    const allVaults = await getAllRippleVaults(rippleClient, issuerAddress);
+    const allVaults = await getAllXRPLVaults(rippleClient, issuerAddress);
 
-    const matchingVaults = allVaults.filter(
-      vault => vault.uuid.toLowerCase() === formattedUUID.toLowerCase()
-    );
+    const vault = allVaults.find(vault => vault.uuid.toLowerCase() === formattedUUID.toLowerCase());
 
-    if (matchingVaults.length === 0) {
-      throw new RippleError(`Vault with UUID: ${formattedUUID} not found`);
+    if (!vault) {
+      throw new RippleError(`Vault ${vaultUUID} not found`);
     }
 
-    if (matchingVaults.length > 1) {
-      throw new RippleError(`Multiple Vaults found with UUID: ${formattedUUID}`);
-    }
-
-    return matchingVaults[0];
+    return vault;
   } catch (error) {
     throw new RippleError(`Error getting Vault ${vaultUUID}: ${error}`);
   }
 }
 
-export async function getAllRippleVaults(
-  rippleClient: Client,
-  issuerAddress: string,
-  ownerAddress?: string
-): Promise<RawVault[]> {
+/**
+ * Fetches all NFTs from a given issuer address using pagination
+ * @param xrplClient - Connected XRPL Client instance
+ * @param issuerAddress - Address of the NFT issuer
+ * @returns Array of AccountNFToken objects from XRPL network
+ * @throws RippleError if operation fails
+ */
+export async function getAllIssuerNFTs(
+  xrplClient: Client,
+  issuerAddress: string
+): Promise<AccountNFToken[]> {
   try {
-    await connectRippleClient(rippleClient);
-
     let marker: any = undefined;
     const limit = 100;
-    let allRippleNFTs: any[] = [];
+    let allNFTs: any[] = [];
 
     do {
       const getAccountNFTsRequest: AccountNFTsRequest = {
@@ -250,20 +283,82 @@ export async function getAllRippleVaults(
 
       const {
         result: { account_nfts: rippleNFTs, marker: newMarker },
-      } = await rippleClient.request(getAccountNFTsRequest);
+      } = await xrplClient.request(getAccountNFTsRequest);
 
-      allRippleNFTs = allRippleNFTs.concat(rippleNFTs);
+      allNFTs = allNFTs.concat(rippleNFTs);
 
       marker = newMarker;
     } while (marker);
 
-    const rippleVaults = allRippleNFTs.map(nft => hexFieldsToLowercase(decodeURI(nft.URI!)));
+    return allNFTs;
+  } catch (error) {
+    throw new RippleError(`Error getting NFTs: ${error}`);
+  }
+}
 
-    if (ownerAddress) {
-      return rippleVaults.filter(vault => vault.creator === ownerAddress);
-    } else {
-      return rippleVaults;
+/**
+ * Gets the NFTokenID of the oldest NFT (lowest serial number) for a given Vault UUID
+ * @param xrplClient - Connected XRPL Client instance
+ * @param issuerAddress - Address of the NFT issuer
+ * @param vaultUUID - UUID of the Vault to search for
+ * @returns NFTokenID string from XRPL network
+ * @throws RippleError if matching Vault not found or operation fails
+ */
+export async function getSecondToNewestNFTokenIDForVault(
+  xrplClient: Client,
+  issuerAddress: string,
+  vaultUUID: string
+): Promise<string> {
+  try {
+    const allNFTs = await getAllIssuerNFTs(xrplClient, issuerAddress);
+    const matchingNFTs = allNFTs.filter(nft => decodeURI(nft.URI!).uuid.slice(2) === vaultUUID);
+
+    switch (matchingNFTs.length) {
+      case 0:
+        throw new RippleError(`Vault ${vaultUUID} not found`);
+      case 1:
+        throw new RippleError(`Vault ${vaultUUID} has only one NFT, no older duplicates found`);
     }
+
+    const sortedNFTs = matchingNFTs.sort((a, b) => b.nft_serial - a.nft_serial);
+    return sortedNFTs[1].NFTokenID;
+  } catch (error) {
+    throw new RippleError(`Could not find NFTokenID for Vault: ${error}`);
+  }
+}
+
+/**
+ * Retrieves all Vaults from XRPL network, keeping only latest NFT per Vault UUID
+ * @param xrplClient - Connected XRPL Client instance
+ * @param issuerAddress - Address of the NFT issuer
+ * @param ownerAddress - Optional address to filter Vaults by owner
+ * @returns Array of RawVault objects from XRPL network
+ * @throws RippleError if operation fails
+ */
+export async function getAllXRPLVaults(
+  xrplClient: Client,
+  issuerAddress: string,
+  ownerAddress?: string
+): Promise<RawVault[]> {
+  try {
+    const allNFTs = await getAllIssuerNFTs(xrplClient, issuerAddress);
+
+    const allNFTsSortedBySerialID = allNFTs.sort((a, b) => b.nft_serial - a.nft_serial);
+
+    const uniqueUUIDFilteredNFTs = allNFTsSortedBySerialID.reduce<AccountNFToken[]>(
+      (unique, nft) => {
+        const vaultUUID = decodeURI(nft.URI!).uuid;
+        const isDuplicate = unique.some(
+          (filtered: AccountNFToken) => decodeURI(filtered.URI!).uuid === vaultUUID
+        );
+        return isDuplicate ? unique : [...unique, nft];
+      },
+      []
+    );
+
+    const xrplVaults = uniqueUUIDFilteredNFTs.map(nft => hexFieldsToLowercase(decodeURI(nft.URI!)));
+
+    return ownerAddress ? xrplVaults.filter(vault => vault.creator === ownerAddress) : xrplVaults;
   } catch (error) {
     throw new RippleError(`Error getting Vaults: ${error}`);
   }
@@ -283,7 +378,7 @@ export async function signAndSubmitRippleTransaction(
 
     console.log(`Response for submitted Transaction Request:`, submitResponse);
 
-    checkRippleTransactionResult(submitResponse);
+    checkXRPLTransactionResult(submitResponse);
 
     return submitResponse;
   } catch (error) {
@@ -299,7 +394,7 @@ export async function getLockedBTCBalance(
   try {
     await connectRippleClient(rippleClient);
 
-    const rippleVaults = await getAllRippleVaults(rippleClient, issuerAddress, userAddress);
+    const rippleVaults = await getAllXRPLVaults(rippleClient, issuerAddress, userAddress);
 
     const lockedBTCBalance = rippleVaults.reduce((accumulator, vault) => {
       return accumulator + vault.valueLocked.toNumber();
