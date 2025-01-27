@@ -313,12 +313,11 @@ export async function getSecondToNewestNFTokenIDForVault(
     const allNFTs = await getAllIssuerNFTs(xrplClient, issuerAddress);
     const matchingNFTs = allNFTs.filter(nft => decodeURI(nft.URI!).uuid.slice(2) === vaultUUID);
 
-    if (!matchingNFTs.length) {
-      throw new RippleError(`Vault ${vaultUUID} not found`);
-    }
-
-    if (matchingNFTs.length < 2) {
-      throw new RippleError(`Vault ${vaultUUID} has only one NFT, no older duplicates found`);
+    switch (matchingNFTs.length) {
+      case 0:
+        throw new RippleError(`Vault ${vaultUUID} not found`);
+      case 1:
+        throw new RippleError(`Vault ${vaultUUID} has only one NFT, no older duplicates found`);
     }
 
     const sortedNFTs = matchingNFTs.sort((a, b) => b.nft_serial - a.nft_serial);
