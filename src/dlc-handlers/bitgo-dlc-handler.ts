@@ -462,10 +462,19 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
       Number(vault.btcMintFeeBasisPoints.toBigInt())
     );
 
+    const fundingWalletReceiveAddress = fundingWallet._wallet.receiveAddress;
+    if (!fundingWalletReceiveAddress) {
+      throw new Error('Funding Wallet does not have a receive address');
+    }
+
     const outputs = [
       {
         address: feeAddress,
         amount: BigInt(feeAmount).toString(),
+      },
+      {
+        address: fundingWalletReceiveAddress.address,
+        amount: 'max',
       },
     ];
 
@@ -478,16 +487,9 @@ export class BitGoDLCHandler extends AbstractDLCHandler {
 
     removeDustOutputs(outputs);
 
-    const fundingWalletReceiveAddress = fundingWallet._wallet.receiveAddress;
-    if (!fundingWalletReceiveAddress) {
-      throw new Error('Funding Wallet does not have a receive address');
-    }
-
-    console.log('outputs', outputs);
-
     const response = await descriptorWallet.prebuildAndSignTransaction({
       recipients: outputs,
-      // changeAddress: fundingWalletReceiveAddress.address,
+      changeAddress: fundingWalletReceiveAddress.address,
       txFormat: 'psbt',
       walletPassphrase: '0000000000000000000000000000000000000000000000000000000000000000',
     });
