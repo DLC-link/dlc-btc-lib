@@ -304,7 +304,7 @@ export async function getAllIssuerNFTs(
  * @returns NFTokenID string from XRPL network
  * @throws RippleError if matching Vault not found or operation fails
  */
-export async function getPreviousNFTokenIDForVault(
+export async function getSecondToNewestNFTokenIDForVault(
   xrplClient: Client,
   issuerAddress: string,
   vaultUUID: string
@@ -317,8 +317,12 @@ export async function getPreviousNFTokenIDForVault(
       throw new RippleError(`Vault ${vaultUUID} not found`);
     }
 
+    if (matchingNFTs.length < 2) {
+      throw new RippleError(`Vault ${vaultUUID} has only one NFT, no older duplicates found`);
+    }
+
     const sortedNFTs = matchingNFTs.sort((a, b) => b.nft_serial - a.nft_serial);
-    return sortedNFTs[sortedNFTs.length > 1 ? 1 : 0].NFTokenID;
+    return sortedNFTs[1].NFTokenID;
   } catch (error) {
     throw new RippleError(`Could not find NFTokenID for Vault: ${error}`);
   }
