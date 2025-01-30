@@ -62,7 +62,7 @@ const ethereumAvalanche: EthereumNetwork = {
 
 const ethereumBSC: EthereumNetwork = {
   name: 'BSC',
-  displayName: 'Binace Smart Chain',
+  displayName: 'Binance Smart Chain',
   id: EthereumNetworkID.BSC,
   defaultNodeURL: 'https://rpc.ankr.com/bsc',
 };
