@@ -236,6 +236,7 @@ export class LedgerDLCHandler extends AbstractDLCHandler {
     vault: RawVault,
     depositAmount: bigint,
     attestorGroupPublicKey: string,
+    feeRecipient: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Transaction> {
@@ -260,7 +261,7 @@ export class LedgerDLCHandler extends AbstractDLCHandler {
         multisigPayment,
         fundingPayment,
         feeRate,
-        vault.btcFeeRecipient,
+        feeRecipient,
         vault.btcMintFeeBasisPoints.toBigInt()
       );
 
@@ -315,6 +316,7 @@ export class LedgerDLCHandler extends AbstractDLCHandler {
     withdrawAmount: bigint,
     attestorGroupPublicKey: string,
     fundingTransactionID: string,
+    feeRecipient: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Transaction> {
@@ -334,7 +336,7 @@ export class LedgerDLCHandler extends AbstractDLCHandler {
         multisigPayment,
         fundingPayment,
         feeRate,
-        vault.btcFeeRecipient,
+        feeRecipient,
         vault.btcRedeemFeeBasisPoints.toBigInt()
       );
 
@@ -377,6 +379,7 @@ export class LedgerDLCHandler extends AbstractDLCHandler {
     depositAmount: bigint,
     attestorGroupPublicKey: string,
     fundingTransactionID: string,
+    feeRecipient: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Transaction> {
@@ -393,7 +396,7 @@ export class LedgerDLCHandler extends AbstractDLCHandler {
       multisigPayment,
       fundingPayment,
       feeRate,
-      vault.btcFeeRecipient,
+      feeRecipient,
       vault.btcMintFeeBasisPoints.toBigInt()
     );
 
