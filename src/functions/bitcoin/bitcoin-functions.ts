@@ -15,6 +15,7 @@ import { BIP32Factory, BIP32Interface } from 'bip32';
 import { Network, address, initEccLib } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
+import { RawVault } from 'src/models/ethereum-models.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
 import { DUST_LIMIT } from '../../constants/dlc-handler.constants.js';
@@ -34,6 +35,7 @@ import {
   isDefined,
   isUndefined,
 } from '../../utilities/index.js';
+import { fetchBitcoinTransaction } from './bitcoin-request-functions.js';
 
 const TAPROOT_UNSPENDABLE_KEY_HEX =
   '0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
@@ -56,6 +58,51 @@ export function removeDustOutputs(
       outputs.splice(i, 1);
     }
   }
+}
+
+export function getDerivedUnspendablePublicKeyCommittedToUUID(
+  vaultUUID: string,
+  bitcoinNetwork: Network
+): Buffer {
+  return deriveUnhardenedPublicKey(
+    getUnspendableKeyCommittedToUUID(vaultUUID, bitcoinNetwork),
+    bitcoinNetwork
+  );
+}
+
+export async function getVaultFundingBitcoinAddress(
+  vault: RawVault,
+  feeRecipient: string,
+  extendedAttestorGroupPublicKey: string,
+  bitcoinNetwork: Network,
+  bitcoinBlockchainAPIURL: string
+): Promise<string | undefined> {
+  const fundingTransaction = await fetchBitcoinTransaction(
+    vault.fundingTxId,
+    bitcoinBlockchainAPIURL
+  );
+
+  const multisigAddress = createTaprootMultisigPayment(
+    getDerivedUnspendablePublicKeyCommittedToUUID(vault.uuid, bitcoinNetwork),
+    deriveUnhardenedPublicKey(extendedAttestorGroupPublicKey, bitcoinNetwork),
+    Buffer.from(vault.taprootPubKey, 'hex'),
+    bitcoinNetwork
+  ).address;
+
+  const feeRecipientAddress = getFeeRecipientAddress(feeRecipient, bitcoinNetwork);
+
+  const inputAddresses = fundingTransaction.vin.map(input => input.prevout.scriptpubkey_address);
+
+  if (inputAddresses.every(address => address === inputAddresses[0])) {
+    if (inputAddresses[0] !== multisigAddress) {
+      return inputAddresses[0];
+    }
+    return fundingTransaction.vout.find(
+      output => output.scriptpubkey_address !== feeRecipientAddress
+    )?.scriptpubkey_address;
+  }
+
+  return inputAddresses.find(address => address !== multisigAddress);
 }
 
 /**

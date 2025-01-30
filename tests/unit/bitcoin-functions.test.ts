@@ -12,8 +12,11 @@ import {
   getInputIndicesByScript,
   getScriptMatchingOutputFromTransaction,
   getUnspendableKeyCommittedToUUID,
+  getVaultFundingBitcoinAddress,
   removeDustOutputs,
 } from '../../src/functions/bitcoin/bitcoin-functions';
+import * as bitcoinRequestFunctions from '../../src/functions/bitcoin/bitcoin-request-functions.js';
+import { TEST_TESTNET_BITCOIN_BLOCKCHAIN_API } from '../mocks/api.test.constants.js';
 import {
   TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
   TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1,
@@ -24,6 +27,8 @@ import {
   TEST_DEPOSIT_PSBT_PARTIALLY_SIGNED_DEPOSIT_PSBT_3,
   TEST_TESTNET_FUNDING_TRANSACTION_1,
   TEST_TESTNET_FUNDING_TRANSACTION_2,
+  TEST_TESTNET_FUNDING_TRANSACTION_4,
+  TEST_TESTNET_FUNDING_TRANSACTION_5,
   TEST_WITHDRAW_PSBT_PARTIALLY_SIGNED_WITHDRAW_PSBT_1,
 } from '../mocks/bitcoin-transaction.test.constants';
 import {
@@ -38,6 +43,7 @@ import {
   TEST_UNHARDENED_DERIVED_UNSPENDABLE_KEY_COMMITED_TO_UUID_1,
   TEST_UNSPENDABLE_KEY_COMMITED_TO_UUID_1,
 } from '../mocks/bitcoin.test.constants';
+import { TEST_VAULT_2 } from '../mocks/ethereum-vault.test.constants.js';
 import { TEST_VAULT_UUID_1 } from '../mocks/ethereum.test.constants';
 
 describe('Bitcoin Functions', () => {
@@ -295,7 +301,57 @@ describe('Bitcoin Functions', () => {
       expect(result).toBeUndefined();
     });
   });
+  describe('getVaultFundingBitcoinAddress', () => {
+    const expectedFundingAddress = 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq';
 
+    it('should return input address when single non-multisig input exists', async () => {
+      jest
+        .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
+        .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
+
+      const result = await getVaultFundingBitcoinAddress(
+        TEST_VAULT_2,
+        TEST_VAULT_2.btcFeeRecipient,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        testnet,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API
+      );
+
+      expect(result).toBe(expectedFundingAddress);
+    });
+
+    it('should return non-multisig address when transaction has multiple inputs', async () => {
+      jest
+        .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
+        .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_4);
+
+      const result = await getVaultFundingBitcoinAddress(
+        TEST_VAULT_2,
+        TEST_VAULT_2.btcFeeRecipient,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        testnet,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API
+      );
+
+      expect(result).toBe(expectedFundingAddress);
+    });
+
+    it('should return non-fee-recipient output address when input is from multisig address', async () => {
+      jest
+        .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
+        .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_5);
+
+      const result = await getVaultFundingBitcoinAddress(
+        TEST_VAULT_2,
+        TEST_VAULT_2.btcFeeRecipient,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        testnet,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API
+      );
+
+      expect(result).toBe(expectedFundingAddress);
+    });
+  });
   describe('getFeeAmount', () => {
     test('calculates correct fee for whole numbers', () => {
       expect(getFeeAmount(1000000, 50)).toBe(5000);

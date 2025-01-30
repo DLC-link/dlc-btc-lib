@@ -1,9 +1,11 @@
 import {
   finalizeUserInputs,
   getBitcoinAddressFromExtendedPublicKey,
+  getDerivedUnspendablePublicKeyCommittedToUUID,
   getFeeAmount,
   getFeeRecipientAddress,
   getInputIndicesByScript,
+  getVaultFundingBitcoinAddress,
   isBitcoinAddress,
 } from '../bitcoin/bitcoin-functions.js';
 import {
@@ -21,6 +23,8 @@ import {
 export {
   isBitcoinAddress,
   createFundingTransaction,
+  getDerivedUnspendablePublicKeyCommittedToUUID,
+  getVaultFundingBitcoinAddress,
   createDepositTransaction,
   createWithdrawTransaction,
   broadcastTransaction,
