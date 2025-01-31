@@ -71,6 +71,17 @@ export function getDerivedUnspendablePublicKeyCommittedToUUID(
   );
 }
 
+/**
+ * This function retrieves the Bitcoin address used for funding a Vault by analyzing the inputs and outputs of the Funding Transaction.
+ *
+ * @param vault - The Vault object containing the Funding Transaction ID and the User's Public Key.
+ * @param feeRecipient - The Fee Recipient's Public Key or Address.
+ * @param extendedAttestorGroupPublicKey - The Extended Public Key of the Attestor Group.
+ * @param bitcoinNetwork - The Bitcoin Network to use.
+ * @param bitcoinBlockchainAPIURL - The Bitcoin Blockchain URL used to fetch the Funding Transaction.
+ * @returns A promise that resolves to the Funding Bitcoin address.
+ * @throws An error if the Vault Funding Address cannot be determined.
+ */
 export async function getVaultFundingBitcoinAddress(
   vault: RawVault,
   feeRecipient: string,
