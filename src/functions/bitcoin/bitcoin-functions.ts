@@ -15,6 +15,7 @@ import { BIP32Factory, BIP32Interface } from 'bip32';
 import { Network, address, initEccLib } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
+import { filter, ifElse, map, pipe, uniq } from 'ramda';
 import { RawVault } from 'src/models/ethereum-models.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
@@ -76,7 +77,7 @@ export async function getVaultFundingBitcoinAddress(
   extendedAttestorGroupPublicKey: string,
   bitcoinNetwork: Network,
   bitcoinBlockchainAPIURL: string
-): Promise<string | undefined> {
+): Promise<string> {
   const fundingTransaction = await fetchBitcoinTransaction(
     vault.fundingTxId,
     bitcoinBlockchainAPIURL
@@ -91,18 +92,41 @@ export async function getVaultFundingBitcoinAddress(
 
   const feeRecipientAddress = getFeeRecipientAddress(feeRecipient, bitcoinNetwork);
 
-  const inputAddresses = fundingTransaction.vin.map(input => input.prevout.scriptpubkey_address);
+  const inputAddresses = uniq(
+    fundingTransaction.vin.map(input => input.prevout.scriptpubkey_address)
+  );
 
-  if (inputAddresses.every(address => address === inputAddresses[0])) {
-    if (inputAddresses[0] !== multisigAddress) {
-      return inputAddresses[0];
-    }
-    return fundingTransaction.vout.find(
-      output => output.scriptpubkey_address !== feeRecipientAddress
-    )?.scriptpubkey_address;
+  const throwInvalidAddress = () => {
+    throw new Error('Could not determine the Vault Funding Address');
+  };
+
+  // If the only input is the MultiSig address, it is a withdrawal transaction.
+  // Therefore, the funding address is the non-fee recipient output address."
+  if (inputAddresses.length === 1 && inputAddresses[0] === multisigAddress) {
+    return pipe(
+      filter(
+        (output: BitcoinTransactionVectorOutput) =>
+          output.scriptpubkey_address !== feeRecipientAddress
+      ),
+      map(output => output.scriptpubkey_address),
+      ifElse(
+        addresses => addresses.length === 1,
+        addresses => addresses[0],
+        throwInvalidAddress
+      )
+    )(fundingTransaction.vout);
   }
 
-  return inputAddresses.find(address => address !== multisigAddress);
+  // If there is a single non-MultiSig input that is not the MultiSig address or multiple inputs, it is a funding/deposit transaction.
+  // Therefore, the funding address is the non-MultiSig input address.
+  return pipe(
+    filter((address: string) => address !== multisigAddress),
+    ifElse<string[], string, string>(
+      addresses => addresses.length === 1,
+      addresses => addresses[0],
+      throwInvalidAddress
+    )
+  )(inputAddresses);
 }
 
 /**
