@@ -72,7 +72,7 @@ export function getDerivedUnspendablePublicKeyCommittedToUUID(
 }
 
 /**
- * This function retrieves the Bitcoin address used for funding a Vault by analyzing the inputs and outputs of the Funding Transaction.
+ * This function retrieves the Bitcoin address used to fund a Vault by analyzing the inputs and outputs of the Funding Transaction.
  *
  * @param vault - The Vault object containing the Funding Transaction ID and the User's Public Key.
  * @param feeRecipient - The Fee Recipient's Public Key or Address.
@@ -107,37 +107,27 @@ export async function getVaultFundingBitcoinAddress(
     fundingTransaction.vin.map(input => input.prevout.scriptpubkey_address)
   );
 
-  const throwInvalidAddress = () => {
+  const getSingleAddressOrThrow = (addresses: string[]) => {
+    if (addresses.length === 1) return addresses[0];
+
     throw new Error('Could not determine the Vault Funding Address');
   };
 
+  const isMultiSigAddress = (address: string) => address === multisigAddress;
+
   // If the only input is the MultiSig address, it is a withdrawal transaction.
-  // Therefore, the funding address is the non-fee recipient output address."
-  if (inputAddresses.length === 1 && inputAddresses[0] === multisigAddress) {
-    return pipe(
-      filter(
-        (output: BitcoinTransactionVectorOutput) =>
-          output.scriptpubkey_address !== feeRecipientAddress
-      ),
-      map(output => output.scriptpubkey_address),
-      ifElse(
-        addresses => addresses.length === 1,
-        addresses => addresses[0],
-        throwInvalidAddress
-      )
-    )(fundingTransaction.vout);
+  // Therefore, the funding address is the non-fee recipient output address.
+  if (inputAddresses.length === 1 && isMultiSigAddress(inputAddresses[0])) {
+    return getSingleAddressOrThrow(
+      fundingTransaction.vout
+        .filter(output => output.scriptpubkey_address !== feeRecipientAddress)
+        .map(output => output.scriptpubkey_address)
+    );
   }
 
   // If there is a single non-MultiSig input that is not the MultiSig address or multiple inputs, it is a funding/deposit transaction.
   // Therefore, the funding address is the non-MultiSig input address.
-  return pipe(
-    filter((address: string) => address !== multisigAddress),
-    ifElse<string[], string, string>(
-      addresses => addresses.length === 1,
-      addresses => addresses[0],
-      throwInvalidAddress
-    )
-  )(inputAddresses);
+  return getSingleAddressOrThrow(inputAddresses.filter(address => !isMultiSigAddress(address)));
 }
 
 /**
