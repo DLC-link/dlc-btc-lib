@@ -15,7 +15,7 @@ import { BIP32Factory, BIP32Interface } from 'bip32';
 import { Network, address, initEccLib } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
-import { filter, ifElse, map, pipe, uniq } from 'ramda';
+import { uniq } from 'ramda';
 import { RawVault } from 'src/models/ethereum-models.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
@@ -125,6 +125,35 @@ export async function getVaultFundingBitcoinAddress(
   }
 
   return addresses.at(0)!;
+}
+
+export async function getVaultOutputValueFromTransaction(
+  vault: RawVault,
+  feeRecipient: string,
+  extendedAttestorGroupPublicKey: string,
+  bitcoinNetwork: Network,
+  bitcoinBlockchainAPIURL: string
+): Promise<number> {
+  const fundingTransaction = await fetchBitcoinTransaction(
+    vault.fundingTxId,
+    bitcoinBlockchainAPIURL
+  );
+
+  const multisigAddress = createTaprootMultisigPayment(
+    deriveUnhardenedPublicKey(
+      getUnspendableKeyCommittedToUUID(vault.uuid, bitcoinNetwork),
+      bitcoinNetwork
+    ),
+    deriveUnhardenedPublicKey(extendedAttestorGroupPublicKey, bitcoinNetwork),
+    Buffer.from(vault.taprootPubKey, 'hex'),
+    bitcoinNetwork
+  ).address;
+
+  const multisigOutput = fundingTransaction.vout.find(
+    output => output.scriptpubkey_address === multisigAddress
+  );
+
+  return multisigOutput ? multisigOutput.value : 0;
 }
 
 /**

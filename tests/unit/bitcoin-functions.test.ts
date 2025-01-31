@@ -13,6 +13,7 @@ import {
   getScriptMatchingOutputFromTransaction,
   getUnspendableKeyCommittedToUUID,
   getVaultFundingBitcoinAddress,
+  getVaultOutputValueFromTransaction,
   removeDustOutputs,
 } from '../../src/functions/bitcoin/bitcoin-functions';
 import * as bitcoinRequestFunctions from '../../src/functions/bitcoin/bitcoin-request-functions.js';
@@ -29,6 +30,7 @@ import {
   TEST_TESTNET_FUNDING_TRANSACTION_2,
   TEST_TESTNET_FUNDING_TRANSACTION_4,
   TEST_TESTNET_FUNDING_TRANSACTION_5,
+  TEST_TESTNET_FUNDING_TRANSACTION_6,
   TEST_WITHDRAW_PSBT_PARTIALLY_SIGNED_WITHDRAW_PSBT_1,
 } from '../mocks/bitcoin-transaction.test.constants';
 import {
@@ -350,6 +352,38 @@ describe('Bitcoin Functions', () => {
       );
 
       expect(result).toBe(expectedFundingAddress);
+    });
+  });
+  describe('getVaultOutputValueFromTransaction', () => {
+    it('should return valid output value when multisig output exists', async () => {
+      jest
+        .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
+        .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
+
+      const result = await getVaultOutputValueFromTransaction(
+        TEST_VAULT_2,
+        TEST_VAULT_2.btcFeeRecipient,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        testnet,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API
+      );
+
+      expect(result).toBe(10000000);
+    });
+    it('should return 0 if multisig output does not exist', async () => {
+      jest
+        .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
+        .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_6);
+
+      const result = await getVaultOutputValueFromTransaction(
+        TEST_VAULT_2,
+        TEST_VAULT_2.btcFeeRecipient,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        testnet,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API
+      );
+
+      expect(result).toBe(0);
     });
   });
   describe('getFeeAmount', () => {
