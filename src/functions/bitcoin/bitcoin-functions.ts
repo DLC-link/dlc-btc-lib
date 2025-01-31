@@ -15,7 +15,7 @@ import { BIP32Factory, BIP32Interface } from 'bip32';
 import { Network, address, initEccLib } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
-import { filter, ifElse, map, pipe, uniq } from 'ramda';
+import { uniq } from 'ramda';
 import { RawVault } from 'src/models/ethereum-models.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
