@@ -107,27 +107,24 @@ export async function getVaultFundingBitcoinAddress(
     fundingTransaction.vin.map(input => input.prevout.scriptpubkey_address)
   );
 
-  const getSingleAddressOrThrow = (addresses: string[]) => {
-    if (addresses.length === 1) return addresses[0];
-
-    throw new Error('Could not determine the Vault Funding Address');
-  };
-
   const isMultiSigAddress = (address: string) => address === multisigAddress;
 
   // If the only input is the MultiSig address, it is a withdrawal transaction.
   // Therefore, the funding address is the non-fee recipient output address.
-  if (inputAddresses.length === 1 && isMultiSigAddress(inputAddresses[0])) {
-    return getSingleAddressOrThrow(
-      fundingTransaction.vout
-        .filter(output => output.scriptpubkey_address !== feeRecipientAddress)
-        .map(output => output.scriptpubkey_address)
-    );
-  }
-
   // If there is a single non-MultiSig input that is not the MultiSig address or multiple inputs, it is a funding/deposit transaction.
   // Therefore, the funding address is the non-MultiSig input address.
-  return getSingleAddressOrThrow(inputAddresses.filter(address => !isMultiSigAddress(address)));
+  const addresses =
+    inputAddresses.length === 1 && isMultiSigAddress(inputAddresses[0])
+      ? fundingTransaction.vout
+          .filter(output => output.scriptpubkey_address !== feeRecipientAddress)
+          .map(output => output.scriptpubkey_address)
+      : inputAddresses.filter(address => !isMultiSigAddress(address));
+
+  if (addresses.length !== 1) {
+    throw new Error('Could not determine the Vault Funding Address');
+  }
+
+  return addresses.at(0)!;
 }
 
 /**
