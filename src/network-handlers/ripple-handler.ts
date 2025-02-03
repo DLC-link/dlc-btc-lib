@@ -231,7 +231,7 @@ export class RippleHandler {
           // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
           // The request has a timeout, so this shouldn't end up being a hanging request
           // Using the ticket system would likely be a better way:
-          // https://org/docs/concepts/accounts/tickets
+          // https://xrpl.org/docs/concepts/accounts/tickets
           preparedCreateTicketTransaction.LastLedgerSequence =
             Math.ceil(preparedCreateTicketTransaction.LastLedgerSequence! / 10000 + 1) * 10000;
         }
@@ -422,7 +422,7 @@ export class RippleHandler {
           // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
           // The request has a timeout, so this shouldn't end up being a hanging request
           // Using the ticket system would likely be a better way:
-          // https://org/docs/concepts/accounts/tickets
+          // https://xrpl.org/docs/concepts/accounts/tickets
           preparedBurnTx.LastLedgerSequence =
             Math.ceil(preparedBurnTx.LastLedgerSequence! / 10000 + 1) * 10000;
         }
@@ -479,7 +479,7 @@ export class RippleHandler {
           // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
           // The request has a timeout, so this shouldn't end up being a hanging request
           // Using the ticket system would likely be a better way:
-          // https://org/docs/concepts/accounts/tickets
+          // https://xrpl.org/docs/concepts/accounts/tickets
           preparedMintTx.LastLedgerSequence =
             Math.ceil(preparedMintTx.LastLedgerSequence! / 10000 + 1) * 10000;
         }
@@ -655,7 +655,7 @@ export class RippleHandler {
           // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
           // The request has a timeout, so this shouldn't end up being a hanging request
           // Using the ticket system would likely be a better way:
-          // https://org/docs/concepts/accounts/tickets
+          // https://xrpl.org/docs/concepts/accounts/tickets
           preparedCashCheckTx.LastLedgerSequence =
             Math.ceil(preparedCashCheckTx.LastLedgerSequence! / 10000 + 1) * 10000;
         }
@@ -729,7 +729,7 @@ export class RippleHandler {
           // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
           // The request has a timeout, so this shouldn't end up being a hanging request
           // Using the ticket system would likely be a better way:
-          // https://org/docs/concepts/accounts/tickets
+          // https://xrpl.org/docs/concepts/accounts/tickets
           preparedSendTokenTx.LastLedgerSequence =
             Math.ceil(preparedSendTokenTx.LastLedgerSequence! / 10000 + 1) * 10000;
         }
