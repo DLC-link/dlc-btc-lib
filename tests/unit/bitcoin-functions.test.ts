@@ -15,8 +15,6 @@ import {
   getVaultFundingBitcoinAddress,
   removeDustOutputs,
 } from '../../src/functions/bitcoin/bitcoin-functions';
-import * as bitcoinRequestFunctions from '../../src/functions/bitcoin/bitcoin-request-functions.js';
-import { TEST_TESTNET_BITCOIN_BLOCKCHAIN_API } from '../mocks/api.test.constants.js';
 import {
   TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
   TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1,
@@ -305,48 +303,36 @@ describe('Bitcoin Functions', () => {
     const expectedFundingAddress = 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq';
 
     it('should return input address when single non-multisig input exists', async () => {
-      jest
-        .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
-        .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
-
       const result = await getVaultFundingBitcoinAddress(
         TEST_VAULT_2,
+        TEST_TESTNET_FUNDING_TRANSACTION_1,
         TEST_VAULT_2.btcFeeRecipient,
         TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
-        testnet,
-        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API
+        testnet
       );
 
       expect(result).toBe(expectedFundingAddress);
     });
 
     it('should return non-multisig address when transaction has multiple inputs', async () => {
-      jest
-        .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
-        .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_4);
-
       const result = await getVaultFundingBitcoinAddress(
         TEST_VAULT_2,
+        TEST_TESTNET_FUNDING_TRANSACTION_4,
         TEST_VAULT_2.btcFeeRecipient,
         TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
-        testnet,
-        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API
+        testnet
       );
 
       expect(result).toBe(expectedFundingAddress);
     });
 
     it('should return non-fee-recipient output address when input is from multisig address', async () => {
-      jest
-        .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
-        .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_5);
-
       const result = await getVaultFundingBitcoinAddress(
         TEST_VAULT_2,
+        TEST_TESTNET_FUNDING_TRANSACTION_5,
         TEST_VAULT_2.btcFeeRecipient,
         TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
-        testnet,
-        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API
+        testnet
       );
 
       expect(result).toBe(expectedFundingAddress);
