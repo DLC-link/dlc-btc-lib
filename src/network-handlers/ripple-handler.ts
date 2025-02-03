@@ -1,17 +1,22 @@
 import { Decimal } from 'decimal.js';
 import { BigNumber } from 'ethers';
-import xrpl, {
+import {
   AccountObject,
   AccountObjectsResponse,
   CheckCash,
+  Client,
   CreatedNode,
   IssuedCurrencyAmount,
   Payment,
   Request,
+  ServerInfoResponse,
   SubmittableTransaction,
   TicketCreate,
   TransactionMetadata,
+  TxResponse,
+  Wallet,
   decode,
+  multisign,
 } from 'xrpl';
 import { NFTokenMintMetadata } from 'xrpl/dist/npm/models/transactions/NFTokenMint.js';
 
@@ -58,8 +63,8 @@ function buildDefaultNftVault(): RawVault {
 }
 
 export class RippleHandler {
-  private client: xrpl.Client;
-  private wallet: xrpl.Wallet;
+  private client: Client;
+  private wallet: Wallet;
   private issuerAddress: string;
   private minSigners: number;
 
@@ -69,8 +74,8 @@ export class RippleHandler {
     websocketURL: string,
     minSigners: number
   ) {
-    this.client = new xrpl.Client(websocketURL, { timeout: 10000 });
-    this.wallet = xrpl.Wallet.fromSeed(seedPhrase);
+    this.client = new Client(websocketURL, { timeout: 10000 });
+    this.wallet = Wallet.fromSeed(seedPhrase);
     this.issuerAddress = issuerAddress;
     this.minSigners = minSigners;
   }
@@ -108,12 +113,11 @@ export class RippleHandler {
   async submit(xrplSignatures: XRPLSignatures[]): Promise<string> {
     return await this.withConnectionMgmt(async () => {
       try {
-        const multisig_tx = xrpl.multisign(
+        const multisig_tx = multisign(
           xrplSignatures.find(sig => sig.signatureType === 'mintNFT')!.signatures
         );
 
-        const tx: xrpl.TxResponse<xrpl.SubmittableTransaction> =
-          await this.client.submitAndWait(multisig_tx);
+        const tx: TxResponse<SubmittableTransaction> = await this.client.submitAndWait(multisig_tx);
         const meta: NFTokenMintMetadata = tx.result.meta! as NFTokenMintMetadata;
 
         if (meta.TransactionResult !== 'tesSUCCESS') {
@@ -128,7 +132,7 @@ export class RippleHandler {
     });
   }
 
-  async getNetworkInfo(): Promise<xrpl.ServerInfoResponse> {
+  async getNetworkInfo(): Promise<ServerInfoResponse> {
     return await this.withConnectionMgmt(async () => {
       try {
         return await this.client.request({ command: 'server_info' });
@@ -227,7 +231,7 @@ export class RippleHandler {
           // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
           // The request has a timeout, so this shouldn't end up being a hanging request
           // Using the ticket system would likely be a better way:
-          // https://xrpl.org/docs/concepts/accounts/tickets
+          // https://org/docs/concepts/accounts/tickets
           preparedCreateTicketTransaction.LastLedgerSequence =
             Math.ceil(preparedCreateTicketTransaction.LastLedgerSequence! / 10000 + 1) * 10000;
         }
@@ -418,7 +422,7 @@ export class RippleHandler {
           // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
           // The request has a timeout, so this shouldn't end up being a hanging request
           // Using the ticket system would likely be a better way:
-          // https://xrpl.org/docs/concepts/accounts/tickets
+          // https://org/docs/concepts/accounts/tickets
           preparedBurnTx.LastLedgerSequence =
             Math.ceil(preparedBurnTx.LastLedgerSequence! / 10000 + 1) * 10000;
         }
@@ -475,7 +479,7 @@ export class RippleHandler {
           // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
           // The request has a timeout, so this shouldn't end up being a hanging request
           // Using the ticket system would likely be a better way:
-          // https://xrpl.org/docs/concepts/accounts/tickets
+          // https://org/docs/concepts/accounts/tickets
           preparedMintTx.LastLedgerSequence =
             Math.ceil(preparedMintTx.LastLedgerSequence! / 10000 + 1) * 10000;
         }
@@ -651,7 +655,7 @@ export class RippleHandler {
           // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
           // The request has a timeout, so this shouldn't end up being a hanging request
           // Using the ticket system would likely be a better way:
-          // https://xrpl.org/docs/concepts/accounts/tickets
+          // https://org/docs/concepts/accounts/tickets
           preparedCashCheckTx.LastLedgerSequence =
             Math.ceil(preparedCashCheckTx.LastLedgerSequence! / 10000 + 1) * 10000;
         }
@@ -725,7 +729,7 @@ export class RippleHandler {
           // this is to ensure that the transaction is valid for a while, and that the different attestors all use a matching LLS value to have matching sigs
           // The request has a timeout, so this shouldn't end up being a hanging request
           // Using the ticket system would likely be a better way:
-          // https://xrpl.org/docs/concepts/accounts/tickets
+          // https://org/docs/concepts/accounts/tickets
           preparedSendTokenTx.LastLedgerSequence =
             Math.ceil(preparedSendTokenTx.LastLedgerSequence! / 10000 + 1) * 10000;
         }
