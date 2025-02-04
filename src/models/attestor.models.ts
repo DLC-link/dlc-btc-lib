@@ -11,6 +11,7 @@ export type AttestorChainID =
   | 'evm-polygonsepolia'
   | 'evm-avax'
   | 'evm-bsc'
+  | 'evm-holesky'
   | 'evm-localhost'
   | 'evm-hardhat-arb'
   | 'evm-hardhat-eth'
