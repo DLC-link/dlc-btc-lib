@@ -16,6 +16,7 @@ export enum EthereumNetworkID {
   ArbitrumSepolia = '421614',
   Base = '8453',
   BaseSepolia = '84532',
+  Holesky = '17000',
   Hardhat = '31337',
 }
 
