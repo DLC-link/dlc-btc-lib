@@ -16,7 +16,6 @@ import { Network, address, initEccLib } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
 import { equals, uniq } from 'ramda';
-import { RawVault } from 'src/models/ethereum-models.js';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
 import { DUST_LIMIT } from '../../constants/dlc-handler.constants.js';
@@ -30,6 +29,7 @@ import {
   PaymentTypes,
   UTXO,
 } from '../../models/bitcoin-models.js';
+import { RawVault } from '../../models/ethereum-models.js';
 import {
   compareUint8Arrays,
   createRangeFromLength,
