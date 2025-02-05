@@ -3,6 +3,7 @@ import { equals, filter, isEmpty, isNotNil, join, map, prop } from 'ramda';
 import {
   AttestorChainID,
   FundingTXAttestorInfo,
+  SharedAttestorConfiguration,
   WithdrawDepositTXAttestorInfo,
 } from '../../models/attestor.models.js';
 import { AttestorError } from '../../models/errors.js';
@@ -89,3 +90,21 @@ const sendAndProcessRequests = async (attestorEndpoints: string[], requestBody: 
     );
   }
 };
+
+export async function getAttestorConfigurationForChain(
+  attestorConfigurationURL: string,
+  networkType: 'evm' | 'ripple',
+  chainName: string
+): Promise<SharedAttestorConfiguration> {
+  const chainConfigurationURL = `${attestorConfigurationURL}/${networkType}/${chainName}.json`;
+
+  const getChainConfigurationResponse = await fetch(chainConfigurationURL);
+
+  if (!getChainConfigurationResponse.ok)
+    throw new Error(`Could not get chain configuration for ${chainName}`);
+
+  const sharedAttestorConfiguration: SharedAttestorConfiguration =
+    await getChainConfigurationResponse.json();
+
+  return sharedAttestorConfiguration;
+}

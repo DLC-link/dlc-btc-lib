@@ -43,3 +43,15 @@ export interface PsbtEvent {
   chain_name: string;
   user_pubkey: string;
 }
+
+export interface WhitelistItem {
+  name: string;
+  addresses: string[];
+}
+
+export interface SharedAttestorConfiguration {
+  btcFeeRecipient: string;
+  btcMintFeeBasisPoints: number;
+  btcRedeemFeeBasisPoints: number;
+  whitelist: WhitelistItem[];
+}
