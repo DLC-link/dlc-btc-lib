@@ -109,7 +109,7 @@ export async function getVaultFundingBitcoinAddress(
   const addresses =
     equals(inputAddresses.length, 1) && equals(inputAddresses.at(0), multisigAddress)
       ? bitcoinTransaction.vout
-          .filter(output => output.scriptpubkey_address !== feeRecipientAddress)
+          .filter(output => !equals(output.scriptpubkey_address, feeRecipientAddress))
           .map(output => output.scriptpubkey_address)
       : inputAddresses.filter(address => !equals(address, multisigAddress));
 
@@ -117,6 +117,25 @@ export async function getVaultFundingBitcoinAddress(
     throw new Error('Could not determine the Vault Funding Address');
 
   return addresses.at(0)!;
+}
+
+export async function getVaultOutputValueFromTransaction(
+  vault: RawVault,
+  bitcoinTransaction: BitcoinTransaction,
+  extendedAttestorGroupPublicKey: string,
+  bitcoinNetwork: Network
+): Promise<number> {
+  const multisigAddress = createTaprootMultisigPayment(
+    getDerivedUnspendablePublicKeyCommittedToUUID(vault.uuid, bitcoinNetwork),
+    deriveUnhardenedPublicKey(extendedAttestorGroupPublicKey, bitcoinNetwork),
+    Buffer.from(vault.taprootPubKey, 'hex'),
+    bitcoinNetwork
+  ).address;
+
+  return (
+    bitcoinTransaction.vout.find(output => equals(output.scriptpubkey_address, multisigAddress))
+      ?.value ?? 0
+  );
 }
 
 /**
