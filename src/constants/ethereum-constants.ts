@@ -67,6 +67,13 @@ const ethereumBSC: EthereumNetwork = {
   defaultNodeURL: 'https://rpc.ankr.com/bsc',
 };
 
+const ethereumHolesky: EthereumNetwork = {
+  name: 'Holesky',
+  displayName: 'Holesky',
+  id: EthereumNetworkID.Holesky,
+  defaultNodeURL: 'https://ethereum-holesky-rpc.publicnode.com',
+};
+
 export const supportedEthereumNetworks: EthereumNetwork[] = [
   ethereumArbitrumSepolia,
   ethereumArbitrum,
@@ -76,6 +83,7 @@ export const supportedEthereumNetworks: EthereumNetwork[] = [
   ethereumBaseSepolia,
   ethereumAvalanche,
   ethereumBSC,
+  ethereumHolesky,
   ethereumHardhat,
 ];
 
