@@ -245,6 +245,16 @@ export async function getRawVault(
   }
 }
 
+export async function getFeeRecipient(dlcManagerContract: Contract): Promise<string> {
+  try {
+    const feeRecipient: string = await dlcManagerContract.btcFeeRecipient();
+    if (!feeRecipient) throw new EthereumError('Fee Recipient not found');
+    return feeRecipient;
+  } catch (error) {
+    throw new EthereumError(`Could not fetch Fee Recipient: ${error}`);
+  }
+}
+
 export async function setupVault(dlcManagerContract: Contract): Promise<any | undefined> {
   try {
     await dlcManagerContract.callStatic.setupVault();
