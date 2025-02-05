@@ -4,4 +4,5 @@ export {
   getAttestorExtendedGroupPublicKey,
   submitSetupXRPLVaultRequest,
   submitXRPLCheckToCash,
+  getAttestorConfigurationForChain,
 } from '../attestor/attestor-request.functions.js';

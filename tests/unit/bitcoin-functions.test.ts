@@ -16,8 +16,6 @@ import {
   getVaultOutputValueFromTransaction,
   removeDustOutputs,
 } from '../../src/functions/bitcoin/bitcoin-functions';
-import * as bitcoinRequestFunctions from '../../src/functions/bitcoin/bitcoin-request-functions.js';
-import { TEST_TESTNET_BITCOIN_BLOCKCHAIN_API } from '../mocks/api.test.constants.js';
 import {
   TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
   TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1,
