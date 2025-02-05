@@ -15,6 +15,7 @@ import { BIP32Factory, BIP32Interface } from 'bip32';
 import { Network, address, initEccLib } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
+import { equals, uniq } from 'ramda';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
 import { DUST_LIMIT } from '../../constants/dlc-handler.constants.js';
@@ -28,6 +29,7 @@ import {
   PaymentTypes,
   UTXO,
 } from '../../models/bitcoin-models.js';
+import { RawVault } from '../../models/ethereum-models.js';
 import {
   compareUint8Arrays,
   createRangeFromLength,
@@ -56,6 +58,65 @@ export function removeDustOutputs(
       outputs.splice(i, 1);
     }
   }
+}
+
+export function getDerivedUnspendablePublicKeyCommittedToUUID(
+  vaultUUID: string,
+  bitcoinNetwork: Network
+): Buffer {
+  return deriveUnhardenedPublicKey(
+    getUnspendableKeyCommittedToUUID(vaultUUID, bitcoinNetwork),
+    bitcoinNetwork
+  );
+}
+
+/**
+ * This function retrieves the Bitcoin address used to fund a Vault by analyzing the inputs and outputs of the Funding Transaction.
+ *
+ * @param vault - The Vault object containing the Funding Transaction ID and the User's Public Key.
+ * @param bitcoinTransaction - The Bitcoin Transaction from which the Funding Address should be retrieved.
+ * @param feeRecipient - The Fee Recipient's Public Key or Address.
+ * @param extendedAttestorGroupPublicKey - The Extended Public Key of the Attestor Group.
+ * @param bitcoinNetwork - The Bitcoin Network to use.
+ * @param bitcoinBlockchainAPIURL - The Bitcoin Blockchain URL used to fetch the Funding Transaction.
+ * @returns A promise that resolves to the Funding Bitcoin address.
+ * @throws An error if the Vault Funding Address cannot be determined.
+ */
+export async function getVaultFundingBitcoinAddress(
+  vault: RawVault,
+  bitcoinTransaction: BitcoinTransaction,
+  feeRecipient: string,
+  extendedAttestorGroupPublicKey: string,
+  bitcoinNetwork: Network
+): Promise<string> {
+  const multisigAddress = createTaprootMultisigPayment(
+    getDerivedUnspendablePublicKeyCommittedToUUID(vault.uuid, bitcoinNetwork),
+    deriveUnhardenedPublicKey(extendedAttestorGroupPublicKey, bitcoinNetwork),
+    Buffer.from(vault.taprootPubKey, 'hex'),
+    bitcoinNetwork
+  ).address;
+
+  const feeRecipientAddress = getFeeRecipientAddress(feeRecipient, bitcoinNetwork);
+
+  const inputAddresses = uniq(
+    bitcoinTransaction.vin.map(input => input.prevout.scriptpubkey_address)
+  );
+
+  // If the only input is the MultiSig address, it is a withdrawal transaction.
+  // Therefore, the funding address is the non-fee recipient output address.
+  // If there is a single non-MultiSig input that is not from the MultiSig address, or if there are multiple inputs, it is a funding/deposit transaction.
+  // Therefore, the funding address is the non-MultiSig input address.
+  const addresses =
+    equals(inputAddresses.length, 1) && equals(inputAddresses.at(0), multisigAddress)
+      ? bitcoinTransaction.vout
+          .filter(output => output.scriptpubkey_address !== feeRecipientAddress)
+          .map(output => output.scriptpubkey_address)
+      : inputAddresses.filter(address => !equals(address, multisigAddress));
+
+  if (!equals(addresses.length, 1))
+    throw new Error('Could not determine the Vault Funding Address');
+
+  return addresses.at(0)!;
 }
 
 /**

@@ -31,7 +31,7 @@ export const TEST_VAULT_2: RawVault = {
   fundingTxId: '4cf5c2954c84bf5225d98ef014aa97bbfa0f05d56b5749782fcd8af8b9d505a5',
   closingTxId: '',
   wdTxId: '032392b61a5c3b0098774465ad61e429fd892615ff2890f849f8eb237a8a59f3ba',
-  btcFeeRecipient: '',
+  btcFeeRecipient: '032392b61a5c3b0098774465ad61e429fd892615ff2890f849f8eb237a8a59f3ba',
   btcMintFeeBasisPoints: BigNumber.from('0x64'),
   btcRedeemFeeBasisPoints: BigNumber.from('0x64'),
   taprootPubKey: 'dc544c17af0887dfc8ca9936755c9fdef0c79bbc8866cd69bf120c71509742d2',
