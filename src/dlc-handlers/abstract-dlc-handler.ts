@@ -150,6 +150,7 @@ export abstract class AbstractDLCHandler {
     vault: RawVault,
     depositAmount: bigint,
     attestorGroupPublicKey: string,
+    feeRecipient: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Transaction> {
@@ -169,7 +170,7 @@ export abstract class AbstractDLCHandler {
       multisigPayment,
       fundingPayment,
       feeRate,
-      vault.btcFeeRecipient,
+      feeRecipient,
       vault.btcMintFeeBasisPoints.toBigInt()
     );
   }
@@ -179,6 +180,7 @@ export abstract class AbstractDLCHandler {
     withdrawAmount: bigint,
     attestorGroupPublicKey: string,
     fundingTransactionID: string,
+    feeRecipient: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Transaction> {
@@ -197,7 +199,7 @@ export abstract class AbstractDLCHandler {
       multisigPayment,
       fundingPayment,
       feeRate,
-      vault.btcFeeRecipient,
+      feeRecipient,
       vault.btcRedeemFeeBasisPoints.toBigInt()
     );
   }
@@ -207,6 +209,7 @@ export abstract class AbstractDLCHandler {
     depositAmount: bigint,
     attestorGroupPublicKey: string,
     fundingTransactionID: string,
+    feeRecipient: string,
     feeRateMultiplier?: number,
     customFeeRate?: bigint
   ): Promise<Transaction> {
@@ -225,7 +228,7 @@ export abstract class AbstractDLCHandler {
       multisigPayment,
       fundingPayment,
       feeRate,
-      vault.btcFeeRecipient,
+      feeRecipient,
       vault.btcMintFeeBasisPoints.toBigInt()
     );
   }
