@@ -36,7 +36,6 @@ import {
   isDefined,
   isUndefined,
 } from '../../utilities/index.js';
-import { fetchBitcoinTransaction } from './bitcoin-request-functions.js';
 
 const TAPROOT_UNSPENDABLE_KEY_HEX =
   '0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0';
@@ -110,7 +109,7 @@ export async function getVaultFundingBitcoinAddress(
   const addresses =
     equals(inputAddresses.length, 1) && equals(inputAddresses.at(0), multisigAddress)
       ? bitcoinTransaction.vout
-          .filter(output => output.scriptpubkey_address !== feeRecipientAddress)
+          .filter(output => !equals(output.scriptpubkey_address, feeRecipientAddress))
           .map(output => output.scriptpubkey_address)
       : inputAddresses.filter(address => !equals(address, multisigAddress));
 
@@ -122,31 +121,21 @@ export async function getVaultFundingBitcoinAddress(
 
 export async function getVaultOutputValueFromTransaction(
   vault: RawVault,
-  feeRecipient: string,
+  bitcoinTransaction: BitcoinTransaction,
   extendedAttestorGroupPublicKey: string,
-  bitcoinNetwork: Network,
-  bitcoinBlockchainAPIURL: string
+  bitcoinNetwork: Network
 ): Promise<number> {
-  const fundingTransaction = await fetchBitcoinTransaction(
-    vault.fundingTxId,
-    bitcoinBlockchainAPIURL
-  );
-
   const multisigAddress = createTaprootMultisigPayment(
-    deriveUnhardenedPublicKey(
-      getUnspendableKeyCommittedToUUID(vault.uuid, bitcoinNetwork),
-      bitcoinNetwork
-    ),
+    getDerivedUnspendablePublicKeyCommittedToUUID(vault.uuid, bitcoinNetwork),
     deriveUnhardenedPublicKey(extendedAttestorGroupPublicKey, bitcoinNetwork),
     Buffer.from(vault.taprootPubKey, 'hex'),
     bitcoinNetwork
   ).address;
 
-  const multisigOutput = fundingTransaction.vout.find(
-    output => output.scriptpubkey_address === multisigAddress
+  return (
+    bitcoinTransaction.vout.find(output => equals(output.scriptpubkey_address, multisigAddress))
+      ?.value ?? 0
   );
-
-  return multisigOutput ? multisigOutput.value : 0;
 }
 
 /**
