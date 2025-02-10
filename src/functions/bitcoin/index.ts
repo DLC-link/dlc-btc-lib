@@ -6,6 +6,8 @@ import {
   getFeeRecipientAddress,
   getInputIndicesByScript,
   getVaultFundingBitcoinAddress,
+  getVaultOutputValueFromTransaction,
+  getVaultPayment,
   isBitcoinAddress,
 } from '../bitcoin/bitcoin-functions.js';
 import {
@@ -36,4 +38,6 @@ export {
   getFeeRecipientAddress,
   getInputIndicesByScript,
   getBitcoinAddressFromExtendedPublicKey,
+  getVaultOutputValueFromTransaction,
+  getVaultPayment,
 };

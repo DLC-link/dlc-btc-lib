@@ -1367,6 +1367,14 @@ export const TEST_TESTNET_FUNDING_TRANSACTION_5: BitcoinTransaction = {
       scriptpubkey_address: 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq',
       value: 61490226,
     },
+    {
+      scriptpubkey: '5120192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+      scriptpubkey_asm:
+        'OP_PUSHNUM_1 OP_PUSHBYTES_32 192d65c33b86bc129d606c12f0183569d42732d59cad3bf208a9a9fd3b138248',
+      scriptpubkey_type: 'v1_p2tr',
+      scriptpubkey_address: 'tb1pd4l9qxw8jhg9l57ls9cnq6d28gcfayf2v9244vlt6mj80apvracqgdt090',
+      value: 61490226,
+    },
   ],
   size: 236,
   weight: 740,
