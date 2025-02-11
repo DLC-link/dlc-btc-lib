@@ -14,6 +14,7 @@ import {
   getUnspendableKeyCommittedToUUID,
   getVaultFundingBitcoinAddress,
   getVaultOutputValueFromTransaction,
+  getVaultPayment,
   removeDustOutputs,
 } from '../../src/functions/bitcoin/bitcoin-functions';
 import {
@@ -303,60 +304,81 @@ describe('Bitcoin Functions', () => {
   });
   describe('getVaultFundingBitcoinAddress', () => {
     const expectedFundingAddress = 'tb1prykktsems67p98tqdsf0qxp4d82zwvk4njknhusg4x5l6wcnsfyqar32mq';
+    const feeRecipientAddress = getFeeRecipientAddress(TEST_VAULT_2.btcFeeRecipient, testnet);
 
-    it('should return input address when single non-multisig input exists', async () => {
-      const result = await getVaultFundingBitcoinAddress(
-        TEST_VAULT_2,
+    it('should return input address when single non-multisig input exists', () => {
+      const vaultPayment = getVaultPayment(
+        TEST_VAULT_2.uuid,
+        TEST_VAULT_2.taprootPubKey,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        testnet
+      );
+      const result = getVaultFundingBitcoinAddress(
+        vaultPayment,
         TEST_TESTNET_FUNDING_TRANSACTION_1,
-        TEST_VAULT_2.btcFeeRecipient,
-        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
-        testnet
+        feeRecipientAddress
       );
 
       expect(result).toBe(expectedFundingAddress);
     });
 
-    it('should return non-multisig address when transaction has multiple inputs', async () => {
-      const result = await getVaultFundingBitcoinAddress(
-        TEST_VAULT_2,
+    it('should return non-multisig address when transaction has multiple inputs', () => {
+      const vaultPayment = getVaultPayment(
+        TEST_VAULT_2.uuid,
+        TEST_VAULT_2.taprootPubKey,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        testnet
+      );
+      const result = getVaultFundingBitcoinAddress(
+        vaultPayment,
         TEST_TESTNET_FUNDING_TRANSACTION_4,
-        TEST_VAULT_2.btcFeeRecipient,
-        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
-        testnet
+        feeRecipientAddress
       );
 
       expect(result).toBe(expectedFundingAddress);
     });
 
-    it('should return non-fee-recipient output address when input is from multisig address', async () => {
-      const result = await getVaultFundingBitcoinAddress(
-        TEST_VAULT_2,
-        TEST_TESTNET_FUNDING_TRANSACTION_5,
-        TEST_VAULT_2.btcFeeRecipient,
+    it('should return non-fee-recipient and non-vault output address when input is from vault address', () => {
+      const vaultPayment = getVaultPayment(
+        TEST_VAULT_2.uuid,
+        TEST_VAULT_2.taprootPubKey,
         TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         testnet
+      );
+      const result = getVaultFundingBitcoinAddress(
+        vaultPayment,
+        TEST_TESTNET_FUNDING_TRANSACTION_5,
+        feeRecipientAddress
       );
 
       expect(result).toBe(expectedFundingAddress);
     });
   });
   describe('getVaultOutputValueFromTransaction', () => {
-    it('should return valid output value when multisig output exists', async () => {
-      const result = await getVaultOutputValueFromTransaction(
-        TEST_VAULT_2,
-        TEST_TESTNET_FUNDING_TRANSACTION_1,
+    it('should return valid output value when multisig output exists', () => {
+      const vaultPayment = getVaultPayment(
+        TEST_VAULT_2.uuid,
+        TEST_VAULT_2.taprootPubKey,
         TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         testnet
+      );
+      const result = getVaultOutputValueFromTransaction(
+        vaultPayment,
+        TEST_TESTNET_FUNDING_TRANSACTION_1
       );
 
       expect(result).toBe(10000000);
     });
-    it('should return 0 if multisig output does not exist', async () => {
-      const result = await getVaultOutputValueFromTransaction(
-        TEST_VAULT_2,
-        TEST_TESTNET_FUNDING_TRANSACTION_6,
+    it('should return 0 if multisig output does not exist', () => {
+      const vaultPayment = getVaultPayment(
+        TEST_VAULT_2.uuid,
+        TEST_VAULT_2.taprootPubKey,
         TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         testnet
+      );
+      const result = getVaultOutputValueFromTransaction(
+        vaultPayment,
+        TEST_TESTNET_FUNDING_TRANSACTION_6
       );
 
       expect(result).toBe(0);

@@ -15,7 +15,7 @@ import { BIP32Factory, BIP32Interface } from 'bip32';
 import { Network, address, initEccLib } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
-import { equals, uniq } from 'ramda';
+import { equals, filter, find, pathOr, pipe, pluck, uniq } from 'ramda';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
 import { DUST_LIMIT } from '../../constants/dlc-handler.constants.js';
@@ -29,7 +29,6 @@ import {
   PaymentTypes,
   UTXO,
 } from '../../models/bitcoin-models.js';
-import { RawVault } from '../../models/ethereum-models.js';
 import {
   compareUint8Arrays,
   createRangeFromLength,
@@ -73,45 +72,42 @@ export function getDerivedUnspendablePublicKeyCommittedToUUID(
 /**
  * This function retrieves the Bitcoin address used to fund a Vault by analyzing the inputs and outputs of the Funding Transaction.
  *
- * @param vault - The Vault object containing the Funding Transaction ID and the User's Public Key.
- * @param bitcoinTransaction - The Bitcoin Transaction from which the Funding Address should be retrieved.
- * @param feeRecipient - The Fee Recipient's Public Key or Address.
- * @param extendedAttestorGroupPublicKey - The Extended Public Key of the Attestor Group.
- * @param bitcoinNetwork - The Bitcoin Network to use.
- * @param bitcoinBlockchainAPIURL - The Bitcoin Blockchain URL used to fetch the Funding Transaction.
- * @returns A promise that resolves to the Funding Bitcoin address.
- * @throws An error if the Vault Funding Address cannot be determined.
+ * @param vaultPayment - The Vault's P2TR payment information containing the multisig address
+ * @param bitcoinTransaction - The Bitcoin transaction to analyze
+ * @param feeRecipientAddress - The address that receives transaction fees
+ * @returns A promise that resolves to the funding Bitcoin address
+ * @throws {Error} If the funding address cannot be uniquely determined
  */
-export async function getVaultFundingBitcoinAddress(
-  vault: RawVault,
+export function getVaultFundingBitcoinAddress(
+  vaultPayment: P2TROut,
   bitcoinTransaction: BitcoinTransaction,
-  feeRecipient: string,
-  extendedAttestorGroupPublicKey: string,
-  bitcoinNetwork: Network
-): Promise<string> {
-  const multisigAddress = createTaprootMultisigPayment(
-    getDerivedUnspendablePublicKeyCommittedToUUID(vault.uuid, bitcoinNetwork),
-    deriveUnhardenedPublicKey(extendedAttestorGroupPublicKey, bitcoinNetwork),
-    Buffer.from(vault.taprootPubKey, 'hex'),
-    bitcoinNetwork
-  ).address;
-
-  const feeRecipientAddress = getFeeRecipientAddress(feeRecipient, bitcoinNetwork);
-
+  feeRecipientAddress: string
+): string {
   const inputAddresses = uniq(
     bitcoinTransaction.vin.map(input => input.prevout.scriptpubkey_address)
   );
 
   // If the only input is the MultiSig address, it is a withdrawal transaction.
-  // Therefore, the funding address is the non-fee recipient output address.
+  // Therefore, the funding address is the non-fee and non-vault recipient output address.
   // If there is a single non-MultiSig input that is not from the MultiSig address, or if there are multiple inputs, it is a funding/deposit transaction.
   // Therefore, the funding address is the non-MultiSig input address.
-  const addresses =
-    equals(inputAddresses.length, 1) && equals(inputAddresses.at(0), multisigAddress)
-      ? bitcoinTransaction.vout
-          .filter(output => !equals(output.scriptpubkey_address, feeRecipientAddress))
-          .map(output => output.scriptpubkey_address)
-      : inputAddresses.filter(address => !equals(address, multisigAddress));
+  const isWithdraw =
+    equals(inputAddresses.length, 1) && equals(inputAddresses.at(0), vaultPayment.address);
+
+  const isNotFeeRecipient = (address: string) => !equals(address, feeRecipientAddress);
+  const isNotVaultAddress = (address: string) => !equals(address, vaultPayment.address);
+
+  const isFundingAddress = (address: string) =>
+    isNotFeeRecipient(address) && isNotVaultAddress(address);
+
+  const addresses = isWithdraw
+    ? pipe(
+        filter<BitcoinTransactionVectorOutput>(output =>
+          isFundingAddress(output.scriptpubkey_address)
+        ),
+        pluck('scriptpubkey_address')
+      )(bitcoinTransaction.vout)
+    : filter(isNotVaultAddress)(inputAddresses);
 
   if (!equals(addresses.length, 1))
     throw new Error('Could not determine the Vault Funding Address');
@@ -119,22 +115,47 @@ export async function getVaultFundingBitcoinAddress(
   return addresses.at(0)!;
 }
 
-export async function getVaultOutputValueFromTransaction(
-  vault: RawVault,
-  bitcoinTransaction: BitcoinTransaction,
+/**
+ * Calculates the value of a Vault's output in a Bitcoin transaction by finding
+ * the output that matches the Vault's multisig address.
+ *
+ * @param vaultPayment - The vault's P2TR payment information containing the multisig address
+ * @param bitcoinTransaction - The Bitcoin transaction to analyze
+ * @returns A promise that resolves to the value of the matching output in satoshis, or 0 if no match is found
+ */
+export function getVaultOutputValueFromTransaction(
+  vaultPayment: P2TROut,
+  bitcoinTransaction: BitcoinTransaction
+): number {
+  return pipe(
+    find<BitcoinTransactionVectorOutput>(output =>
+      equals(output.scriptpubkey_address, vaultPayment.address)
+    ),
+    pathOr(0, ['value'])
+  )(bitcoinTransaction.vout);
+}
+
+/**
+ * Creates a Pay-to-Taproot (P2TR) multisig payment configuration for a Vault
+ * using the vault UUID, user's public key, and the Attestor group's extended public key.
+ *
+ * @param vaultUUID - Unique identifier of the vault
+ * @param derivedUserPublicKey - The user's derived Taproot public key in hex format
+ * @param extendedAttestorGroupPublicKey - The extended public key of the attestor group
+ * @param bitcoinNetwork - The Bitcoin network configuration to use (mainnet or testnet)
+ * @returns A promise that resolves to a P2TR payment output configuration containing the multisig address
+ */
+export function getVaultPayment(
+  vaultUUID: string,
+  derivedUserPublicKey: string,
   extendedAttestorGroupPublicKey: string,
   bitcoinNetwork: Network
-): Promise<number> {
-  const multisigAddress = createTaprootMultisigPayment(
-    getDerivedUnspendablePublicKeyCommittedToUUID(vault.uuid, bitcoinNetwork),
+): P2TROut {
+  return createTaprootMultisigPayment(
+    getDerivedUnspendablePublicKeyCommittedToUUID(vaultUUID, bitcoinNetwork),
     deriveUnhardenedPublicKey(extendedAttestorGroupPublicKey, bitcoinNetwork),
-    Buffer.from(vault.taprootPubKey, 'hex'),
+    Buffer.from(derivedUserPublicKey, 'hex'),
     bitcoinNetwork
-  ).address;
-
-  return (
-    bitcoinTransaction.vout.find(output => equals(output.scriptpubkey_address, multisigAddress))
-      ?.value ?? 0
   );
 }
 
