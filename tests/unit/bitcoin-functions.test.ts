@@ -338,7 +338,7 @@ describe('Bitcoin Functions', () => {
       expect(result).toBe(expectedFundingAddress);
     });
 
-    it('should return non-fee-recipient and non-change output address when input is from multisig address', () => {
+    it('should return non-fee-recipient and non-vault output address when input is from vault address', () => {
       const vaultPayment = getVaultPayment(
         TEST_VAULT_2.uuid,
         TEST_VAULT_2.taprootPubKey,

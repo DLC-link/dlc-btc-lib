@@ -15,7 +15,7 @@ import { BIP32Factory, BIP32Interface } from 'bip32';
 import { Network, address, initEccLib } from 'bitcoinjs-lib';
 import { bitcoin, regtest, testnet } from 'bitcoinjs-lib/src/networks.js';
 import { Decimal } from 'decimal.js';
-import { equals, find, pathOr, pipe, uniq } from 'ramda';
+import { equals, filter, find, pathOr, pipe, pluck, uniq } from 'ramda';
 import * as ellipticCurveCryptography from 'tiny-secp256k1';
 
 import { DUST_LIMIT } from '../../constants/dlc-handler.constants.js';
@@ -87,18 +87,27 @@ export function getVaultFundingBitcoinAddress(
     bitcoinTransaction.vin.map(input => input.prevout.scriptpubkey_address)
   );
 
+  // If the only input is the MultiSig address, it is a withdrawal transaction.
+  // Therefore, the funding address is the non-fee and non-vault recipient output address.
+  // If there is a single non-MultiSig input that is not from the MultiSig address, or if there are multiple inputs, it is a funding/deposit transaction.
+  // Therefore, the funding address is the non-MultiSig input address.
   const isWithdraw =
     equals(inputAddresses.length, 1) && equals(inputAddresses.at(0), vaultPayment.address);
 
+  const isNotFeeRecipient = (address: string) => !equals(address, feeRecipientAddress);
+  const isNotVaultAddress = (address: string) => !equals(address, vaultPayment.address);
+
+  const isFundingAddress = (address: string) =>
+    isNotFeeRecipient(address) && isNotVaultAddress(address);
+
   const addresses = isWithdraw
-    ? bitcoinTransaction.vout
-        .filter(
-          output =>
-            !equals(output.scriptpubkey_address, feeRecipientAddress) &&
-            !inputAddresses.includes(output.scriptpubkey_address)
-        )
-        .map(output => output.scriptpubkey_address)
-    : inputAddresses.filter(address => !equals(address, vaultPayment.address));
+    ? pipe(
+        filter<BitcoinTransactionVectorOutput>(output =>
+          isFundingAddress(output.scriptpubkey_address)
+        ),
+        pluck('scriptpubkey_address')
+      )(bitcoinTransaction.vout)
+    : filter(isNotVaultAddress)(inputAddresses);
 
   if (!equals(addresses.length, 1))
     throw new Error('Could not determine the Vault Funding Address');
