@@ -124,7 +124,7 @@ export function getEthereumContracts(
   signer: Wallet | providers.JsonRpcSigner
 ): DLCEthereumContracts {
   const dlcManagerContract = getEthereumContract(ethereumDeploymentPlans, 'DLCManager', signer);
-  const dlcBTCContract = getEthereumContract(ethereumDeploymentPlans, 'DLCBTC', signer);
+  const dlcBTCContract = getEthereumContract(ethereumDeploymentPlans, 'IBTC', signer);
 
   return { dlcManagerContract, dlcBTCContract };
 }
