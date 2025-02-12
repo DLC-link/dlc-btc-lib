@@ -1,0 +1,27 @@
+name: Build and Publish Package
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: ./.github/actions/provision
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build package
+        run: yarn build
+
+      - name: Publish to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
