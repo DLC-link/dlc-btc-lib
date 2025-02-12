@@ -88,5 +88,5 @@ export interface DLCEthereumContracts {
 }
 
 export type SupportedNetwork = 'arbitrum' | 'arbitrum-sepolia-testnet' | 'arbitrum-sepolia-devnet';
-export type DLCEthereumContractName = 'DLCManager' | 'DLCBTC';
+export type DLCEthereumContractName = 'DLCManager' | 'IBTC';
 export type DLCSolidityBranchName = 'dev' | 'testnet-rolling';
