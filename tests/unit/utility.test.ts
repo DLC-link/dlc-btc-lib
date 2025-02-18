@@ -1,8 +1,13 @@
+import { BigNumber } from 'ethers';
+
+import { RawVault, VaultState } from '../../src/models/ethereum-models';
 import {
+  VaultEvent,
   compareUint8Arrays,
   createRangeFromLength,
   customShiftValue,
   delay,
+  getVaultEvents,
   isDefined,
   isNonEmptyString,
   isUndefined,
@@ -161,6 +166,206 @@ describe('Utility Functions', () => {
         const elapsedTime = endTime - startTime;
         expect(elapsedTime).toBeGreaterThanOrEqual(delayTime);
       });
+    });
+  });
+
+  describe('getVaultEvents', () => {
+    const baseVault: RawVault = {
+      uuid: '0x400ca1a687f9c8241566d334fcb4b33efab8e540b943be1455143284c5afc962',
+      protocolContract: '0x6e692DB944162f8b4250aA25eCEe80608457D7a7',
+      timestamp: BigNumber.from('0x665da025'),
+      valueLocked: BigNumber.from('0x0f4240'),
+      valueMinted: BigNumber.from('0x0f4240'),
+      creator: '0x0DD4f29E21F10cb2E485cf9bDAb9F2dD1f240Bfa',
+      status: VaultState.READY,
+      fundingTxId: '',
+      closingTxId: '',
+      wdTxId: '',
+      btcFeeRecipient: '031131cd88bcea8c1d84da8e034bb24c2f6e748c571922dc363e7e088f5df0436c',
+      btcMintFeeBasisPoints: BigNumber.from('0x64'),
+      btcRedeemFeeBasisPoints: BigNumber.from('0x64'),
+      taprootPubKey: '',
+      icyIntegrationAddress: '',
+    };
+
+    it('should return SETUP_COMPLETE when vault is new', () => {
+      const newVault = { ...baseVault };
+      const result = getVaultEvents([newVault], []);
+
+      expect(result).toEqual([
+        {
+          name: VaultEvent.SETUP_COMPLETE,
+          uuid: newVault.uuid,
+          value: newVault.valueLocked.toNumber(),
+        },
+      ]);
+    });
+
+    it('should return WITHDRAW_PENDING when status changes to PENDING and minted and locked values differ', () => {
+      const previousVault = {
+        ...baseVault,
+        status: VaultState.FUNDED,
+        valueLocked: BigNumber.from('1200000'),
+        valueMinted: BigNumber.from('1000000'),
+      };
+      const currentVault = {
+        ...previousVault,
+        status: VaultState.PENDING,
+        valueLocked: BigNumber.from('1200000'),
+        valueMinted: BigNumber.from('1000000'),
+      };
+
+      const result = getVaultEvents([currentVault], [previousVault]);
+
+      expect(result).toEqual([
+        {
+          name: VaultEvent.WITHDRAW_PENDING,
+          uuid: currentVault.uuid,
+          value: 200000, // 1200000 - 1000000
+        },
+      ]);
+    });
+
+    it('should return MINT_PENDING when status changes to PENDING and values are equal', () => {
+      const previousVault = {
+        ...baseVault,
+        status: VaultState.READY,
+        valueLocked: BigNumber.from('1000000'),
+        valueMinted: BigNumber.from('1000000'),
+      };
+      const currentVault = {
+        ...previousVault,
+        status: VaultState.PENDING,
+        valueMinted: BigNumber.from('1000000'),
+      };
+
+      const result = getVaultEvents([currentVault], [previousVault]);
+
+      expect(result).toEqual([
+        {
+          name: VaultEvent.MINT_PENDING,
+          uuid: currentVault.uuid,
+          value: 0, // No difference in minted value
+        },
+      ]);
+    });
+
+    it('should return WITHDRAW_COMPLETE when status changes to FUNDED and locked value decreases', () => {
+      const previousVault = {
+        ...baseVault,
+        status: VaultState.PENDING,
+        valueLocked: BigNumber.from('1000000'),
+        valueMinted: BigNumber.from('800000'),
+      };
+      const currentVault = {
+        ...previousVault,
+        status: VaultState.FUNDED,
+        valueLocked: BigNumber.from('800000'),
+      };
+
+      const result = getVaultEvents([currentVault], [previousVault]);
+
+      expect(result).toEqual([
+        {
+          name: VaultEvent.WITHDRAW_COMPLETE,
+          uuid: currentVault.uuid,
+          value: 200000, // Difference in locked value
+        },
+      ]);
+    });
+
+    it('should return MINT_COMPLETE when status changes to FUNDED and minted equals locked', () => {
+      const previousVault = {
+        ...baseVault,
+        status: VaultState.PENDING,
+        valueLocked: BigNumber.from('1000000'),
+        valueMinted: BigNumber.from('1000000'),
+      };
+      const currentVault = {
+        ...previousVault,
+        status: VaultState.FUNDED,
+        valueMinted: BigNumber.from('1000000'),
+      };
+
+      const result = getVaultEvents([currentVault], [previousVault]);
+
+      expect(result).toEqual([
+        {
+          name: VaultEvent.MINT_COMPLETE,
+          uuid: currentVault.uuid,
+          value: 1000000,
+        },
+      ]);
+    });
+
+    it('should return BURN_COMPLETE when minted value decreases', () => {
+      const previousVault = {
+        ...baseVault,
+        valueMinted: BigNumber.from('1000000'),
+      };
+      const currentVault = {
+        ...previousVault,
+        valueMinted: BigNumber.from('800000'),
+      };
+
+      const result = getVaultEvents([currentVault], [previousVault]);
+
+      expect(result).toEqual([
+        {
+          name: VaultEvent.BURN_COMPLETE,
+          uuid: currentVault.uuid,
+          value: 200000, // Difference in minted value
+        },
+      ]);
+    });
+
+    it('should handle multiple vault updates simultaneously', () => {
+      const vault1Previous = {
+        ...baseVault,
+        uuid: '0x1',
+        status: VaultState.READY,
+        valueLocked: BigNumber.from('1200000'),
+        valueMinted: BigNumber.from('1000000'),
+      };
+      const vault1Current = {
+        ...vault1Previous,
+        status: VaultState.PENDING,
+        valueLocked: BigNumber.from('800000'),
+      };
+
+      const vault2Previous = {
+        ...baseVault,
+        uuid: '0x2',
+        valueMinted: BigNumber.from('1000000'),
+      };
+      const vault2Current = {
+        ...vault2Previous,
+        valueMinted: BigNumber.from('800000'),
+      };
+
+      const result = getVaultEvents(
+        [vault1Current, vault2Current],
+        [vault1Previous, vault2Previous]
+      );
+
+      expect(result).toEqual([
+        {
+          name: VaultEvent.WITHDRAW_PENDING,
+          uuid: '0x1',
+          value: 200000,
+        },
+        {
+          name: VaultEvent.BURN_COMPLETE,
+          uuid: '0x2',
+          value: 200000,
+        },
+      ]);
+    });
+
+    it('should return empty array when no vaults are updated', () => {
+      const vault = { ...baseVault };
+      const result = getVaultEvents([vault], [vault]);
+      expect(result).toEqual([]);
     });
   });
 });

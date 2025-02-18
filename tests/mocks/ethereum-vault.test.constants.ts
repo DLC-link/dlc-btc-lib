@@ -91,3 +91,21 @@ export const TEST_VAULT_5: RawVault = {
   taprootPubKey: '0'.repeat(64),
   icyIntegrationAddress: '',
 };
+
+export const TEST_VAULT_6: RawVault = {
+  uuid: '0x400ca1a687f9c8241566d334fcb4b33efab8e540b943be1455143284c5afc962',
+  protocolContract: '0x6e692DB944162f8b4250aA25eCEe80608457D7a7',
+  timestamp: BigNumber.from('0x665da025'),
+  valueLocked: BigNumber.from('0x0f4240'),
+  valueMinted: BigNumber.from('0x0f4240'),
+  creator: '0x0DD4f29E21F10cb2E485cf9bDAb9F2dD1f240Bfa',
+  status: 0,
+  fundingTxId: '',
+  closingTxId: '',
+  wdTxId: '',
+  btcFeeRecipient: '031131cd88bcea8c1d84da8e034bb24c2f6e748c571922dc363e7e088f5df0436c',
+  btcMintFeeBasisPoints: BigNumber.from('0x64'),
+  btcRedeemFeeBasisPoints: BigNumber.from('0x64'),
+  taprootPubKey: '',
+  icyIntegrationAddress: '',
+};
