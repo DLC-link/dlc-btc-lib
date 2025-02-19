@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "dlc-btc-lib",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "description": "This library provides a comprehensive set of interfaces and functions for minting dlcBTC tokens on supported blockchains.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,6 +16,7 @@
     "./bitcoin-functions": "./dist/functions/bitcoin/index.js",
     "./attestor-request-functions": "./dist/functions/attestor/index.js",
     "./ethereum-functions": "./dist/functions/ethereum/index.js",
+    "./vault-functions": "./dist/functions/vault/index.js",
     "./ripple-functions": "./dist/functions/ripple/index.js"
   },
   "scripts": {
