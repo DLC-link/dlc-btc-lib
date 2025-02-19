@@ -201,7 +201,7 @@ describe('Vault Functions', () => {
       expect(result).toEqual({
         name: VaultEvent.MINT_PENDING,
         uuid: currentVault.uuid,
-        value: 0,
+        value: undefined,
       });
     });
 
@@ -331,7 +331,7 @@ describe('Vault Functions', () => {
         {
           name: VaultEvent.MINT_PENDING,
           uuid: currentVault.uuid,
-          value: 0,
+          value: undefined,
         },
       ]);
     });

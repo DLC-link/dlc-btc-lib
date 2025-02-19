@@ -1,7 +1,7 @@
 export interface VaultEventPayload {
   name: VaultEvent;
   uuid: string;
-  value: number;
+  value?: number;
 }
 
 export enum VaultEvent {

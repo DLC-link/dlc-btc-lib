@@ -1,5 +1,5 @@
 import { Decimal } from 'decimal.js';
-import { equals, isNil, lt, pick } from 'ramda';
+import { equals, isNil } from 'ramda';
 
 import { RawVault, VaultState } from '../../models/ethereum-models.js';
 import { VaultEvent, VaultEventPayload } from '../../models/vault-event.models.js';
@@ -9,19 +9,21 @@ import { VaultEvent, VaultEventPayload } from '../../models/vault-event.models.j
  * A vault is considered "changed" if its status, uuid, valueLocked, or valueMinted properties differ
  * from any matching vault in the previous state.
  *
- * @param {RawVault[]} vaults - The current array of vault objects to check for changes
+ * @param {RawVault[]} currentVaults - The current array of vault objects to check for changes
  * @param {RawVault[]} previousVaults - The array of vault objects from the previous state to compare against
  * @returns {RawVault[]} An array of vault objects that have changed since their previous state
  */
-export const getUpdatedVaults = (vaults: RawVault[], previousVaults: RawVault[]): RawVault[] =>
-  vaults.filter(
-    vault =>
-      !previousVaults.some(previousVault =>
-        equals(
-          pick(['uuid', 'status', 'valueLocked', 'valueMinted'], vault),
-          pick(['uuid', 'status', 'valueLocked', 'valueMinted'], previousVault)
-        )
+// prettier-ignore
+export const getUpdatedVaults = (
+  currentVaults: RawVault[],
+  previousVaults: RawVault[]
+): RawVault[] =>
+  currentVaults.filter(currentVault =>
+    !previousVaults.find(previousVault =>
+      (['uuid', 'status', 'valueLocked', 'valueMinted'] as const).every(
+        k => currentVault[k] === previousVault[k]
       )
+    )
   );
 
 /**
@@ -33,13 +35,13 @@ export const getUpdatedVaults = (vaults: RawVault[], previousVaults: RawVault[])
  * @returns {VaultEventPayload} A formatted vault event payload object
  */
 export const createVaultEvent = (
-  eventName: VaultEvent,
-  vaultUUID: string,
-  value: number
+  name: VaultEvent,
+  uuid: string,
+  value?: number
 ): VaultEventPayload => ({
-  name: eventName,
-  uuid: vaultUUID,
-  value: value,
+  name,
+  uuid,
+  value,
 });
 
 /**
@@ -66,18 +68,16 @@ export const getVaultEvent = (
 
   if (!equals(previousVault.status, vault.status))
     return {
-      [VaultState.FUNDED]: lt(
-        previousVault.valueMinted.toNumber(),
-        previousVault.valueLocked.toNumber()
-      )
-        ? createVaultEvent(
-            VaultEvent.WITHDRAW_COMPLETE,
-            vault.uuid,
-            new Decimal(previousVault.valueLocked.toNumber())
-              .minus(vault.valueLocked.toNumber())
-              .toNumber()
-          )
-        : createVaultEvent(VaultEvent.MINT_COMPLETE, vault.uuid, vault.valueMinted.toNumber()),
+      [VaultState.FUNDED]:
+        previousVault.valueMinted.toNumber() < previousVault.valueLocked.toNumber()
+          ? createVaultEvent(
+              VaultEvent.WITHDRAW_COMPLETE,
+              vault.uuid,
+              new Decimal(previousVault.valueLocked.toNumber())
+                .minus(vault.valueLocked.toNumber())
+                .toNumber()
+            )
+          : createVaultEvent(VaultEvent.MINT_COMPLETE, vault.uuid, vault.valueMinted.toNumber()),
       [VaultState.PENDING]: !equals(vault.valueLocked, vault.valueMinted)
         ? createVaultEvent(
             VaultEvent.WITHDRAW_PENDING,
@@ -91,7 +91,7 @@ export const getVaultEvent = (
           // 1. Creating vaultMultisig object
           // 2. Fetching transaction data
           // 3. Using getValueOutput() to calculate the real value
-          createVaultEvent(VaultEvent.MINT_PENDING, vault.uuid, 0),
+          createVaultEvent(VaultEvent.MINT_PENDING, vault.uuid),
     }[vault.status as VaultState.FUNDED | VaultState.PENDING];
 
   if (!equals(previousVault.valueMinted, vault.valueMinted))
