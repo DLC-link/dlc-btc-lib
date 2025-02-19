@@ -1,5 +1,5 @@
 import { Decimal } from 'decimal.js';
-import { any, complement, equals, filter, find, isNil, lt, map, pick, pipe } from 'ramda';
+import { equals, isNil, lt, pick } from 'ramda';
 
 import { RawVault, VaultState } from '../../models/ethereum-models.js';
 import { VaultEvent, VaultEventPayload } from '../../models/vault-event.models.js';
@@ -14,18 +14,14 @@ import { VaultEvent, VaultEventPayload } from '../../models/vault-event.models.j
  * @returns {RawVault[]} An array of vault objects that have changed since their previous state
  */
 export const getUpdatedVaults = (vaults: RawVault[], previousVaults: RawVault[]): RawVault[] =>
-  filter(
-    complement(vault =>
-      any(
-        previousVault =>
-          equals(
-            pick(['uuid', 'status', 'valueLocked', 'valueMinted'], vault),
-            pick(['uuid', 'status', 'valueLocked', 'valueMinted'], previousVault)
-          ),
-        previousVaults
+  vaults.filter(
+    vault =>
+      !previousVaults.some(previousVault =>
+        equals(
+          pick(['uuid', 'status', 'valueLocked', 'valueMinted'], vault),
+          pick(['uuid', 'status', 'valueLocked', 'valueMinted'], previousVault)
+        )
       )
-    ),
-    vaults
   );
 
 /**
@@ -125,12 +121,9 @@ export const getVaultEvents = (
   vaults: RawVault[],
   previousVaults: RawVault[]
 ): VaultEventPayload[] =>
-  pipe(
-    (vaults: RawVault[]) => getUpdatedVaults(vaults, previousVaults),
-    map((vault: RawVault) => {
-      return getVaultEvent(
-        find((prev: RawVault) => equals(prev.uuid, vault.uuid), previousVaults),
-        vault
-      );
-    })
-  )(vaults);
+  getUpdatedVaults(vaults, previousVaults).map(vault =>
+    getVaultEvent(
+      previousVaults.find(prev => prev.uuid === vault.uuid),
+      vault
+    )
+  );
