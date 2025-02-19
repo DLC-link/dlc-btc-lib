@@ -9,9 +9,9 @@ import { VaultEvent, VaultEventPayload } from '../../models/vault-event.models.j
  * A vault is considered "changed" if its status, uuid, valueLocked, or valueMinted properties differ
  * from any matching vault in the previous state.
  *
- * @param {RawVault[]} currentVaults - The current array of vault objects to check for changes
- * @param {RawVault[]} previousVaults - The array of vault objects from the previous state to compare against
- * @returns {RawVault[]} An array of vault objects that have changed since their previous state
+ * @param currentVaults - The current array of vault objects to check for changes
+ * @param previousVaults - The array of vault objects from the previous state to compare against
+ * @returns An array of vault objects that have changed since their previous state
  */
 // prettier-ignore
 export const getUpdatedVaults = (
@@ -29,10 +29,10 @@ export const getUpdatedVaults = (
 /**
  * Creates a vault event payload with standardized structure.
  *
- * @param {VaultEvent} eventName - The type of vault event being created
- * @param {string} vaultUUID - The unique identifier of the vault
- * @param {number} value - The numerical value associated with the event
- * @returns {VaultEventPayload} A formatted vault event payload object
+ * @param eventName - The type of vault event being created
+ * @param vaultUUID - The unique identifier of the vault
+ * @param value - The numerical value associated with the event
+ * @returns A formatted vault event payload object
  */
 export const createVaultEvent = (
   name: VaultEvent,
@@ -47,9 +47,9 @@ export const createVaultEvent = (
 /**
  * Determines and creates the appropriate vault event based on changes between previous and current vault states.
  *
- * @param {RawVault | undefined} previousVault - The previous state of the vault, undefined if this is a new vault
- * @param {RawVault} vault - The current state of the vault
- * @returns {VaultEventPayload} The appropriate vault event payload based on the state change:
+ * @param previousVault - The previous state of the vault, undefined if this is a new vault
+ * @param vault - The current state of the vault
+ * @returns The appropriate vault event payload based on the state change:
  *   - Returns SETUP_COMPLETE event if this is a new vault (no previous state)
  *   - For status changes:
  *     - When changing to FUNDED: Returns WITHDRAW_COMPLETE if previous minted value was less than previous locked value,
@@ -110,9 +110,9 @@ export const getVaultEvent = (
  * Generates an array of vault events by comparing current and previous vault states.
  * Only processes vaults that have had meaningful changes in their state.
  *
- * @param {RawVault[]} vaults - Array of current vault states
- * @param {RawVault[]} previousVaults - Array of previous vault states to compare against
- * @returns {VaultEventPayload[]} Array of vault events representing all state changes that occurred
+ * @param vaults - Array of current vault states
+ * @param previousVaults - Array of previous vault states to compare against
+ * @returns Array of vault events representing all state changes that occurred
  *
  * @see getUpdatedVaults - Used to filter vaults that have changed
  * @see getVaultEvent - Used to determine the specific event for each vault change
