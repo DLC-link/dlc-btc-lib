@@ -1,13 +1,12 @@
 import { BigNumber } from 'ethers';
 
 import {
-  createVaultEvent,
   getUpdatedVaults,
   getVaultEvent,
   getVaultEvents,
 } from '../../src/functions/vault/vault.functions';
 import { RawVault, VaultState } from '../../src/models/ethereum-models';
-import { VaultEvent } from '../../src/models/vault-event.models';
+import { VaultEventName } from '../../src/models/vault-event.models';
 
 describe('Vault Functions', () => {
   const baseVault: RawVault = {
@@ -114,7 +113,7 @@ describe('Vault Functions', () => {
       const result = getVaultEvent(undefined, vault);
 
       expect(result).toEqual({
-        name: VaultEvent.SETUP_COMPLETE,
+        name: VaultEventName.SETUP_COMPLETE,
         uuid: vault.uuid,
         value: vault.valueLocked.toNumber(),
       });
@@ -136,7 +135,7 @@ describe('Vault Functions', () => {
       const result = getVaultEvent(previousVault, currentVault);
 
       expect(result).toEqual({
-        name: VaultEvent.WITHDRAW_COMPLETE,
+        name: VaultEventName.WITHDRAW_COMPLETE,
         uuid: currentVault.uuid,
         value: 200000,
       });
@@ -157,7 +156,7 @@ describe('Vault Functions', () => {
       const result = getVaultEvent(previousVault, currentVault);
 
       expect(result).toEqual({
-        name: VaultEvent.MINT_COMPLETE,
+        name: VaultEventName.MINT_COMPLETE,
         uuid: currentVault.uuid,
         value: 1000000,
       });
@@ -178,7 +177,7 @@ describe('Vault Functions', () => {
       const result = getVaultEvent(previousVault, currentVault);
 
       expect(result).toEqual({
-        name: VaultEvent.WITHDRAW_PENDING,
+        name: VaultEventName.WITHDRAW_PENDING,
         uuid: currentVault.uuid,
         value: 200000,
       });
@@ -199,7 +198,7 @@ describe('Vault Functions', () => {
       const result = getVaultEvent(previousVault, currentVault);
 
       expect(result).toEqual({
-        name: VaultEvent.MINT_PENDING,
+        name: VaultEventName.MINT_PENDING,
         uuid: currentVault.uuid,
         value: undefined,
       });
@@ -218,7 +217,7 @@ describe('Vault Functions', () => {
       const result = getVaultEvent(previousVault, currentVault);
 
       expect(result).toEqual({
-        name: VaultEvent.BURN_COMPLETE,
+        name: VaultEventName.BURN_COMPLETE,
         uuid: currentVault.uuid,
         value: 200000,
       });
@@ -233,49 +232,7 @@ describe('Vault Functions', () => {
       );
     });
   });
-  describe('createVaultEvent', () => {
-    it('creates event payload with provided values', () => {
-      const eventName = VaultEvent.SETUP_COMPLETE;
-      const uuid = '0x400ca1a687f9c8241566d334fcb4b33efab8e540b943be1455143284c5afc962';
-      const value = 1000000;
 
-      const result = createVaultEvent(eventName, uuid, value);
-
-      expect(result).toEqual({
-        name: eventName,
-        uuid: uuid,
-        value: value,
-      });
-    });
-
-    it('handles zero value', () => {
-      const eventName = VaultEvent.MINT_PENDING;
-      const uuid = '0x400ca1a687f9c8241566d334fcb4b33efab8e540b943be1455143284c5afc962';
-      const value = 0;
-
-      const result = createVaultEvent(eventName, uuid, value);
-
-      expect(result).toEqual({
-        name: eventName,
-        uuid: uuid,
-        value: value,
-      });
-    });
-
-    it('handles negative value', () => {
-      const eventName = VaultEvent.BURN_COMPLETE;
-      const uuid = '0x400ca1a687f9c8241566d334fcb4b33efab8e540b943be1455143284c5afc962';
-      const value = -1000000;
-
-      const result = createVaultEvent(eventName, uuid, value);
-
-      expect(result).toEqual({
-        name: eventName,
-        uuid: uuid,
-        value: value,
-      });
-    });
-  });
   describe('getVaultEvents', () => {
     it('returns SETUP_COMPLETE event for new vault', () => {
       const newVault = { ...baseVault };
@@ -283,7 +240,7 @@ describe('Vault Functions', () => {
 
       expect(result).toEqual([
         {
-          name: VaultEvent.SETUP_COMPLETE,
+          name: VaultEventName.SETUP_COMPLETE,
           uuid: newVault.uuid,
           value: newVault.valueLocked.toNumber(),
         },
@@ -306,7 +263,7 @@ describe('Vault Functions', () => {
 
       expect(result).toEqual([
         {
-          name: VaultEvent.WITHDRAW_PENDING,
+          name: VaultEventName.WITHDRAW_PENDING,
           uuid: currentVault.uuid,
           value: 200000,
         },
@@ -329,7 +286,7 @@ describe('Vault Functions', () => {
 
       expect(result).toEqual([
         {
-          name: VaultEvent.MINT_PENDING,
+          name: VaultEventName.MINT_PENDING,
           uuid: currentVault.uuid,
           value: undefined,
         },
@@ -353,7 +310,7 @@ describe('Vault Functions', () => {
 
       expect(result).toEqual([
         {
-          name: VaultEvent.WITHDRAW_COMPLETE,
+          name: VaultEventName.WITHDRAW_COMPLETE,
           uuid: currentVault.uuid,
           value: 200000,
         },
@@ -376,7 +333,7 @@ describe('Vault Functions', () => {
 
       expect(result).toEqual([
         {
-          name: VaultEvent.MINT_COMPLETE,
+          name: VaultEventName.MINT_COMPLETE,
           uuid: currentVault.uuid,
           value: 1000000,
         },
@@ -397,7 +354,7 @@ describe('Vault Functions', () => {
 
       expect(result).toEqual([
         {
-          name: VaultEvent.BURN_COMPLETE,
+          name: VaultEventName.BURN_COMPLETE,
           uuid: currentVault.uuid,
           value: 200000,
         },
@@ -435,12 +392,12 @@ describe('Vault Functions', () => {
 
       expect(result).toEqual([
         {
-          name: VaultEvent.WITHDRAW_PENDING,
+          name: VaultEventName.WITHDRAW_PENDING,
           uuid: '0x1',
           value: 200000,
         },
         {
-          name: VaultEvent.BURN_COMPLETE,
+          name: VaultEventName.BURN_COMPLETE,
           uuid: '0x2',
           value: 200000,
         },
