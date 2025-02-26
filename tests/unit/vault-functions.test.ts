@@ -1,5 +1,7 @@
+import { testnet } from 'bitcoinjs-lib/src/networks';
 import { BigNumber } from 'ethers';
 
+import * as bitcoinRequestFunctions from '../../src/functions/bitcoin/bitcoin-request-functions.js';
 import {
   getUpdatedVaults,
   getVaultEvent,
@@ -7,10 +9,13 @@ import {
 } from '../../src/functions/vault/vault.functions';
 import { RawVault, VaultState } from '../../src/models/ethereum-models';
 import { VaultEventName } from '../../src/models/vault-event.models';
+import { TEST_TESTNET_BITCOIN_BLOCKCHAIN_API } from '../mocks/api.test.constants';
+import { TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1 } from '../mocks/attestor.test.constants';
+import { TEST_TESTNET_FUNDING_TRANSACTION_1 } from '../mocks/bitcoin-transaction.test.constants';
 
 describe('Vault Functions', () => {
   const baseVault: RawVault = {
-    uuid: '0x400ca1a687f9c8241566d334fcb4b33efab8e540b943be1455143284c5afc962',
+    uuid: '0x2b898d65df757575417a920aabe518586793bac4fa682f00ad2c33fad2471999',
     protocolContract: '',
     timestamp: BigNumber.from('0x665da025'),
     valueLocked: BigNumber.from('1000000'),
@@ -23,7 +28,7 @@ describe('Vault Functions', () => {
     btcFeeRecipient: '',
     btcMintFeeBasisPoints: BigNumber.from('15'),
     btcRedeemFeeBasisPoints: BigNumber.from('15'),
-    taprootPubKey: '',
+    taprootPubKey: 'dc544c17af0887dfc8ca9936755c9fdef0c79bbc8866cd69bf120c71509742d2',
     icyIntegrationAddress: '',
   };
   describe('getUpdatedVaults', () => {
@@ -108,9 +113,15 @@ describe('Vault Functions', () => {
     });
   });
   describe('getVaultEvent', () => {
-    it('returns SETUP_COMPLETE event when previous vault is undefined', () => {
+    it('returns SETUP_COMPLETE event when previous vault is undefined', async () => {
       const vault = { ...baseVault };
-      const result = getVaultEvent(undefined, vault);
+      const result = await getVaultEvent(
+        undefined,
+        vault,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
 
       expect(result).toEqual({
         name: VaultEventName.SETUP_COMPLETE,
@@ -119,7 +130,7 @@ describe('Vault Functions', () => {
       });
     });
 
-    it('returns WITHDRAW_COMPLETE event when status changes to FUNDED and minted is less than locked', () => {
+    it('returns WITHDRAW_COMPLETE event when status changes to FUNDED and minted is less than locked', async () => {
       const previousVault = {
         ...baseVault,
         status: VaultState.PENDING,
@@ -132,7 +143,13 @@ describe('Vault Functions', () => {
         valueLocked: BigNumber.from('800000'),
       };
 
-      const result = getVaultEvent(previousVault, currentVault);
+      const result = await getVaultEvent(
+        previousVault,
+        currentVault,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
 
       expect(result).toEqual({
         name: VaultEventName.WITHDRAW_COMPLETE,
@@ -141,28 +158,36 @@ describe('Vault Functions', () => {
       });
     });
 
-    it('returns MINT_COMPLETE event when status changes to FUNDED and minted equals locked', () => {
+    it('returns MINT_COMPLETE event when status changes to FUNDED and minted equals locked', async () => {
       const previousVault = {
         ...baseVault,
         status: VaultState.PENDING,
-        valueLocked: BigNumber.from('1000000'),
-        valueMinted: BigNumber.from('1000000'),
+        valueLocked: BigNumber.from('500000'),
+        valueMinted: BigNumber.from('500000'),
       };
       const currentVault = {
         ...previousVault,
         status: VaultState.FUNDED,
+        valueLocked: BigNumber.from('1000000'),
+        valueMinted: BigNumber.from('1000000'),
       };
 
-      const result = getVaultEvent(previousVault, currentVault);
+      const result = await getVaultEvent(
+        previousVault,
+        currentVault,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
 
       expect(result).toEqual({
         name: VaultEventName.MINT_COMPLETE,
         uuid: currentVault.uuid,
-        value: 1000000,
+        value: 500000,
       });
     });
 
-    it('returns WITHDRAW_PENDING event when status changes to PENDING with unequal values', () => {
+    it('returns WITHDRAW_PENDING event when status changes to PENDING with unequal values', async () => {
       const previousVault = {
         ...baseVault,
         status: VaultState.FUNDED,
@@ -174,7 +199,13 @@ describe('Vault Functions', () => {
         status: VaultState.PENDING,
       };
 
-      const result = getVaultEvent(previousVault, currentVault);
+      const result = await getVaultEvent(
+        previousVault,
+        currentVault,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
 
       expect(result).toEqual({
         name: VaultEventName.WITHDRAW_PENDING,
@@ -183,28 +214,39 @@ describe('Vault Functions', () => {
       });
     });
 
-    it('returns MINT_PENDING event when status changes to PENDING with equal values', () => {
+    it('returns MINT_PENDING event when status changes to PENDING with equal values', async () => {
+      jest
+        .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
+        .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
+
       const previousVault = {
         ...baseVault,
         status: VaultState.READY,
-        valueLocked: BigNumber.from('1000000'),
-        valueMinted: BigNumber.from('1000000'),
+        valueLocked: BigNumber.from('5000000'),
+        valueMinted: BigNumber.from('5000000'),
       };
       const currentVault = {
         ...previousVault,
         status: VaultState.PENDING,
+        wdTxId: '4cf5c2954c84bf5225d98ef014aa97bbfa0f05d56b5749782fcd8af8b9d505a5',
       };
 
-      const result = getVaultEvent(previousVault, currentVault);
+      const result = await getVaultEvent(
+        previousVault,
+        currentVault,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
 
       expect(result).toEqual({
         name: VaultEventName.MINT_PENDING,
         uuid: currentVault.uuid,
-        value: undefined,
+        value: 5000000,
       });
     });
 
-    it('returns BURN_COMPLETE event when only minted value decreases', () => {
+    it('returns BURN_COMPLETE event when only minted value decreases', async () => {
       const previousVault = {
         ...baseVault,
         valueMinted: BigNumber.from('1000000'),
@@ -214,7 +256,13 @@ describe('Vault Functions', () => {
         valueMinted: BigNumber.from('800000'),
       };
 
-      const result = getVaultEvent(previousVault, currentVault);
+      const result = await getVaultEvent(
+        previousVault,
+        currentVault,
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
 
       expect(result).toEqual({
         name: VaultEventName.BURN_COMPLETE,
@@ -223,20 +271,33 @@ describe('Vault Functions', () => {
       });
     });
 
-    it('throws error when vault state change is invalid', () => {
+    it('throws error when vault state change is invalid', async () => {
       const previousVault = { ...baseVault };
       const currentVault = { ...baseVault };
 
-      expect(() => getVaultEvent(previousVault, currentVault)).toThrow(
-        'Invalid Vault State Change'
-      );
+      // Use await with expect.rejects instead of wrapping in another async function
+      await expect(
+        getVaultEvent(
+          previousVault,
+          currentVault,
+          TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+          TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+          testnet
+        )
+      ).rejects.toThrow(/Unable to determine vault event/);
     });
   });
 
   describe('getVaultEvents', () => {
-    it('returns SETUP_COMPLETE event for new vault', () => {
+    it('returns SETUP_COMPLETE event for new vault', async () => {
       const newVault = { ...baseVault };
-      const result = getVaultEvents([newVault], []);
+      const result = await getVaultEvents(
+        [newVault],
+        [],
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
 
       expect(result).toEqual([
         {
@@ -247,7 +308,11 @@ describe('Vault Functions', () => {
       ]);
     });
 
-    it('returns WITHDRAW_PENDING event when status changes to PENDING with different minted and locked values', () => {
+    it('returns WITHDRAW_PENDING event when status changes to PENDING with different minted and locked values', async () => {
+      jest
+        .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
+        .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
+
       const previousVault = {
         ...baseVault,
         status: VaultState.FUNDED,
@@ -259,7 +324,13 @@ describe('Vault Functions', () => {
         status: VaultState.PENDING,
       };
 
-      const result = getVaultEvents([currentVault], [previousVault]);
+      const result = await getVaultEvents(
+        [currentVault],
+        [previousVault],
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
 
       expect(result).toEqual([
         {
@@ -270,30 +341,37 @@ describe('Vault Functions', () => {
       ]);
     });
 
-    it('returns MINT_PENDING event when status changes to PENDING with equal values', () => {
+    it('returns MINT_PENDING event when status changes to PENDING with equal values', async () => {
       const previousVault = {
         ...baseVault,
         status: VaultState.READY,
-        valueLocked: BigNumber.from('1000000'),
-        valueMinted: BigNumber.from('1000000'),
+        valueLocked: BigNumber.from('5000000'),
+        valueMinted: BigNumber.from('5000000'),
       };
       const currentVault = {
         ...previousVault,
         status: VaultState.PENDING,
+        wdTxId: '4cf5c2954c84bf5225d98ef014aa97bbfa0f05d56b5749782fcd8af8b9d505a5',
       };
 
-      const result = getVaultEvents([currentVault], [previousVault]);
+      const result = await getVaultEvents(
+        [currentVault],
+        [previousVault],
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
 
       expect(result).toEqual([
         {
           name: VaultEventName.MINT_PENDING,
           uuid: currentVault.uuid,
-          value: undefined,
+          value: 5000000,
         },
       ]);
     });
 
-    it('returns WITHDRAW_COMPLETE event when status changes to FUNDED with decreased locked value', () => {
+    it('returns WITHDRAW_COMPLETE event when status changes to FUNDED with decreased locked value', async () => {
       const previousVault = {
         ...baseVault,
         status: VaultState.PENDING,
@@ -306,7 +384,13 @@ describe('Vault Functions', () => {
         valueLocked: BigNumber.from('800000'),
       };
 
-      const result = getVaultEvents([currentVault], [previousVault]);
+      const result = await getVaultEvents(
+        [currentVault],
+        [previousVault],
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
 
       expect(result).toEqual([
         {
@@ -317,7 +401,7 @@ describe('Vault Functions', () => {
       ]);
     });
 
-    it('returns MINT_COMPLETE event when status changes to FUNDED with equal minted and locked values', () => {
+    it('returns MINT_COMPLETE event when status changes to FUNDED with equal minted and locked values', async () => {
       const previousVault = {
         ...baseVault,
         status: VaultState.PENDING,
@@ -327,9 +411,17 @@ describe('Vault Functions', () => {
       const currentVault = {
         ...previousVault,
         status: VaultState.FUNDED,
+        valueLocked: BigNumber.from('2000000'),
+        valueMinted: BigNumber.from('2000000'),
       };
 
-      const result = getVaultEvents([currentVault], [previousVault]);
+      const result = await getVaultEvents(
+        [currentVault],
+        [previousVault],
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
 
       expect(result).toEqual([
         {
@@ -340,7 +432,7 @@ describe('Vault Functions', () => {
       ]);
     });
 
-    it('returns BURN_COMPLETE event when minted value decreases', () => {
+    it('returns BURN_COMPLETE event when minted value decreases', async () => {
       const previousVault = {
         ...baseVault,
         valueMinted: BigNumber.from('1000000'),
@@ -350,7 +442,13 @@ describe('Vault Functions', () => {
         valueMinted: BigNumber.from('800000'),
       };
 
-      const result = getVaultEvents([currentVault], [previousVault]);
+      const result = await getVaultEvents(
+        [currentVault],
+        [previousVault],
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
 
       expect(result).toEqual([
         {
@@ -361,7 +459,7 @@ describe('Vault Functions', () => {
       ]);
     });
 
-    it('handles multiple vault updates correctly', () => {
+    it('handles multiple vault updates correctly', async () => {
       const vault1Previous = {
         ...baseVault,
         uuid: '0x1',
@@ -385,9 +483,12 @@ describe('Vault Functions', () => {
         valueMinted: BigNumber.from('800000'),
       };
 
-      const result = getVaultEvents(
+      const result = await getVaultEvents(
         [vault1Current, vault2Current],
-        [vault1Previous, vault2Previous]
+        [vault1Previous, vault2Previous],
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
       );
 
       expect(result).toEqual([
@@ -404,9 +505,15 @@ describe('Vault Functions', () => {
       ]);
     });
 
-    it('returns empty array when no vaults have changed', () => {
+    it('returns empty array when no vaults have changed', async () => {
       const vault = { ...baseVault };
-      const result = getVaultEvents([vault], [vault]);
+      const result = await getVaultEvents(
+        [vault],
+        [vault],
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+        TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
+        testnet
+      );
       expect(result).toEqual([]);
     });
   });

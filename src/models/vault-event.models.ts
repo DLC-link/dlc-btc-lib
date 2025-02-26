@@ -10,9 +10,9 @@ export enum VaultEventName {
 export class VaultEvent {
   public readonly name: VaultEventName;
   public readonly uuid: string;
-  public readonly value?: number;
+  public readonly value: number;
 
-  constructor(name: VaultEventName, uuid: string, value?: number) {
+  constructor(name: VaultEventName, uuid: string, value: number) {
     this.name = name;
     this.uuid = uuid;
     this.value = value;

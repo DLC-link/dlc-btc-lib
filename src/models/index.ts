@@ -7,3 +7,4 @@ export * from '../models/errors.js';
 export * from '../models/ethereum-models.js';
 export * from '../models/attestor.models.js';
 export * from '../models/ripple.model.js';
+export * from '../models/vault-event.models.js';
