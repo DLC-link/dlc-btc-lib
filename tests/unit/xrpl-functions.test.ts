@@ -66,8 +66,8 @@ describe('XRPL Functions', () => {
             result: {
               info: {
                 validated_ledger: {
-                  reserve_base_xrp: '10000000',
-                  reserve_inc_xrp: '2000000',
+                  reserve_base_xrp: 10,
+                  reserve_inc_xrp: 2,
                 },
               },
             },
@@ -131,8 +131,8 @@ describe('XRPL Functions', () => {
             result: {
               info: {
                 validated_ledger: {
-                  reserve_base_xrp: '10000000',
-                  reserve_inc_xrp: '2000000',
+                  reserve_base_xrp: 10,
+                  reserve_inc_xrp: 2,
                 },
               },
             },
@@ -164,8 +164,8 @@ describe('XRPL Functions', () => {
             result: {
               info: {
                 validated_ledger: {
-                  reserve_base_xrp: '10000000',
-                  reserve_inc_xrp: '2000000',
+                  reserve_base_xrp: 10,
+                  reserve_inc_xrp: 2,
                 },
               },
             },
@@ -196,8 +196,8 @@ describe('XRPL Functions', () => {
             result: {
               info: {
                 validated_ledger: {
-                  reserve_base_xrp: '10000000',
-                  reserve_inc_xrp: '2000000',
+                  reserve_base_xrp: 10,
+                  reserve_inc_xrp: 2,
                 },
               },
             },

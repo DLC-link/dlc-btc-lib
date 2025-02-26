@@ -371,6 +371,8 @@ export async function getAllXRPLVaults(
 /**
  * Calculates the reserve requirements and available balance for an XRPL address.
  *
+ * @see {@link https://xrpl.org/docs/concepts/accounts/reserves} for more information about XRPL reserves
+ *
  * @param xrplClient - An already connected XRPL client instance
  * @param address - The XRPL address to check
  *
