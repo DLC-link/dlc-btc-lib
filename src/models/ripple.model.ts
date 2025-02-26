@@ -21,3 +21,12 @@ export interface MultisignatureTransactionResponse {
   tx_blob: string;
   autoFillValues: AutoFillValues;
 }
+
+export interface XRPLAccountBalanceAndReserveData {
+  balance: number;
+  availableBalance: number;
+  ownerCount: number;
+  baseReserve: number;
+  ownerReserve: number;
+  totalReserve: number;
+}
