@@ -18,6 +18,7 @@ import {
   Wallet,
   convertHexToString,
   convertStringToHex,
+  dropsToXrp,
   multisign,
 } from 'xrpl';
 
@@ -27,7 +28,12 @@ import {
 } from '../../constants/ripple.constants.js';
 import { RippleError } from '../../models/errors.js';
 import { RawVault } from '../../models/ethereum-models.js';
-import { SignResponse, SignatureType, XRPLSignatures } from '../../models/ripple.model.js';
+import {
+  SignResponse,
+  SignatureType,
+  XRPLAccountBalanceAndReserveData,
+  XRPLSignatures,
+} from '../../models/ripple.model.js';
 import { shiftValue, unshiftValue } from '../../utilities/index.js';
 
 function hexFieldsToLowercase(vault: RawVault): RawVault {
@@ -360,6 +366,63 @@ export async function getAllXRPLVaults(
   } catch (error) {
     throw new RippleError(`Error getting Vaults: ${error}`);
   }
+}
+
+/**
+ * Calculates the reserve requirements and available balance for an XRPL address.
+ *
+ * @see {@link https://xrpl.org/docs/concepts/accounts/reserves} for more information about XRPL reserves
+ *
+ * @param xrplClient - An already connected XRPL client instance
+ * @param address - The XRPL address to check
+ *
+ * @returns Object containing:
+ *   - balance - Total XRP balance of the account
+ *   - availableBalance - XRP available for spending (total balance minus reserve)
+ *   - ownerCount - Number of objects owned by this address
+ *   - baseReserve - Base reserve requirement in XRP
+ *   - ownerReserve - Per-object reserve requirement in XRP
+ *   - totalReserve - Total reserve requirement (baseReserve + ownerReserve * ownerCount)
+ *
+ * @throws {RippleError} When validated ledger information cannot be retrieved
+ */
+export async function getAddressBalanceAndReserve(
+  xrplClient: Client,
+  address: string
+): Promise<XRPLAccountBalanceAndReserveData> {
+  const accountInfo = await xrplClient.request({
+    command: 'account_info',
+    account: address,
+    ledger_index: 'validated',
+  });
+
+  const serverInfo = await xrplClient.request({
+    command: 'server_info',
+  });
+
+  const serverInfoValidatedLedger = serverInfo.result.info.validated_ledger;
+
+  if (!serverInfoValidatedLedger) throw new RippleError('Validated Ledger not found');
+
+  const ownerCount = accountInfo.result.account_data.OwnerCount;
+  const baseReserve = serverInfoValidatedLedger.reserve_base_xrp;
+  const ownerReserve = serverInfoValidatedLedger.reserve_inc_xrp;
+
+  const totalReserve = new Decimal(baseReserve)
+    .plus(new Decimal(ownerReserve).times(ownerCount))
+    .toNumber();
+
+  const balance = dropsToXrp(accountInfo.result.account_data.Balance);
+  const availableBalance = new Decimal(balance).minus(totalReserve).toNumber();
+
+  return {
+    balance,
+    availableBalance,
+    ownerCount,
+    baseReserve,
+    ownerReserve,
+    totalReserve,
+  };
 }
 
 export async function signAndSubmitRippleTransaction(
