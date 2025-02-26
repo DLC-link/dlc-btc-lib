@@ -222,8 +222,8 @@ describe('Vault Functions', () => {
       const previousVault = {
         ...baseVault,
         status: VaultState.READY,
-        valueLocked: BigNumber.from('10000000'),
-        valueMinted: BigNumber.from('10000000'),
+        valueLocked: BigNumber.from('5000000'),
+        valueMinted: BigNumber.from('5000000'),
       };
       const currentVault = {
         ...previousVault,
@@ -242,7 +242,7 @@ describe('Vault Functions', () => {
       expect(result).toEqual({
         name: VaultEventName.MINT_PENDING,
         uuid: currentVault.uuid,
-        value: 10000000,
+        value: 5000000,
       });
     });
 
@@ -345,8 +345,8 @@ describe('Vault Functions', () => {
       const previousVault = {
         ...baseVault,
         status: VaultState.READY,
-        valueLocked: BigNumber.from('10000000'),
-        valueMinted: BigNumber.from('10000000'),
+        valueLocked: BigNumber.from('5000000'),
+        valueMinted: BigNumber.from('5000000'),
       };
       const currentVault = {
         ...previousVault,
@@ -366,7 +366,7 @@ describe('Vault Functions', () => {
         {
           name: VaultEventName.MINT_PENDING,
           uuid: currentVault.uuid,
-          value: 10000000,
+          value: 5000000,
         },
       ]);
     });

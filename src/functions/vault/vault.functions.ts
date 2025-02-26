@@ -40,15 +40,8 @@ export const getUpdatedVaults = (
  * @param extendedAttestorGroupPublicKey - The extended public key of the attestor group
  * @param bitcoinBlockchainAPIURL - The URL of the Bitcoin blockchain API
  * @param bitcoinNetwork - The Bitcoin network to use
- * @returns The appropriate vault event payload based on the state change:
- *   - Returns SETUP_COMPLETE event if this is a new vault (no previous state)
- *   - For status changes:
- *     - When changing to FUNDED: Returns WITHDRAW_COMPLETE if previous minted value was less than previous locked value,
- *       otherwise returns MINT_COMPLETE
- *     - When changing to PENDING: Returns WITHDRAW_PENDING if locked value differs from minted value,
- *       otherwise returns MINT_PENDING
- *   - Returns BURN_COMPLETE event if only the minted value has changed
- * @throws {Error} Throws 'Unable to determine vault event for this state change...' if the state change doesn't match any expected patterns
+ * @returns The appropriate vault event based on the state change
+ * @throws {Error} If the state change doesn't match any expected patterns
  */
 export const getVaultEvent = async (
   previousVault: RawVault | undefined,
@@ -57,56 +50,78 @@ export const getVaultEvent = async (
   bitcoinBlockchainAPIURL: string,
   bitcoinNetwork: Network
 ): Promise<VaultEvent> => {
-  if (isNil(previousVault))
+  if (isNil(previousVault)) {
     return new VaultEvent(VaultEventName.SETUP_COMPLETE, vault.uuid, vault.valueLocked.toNumber());
+  }
 
   const getVaultEventForFunded = () => {
-    return previousVault.valueMinted.toNumber() < previousVault.valueLocked.toNumber()
-      ? new VaultEvent(
-          VaultEventName.WITHDRAW_COMPLETE,
-          vault.uuid,
-          new Decimal(previousVault.valueLocked.toNumber())
-            .minus(vault.valueLocked.toNumber())
-            .toNumber()
-        )
-      : new VaultEvent(
-          VaultEventName.MINT_COMPLETE,
-          vault.uuid,
-          new Decimal(vault.valueLocked.toNumber())
-            .minus(previousVault.valueLocked.toNumber())
-            .toNumber()
-        );
+    // When previous minted value is less than previous locked value, the withdrawal is being completed
+    // Otherwise, a new mint operation is being completed
+    const isPreviousWithdrawalCompleting =
+      previousVault.valueMinted.toNumber() < previousVault.valueLocked.toNumber();
+
+    if (isPreviousWithdrawalCompleting) {
+      return new VaultEvent(
+        VaultEventName.WITHDRAW_COMPLETE,
+        vault.uuid,
+        new Decimal(previousVault.valueLocked.toNumber())
+          .minus(vault.valueLocked.toNumber())
+          .toNumber()
+      );
+    }
+
+    return new VaultEvent(
+      VaultEventName.MINT_COMPLETE,
+      vault.uuid,
+      new Decimal(vault.valueLocked.toNumber())
+        .minus(previousVault.valueLocked.toNumber())
+        .toNumber()
+    );
   };
 
   const getVaultEventForPending = async () => {
-    return !equals(vault.valueLocked, vault.valueMinted)
-      ? new VaultEvent(
-          VaultEventName.WITHDRAW_PENDING,
-          vault.uuid,
-          new Decimal(previousVault.valueLocked.toNumber())
-            .minus(vault.valueMinted.toNumber())
-            .toNumber()
-        )
-      : new VaultEvent(
-          VaultEventName.MINT_PENDING,
-          vault.uuid,
-          getVaultOutputValueFromTransaction(
-            getVaultPayment(
-              vault.uuid,
-              vault.taprootPubKey,
-              extendedAttestorGroupPublicKey,
-              bitcoinNetwork
-            ),
-            await fetchBitcoinTransaction(vault.wdTxId, bitcoinBlockchainAPIURL)
-          )
-        );
+    // When locked value differs from minted value, the vault is processing a withdrawal
+    // Otherwise, the vault is processing a new mint operation
+    const isProcessingWithdrawal = !equals(vault.valueLocked, vault.valueMinted);
+
+    if (isProcessingWithdrawal) {
+      return new VaultEvent(
+        VaultEventName.WITHDRAW_PENDING,
+        vault.uuid,
+        new Decimal(previousVault.valueLocked.toNumber())
+          .minus(vault.valueMinted.toNumber())
+          .toNumber()
+      );
+    }
+
+    const bitcoinTransaction = await fetchBitcoinTransaction(vault.wdTxId, bitcoinBlockchainAPIURL);
+    const vaultPayment = getVaultPayment(
+      vault.uuid,
+      vault.taprootPubKey,
+      extendedAttestorGroupPublicKey,
+      bitcoinNetwork
+    );
+    const vaultOutputValue = getVaultOutputValueFromTransaction(vaultPayment, bitcoinTransaction);
+
+    return new VaultEvent(
+      VaultEventName.MINT_PENDING,
+      vault.uuid,
+      new Decimal(vaultOutputValue).minus(previousVault.valueLocked.toNumber()).toNumber()
+    );
   };
 
-  if (!equals(previousVault.status, vault.status)) {
-    return vault.status === VaultState.FUNDED
+  const hasStatusChanged = !equals(previousVault.status, vault.status);
+
+  if (hasStatusChanged) {
+    return equals(vault.status, VaultState.FUNDED)
       ? getVaultEventForFunded()
       : await getVaultEventForPending();
-  } else if (!equals(previousVault.valueMinted, vault.valueMinted)) {
+  }
+
+  // Check for minted value changes (indicates burn completion)
+  const hasValueMintedChanged = !equals(previousVault.valueMinted, vault.valueMinted);
+
+  if (hasValueMintedChanged) {
     return new VaultEvent(
       VaultEventName.BURN_COMPLETE,
       vault.uuid,
@@ -116,6 +131,7 @@ export const getVaultEvent = async (
     );
   }
 
+  // If no recognized state change pattern is found, throw an error
   throw new Error(
     `Unable to determine vault event for this state change. Previous vault: ${JSON.stringify(previousVault)}, Current vault: ${JSON.stringify(vault)}`
   );
