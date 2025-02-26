@@ -400,13 +400,11 @@ export async function getAddressBalanceAndReserve(
 
   const serverInfoValidatedLedger = serverInfo.result.info.validated_ledger;
 
-  if (!serverInfoValidatedLedger) {
-    throw new RippleError('Validated Ledger not found');
-  }
+  if (!serverInfoValidatedLedger) throw new RippleError('Validated Ledger not found');
 
   const ownerCount = accountInfo.result.account_data.OwnerCount;
-  const baseReserve = dropsToXrp(serverInfoValidatedLedger.reserve_base_xrp);
-  const ownerReserve = dropsToXrp(serverInfoValidatedLedger.reserve_inc_xrp);
+  const baseReserve = serverInfoValidatedLedger.reserve_base_xrp;
+  const ownerReserve = serverInfoValidatedLedger.reserve_inc_xrp;
 
   const totalReserve = new Decimal(baseReserve)
     .plus(new Decimal(ownerReserve).times(ownerCount))
