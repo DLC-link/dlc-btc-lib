@@ -1,5 +1,11 @@
 import { Decimal } from 'decimal.js';
 
+import {
+  AttestorChainID,
+  EVMAttestorChainID,
+  XRPLAttestorChainID,
+} from '../models/attestor.models.js';
+
 export function shiftValue(value: number): number {
   const decimalPoweredShift = new Decimal(10 ** 8);
   const decimalValue = new Decimal(Number(value));
@@ -62,4 +68,19 @@ export function reverseBytes(bytes: Uint8Array): Uint8Array;
 export function reverseBytes(bytes: Buffer | Uint8Array) {
   if (Buffer.isBuffer(bytes)) return Buffer.from(bytes).reverse();
   return new Uint8Array(bytes.slice().reverse());
+}
+
+export function isSupportedChainID(chainID: string): chainID is AttestorChainID {
+  return (
+    Object.values(EVMAttestorChainID).includes(chainID as EVMAttestorChainID) ||
+    Object.values(XRPLAttestorChainID).includes(chainID as XRPLAttestorChainID)
+  );
+}
+
+export function isEVMChainID(chainID: string): chainID is EVMAttestorChainID {
+  return Object.values(EVMAttestorChainID).includes(chainID as EVMAttestorChainID);
+}
+
+export function isXRPLChainID(chainID: string): chainID is XRPLAttestorChainID {
+  return Object.values(XRPLAttestorChainID).includes(chainID as XRPLAttestorChainID);
 }
