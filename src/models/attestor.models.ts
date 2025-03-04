@@ -1,23 +1,30 @@
-export type AttestorChainID =
-  | 'evm-mainnet'
-  | 'evm-sepolia'
-  | 'evm-arbitrum'
-  | 'evm-arbsepolia'
-  | 'evm-base'
-  | 'evm-basesepolia'
-  | 'evm-optimism'
-  | 'evm-opsepolia'
-  | 'evm-polygon'
-  | 'evm-polygonsepolia'
-  | 'evm-avax'
-  | 'evm-bsc'
-  | 'evm-holesky'
-  | 'evm-localhost'
-  | 'evm-hardhat-arb'
-  | 'evm-hardhat-eth'
-  | 'ripple-xrpl-mainnet'
-  | 'ripple-xrpl-testnet'
-  | 'ripple-xrpl-devnet';
+export enum EVMAttestorChainID {
+  'evm-mainnet' = 'evm-mainnet',
+  'evm-sepolia' = 'evm-sepolia',
+  'evm-arbitrum' = 'evm-arbitrum',
+  'evm-arbsepolia' = 'evm-arbsepolia',
+  'evm-base' = 'evm-base',
+  'evm-basesepolia' = 'evm-basesepolia',
+  'evm-optimism' = 'evm-optimism',
+  'evm-opsepolia' = 'evm-opsepolia',
+  'evm-polygon' = 'evm-polygon',
+  'evm-polygonsepolia' = 'evm-polygonsepolia',
+  'evm-avax' = 'evm-avax',
+  'evm-bsc' = 'evm-bsc',
+  'evm-holesky' = 'evm-holesky',
+  'evm-localhost' = 'evm-localhost',
+  'evm-hardhat-arb' = 'evm-hardhat-arb',
+  'evm-hardhat-eth' = 'evm-hardhat-eth',
+  'evm-bsctestnet' = 'evm-bsctestnet',
+}
+
+export enum XRPLAttestorChainID {
+  'ripple-xrpl-mainnet' = 'ripple-xrpl-mainnet',
+  'ripple-xrpl-testnet' = 'ripple-xrpl-testnet',
+  'ripple-xrpl-devnet' = 'ripple-xrpl-devnet',
+}
+
+export type AttestorChainID = EVMAttestorChainID | XRPLAttestorChainID;
 
 export interface FundingTXAttestorInfo {
   vaultUUID: string;

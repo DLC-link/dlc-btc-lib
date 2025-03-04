@@ -4,6 +4,7 @@ import {
 } from '../../src/functions/attestor/attestor-request.functions';
 import * as requestFunctions from '../../src/functions/request/request.functions';
 import {
+  EVMAttestorChainID,
   FundingTXAttestorInfo,
   WithdrawDepositTXAttestorInfo,
 } from '../../src/models/attestor.models';
@@ -20,7 +21,7 @@ describe('Attestor Request Sending', () => {
       fundingPSBT: 'funding-psbt',
       userEthereumAddress: 'user-ethereum-address',
       userBitcoinTaprootPublicKey: 'user-bitcoin-taproot-public-key',
-      attestorChainID: 'evm-arbitrum',
+      attestorChainID: EVMAttestorChainID['evm-arbitrum'],
     };
     it('should succeed without errors when all requests are successful', async () => {
       jest
