@@ -1,4 +1,5 @@
 import { Decimal } from 'decimal.js';
+import { isNil, isNotEmpty, isNotNil } from 'ramda';
 
 import {
   AttestorChainID,
@@ -43,16 +44,16 @@ export function createRangeFromLength(length: number) {
   return [...Array(length).keys()];
 }
 
-export function isUndefined(value: unknown): value is undefined {
-  return typeof value === 'undefined';
+export function isUndefined(value: unknown): value is undefined | null {
+  return isNil(value);
 }
 
 export function isDefined<T>(argument: T | undefined): argument is T {
-  return !isUndefined(argument);
+  return isNotNil(argument);
 }
 
 export function isNonEmptyString(string: string | undefined): boolean {
-  return isDefined(string) && string !== '';
+  return isNotNil(string) && isNotEmpty(string);
 }
 
 export function compareUint8Arrays(a: Uint8Array, b: Uint8Array): boolean {

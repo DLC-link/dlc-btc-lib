@@ -1,14 +1,14 @@
 import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
 
 import * as bitcoinRequestFunctions from '../../src/functions/bitcoin/bitcoin-request-functions.js';
-import { verifyVaultDeposit } from '../../src/functions/proof-of-reserve/proof-of-reserve-functions.js';
+import { getVaultDepositValue } from '../../src/functions/proof-of-reserve/proof-of-reserve-functions.js';
 import {
   TEST_MAINNET_BITCOIN_BLOCKCHAIN_API,
   TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
 } from '../mocks/api.test.constants.js';
 import {
-  TEST_MAINNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1,
-  TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1,
+  TEST_MAINNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
+  TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
 } from '../mocks/attestor.test.constants.js';
 import {
   TEST_MAINNET_FUNDING_TRANSACTION_1,
@@ -32,9 +32,9 @@ describe('Proof of Reserve Calculation', () => {
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
 
-      const result = await verifyVaultDeposit(
+      const result = await getVaultDepositValue(
         TEST_VAULT_2,
-        Buffer.from(TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1, 'hex'),
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_1,
         TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
         testnet
@@ -50,9 +50,9 @@ describe('Proof of Reserve Calculation', () => {
           throw new Error('Transaction not found');
         });
 
-      const result = await verifyVaultDeposit(
+      const result = await getVaultDepositValue(
         TEST_VAULT_2,
-        Buffer.from(TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1, 'hex'),
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_1,
         TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
         testnet
@@ -66,9 +66,9 @@ describe('Proof of Reserve Calculation', () => {
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
 
-      const result = await verifyVaultDeposit(
+      const result = await getVaultDepositValue(
         TEST_VAULT_2,
-        Buffer.from(TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1, 'hex'),
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_2,
         TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
         testnet
@@ -82,9 +82,9 @@ describe('Proof of Reserve Calculation', () => {
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_2);
 
-      const result = await verifyVaultDeposit(
+      const result = await getVaultDepositValue(
         TEST_VAULT_2,
-        Buffer.from(TEST_TESTNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1, 'hex'),
+        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_1,
         TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
         testnet
@@ -98,9 +98,9 @@ describe('Proof of Reserve Calculation', () => {
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_MAINNET_FUNDING_TRANSACTION_1);
 
-      const result = await verifyVaultDeposit(
+      const result = await getVaultDepositValue(
         TEST_VAULT_3,
-        Buffer.from(TEST_MAINNET_ATTESTOR_UNHARDENED_DERIVED_PUBLIC_KEY_1, 'hex'),
+        TEST_MAINNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_3,
         TEST_MAINNET_BITCOIN_BLOCKCHAIN_API,
         bitcoin
