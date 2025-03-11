@@ -3,6 +3,7 @@ import { Network } from 'bitcoinjs-lib';
 import { RawVault } from '../../models/ethereum-models.js';
 import { isNonEmptyString } from '../../utilities/index.js';
 import {
+  findVaultMultisigInput,
   getScriptMatchingOutputFromTransaction,
   getVaultPayment,
 } from '../bitcoin/bitcoin-functions.js';
@@ -39,7 +40,7 @@ export async function getVaultDepositAmount(
 
     const txID = hasWithdrawDepositTransaction ? wdTxId : fundingTxId;
 
-    const fundingTransaction = await fetchBitcoinTransaction(txID, bitcoinBlockchainAPI);
+    const vaultTransaction = await fetchBitcoinTransaction(txID, bitcoinBlockchainAPI);
 
     const vaultPayment = getVaultPayment(
       uuid,
@@ -48,21 +49,19 @@ export async function getVaultDepositAmount(
       bitcoinNetwork
     );
 
-    const isFundingTransactionConfirmed = await checkBitcoinTransactionConfirmations(
-      fundingTransaction,
+    const isVaultTransactionConfirmed = await checkBitcoinTransactionConfirmations(
+      vaultTransaction,
       bitcoinBlockchainBlockHeight
     );
 
-    if (!isFundingTransactionConfirmed) {
-      const vaultMultisigInput = fundingTransaction.vin.find(
-        input => input.prevout.scriptpubkey_address === vaultPayment.address
-      );
+    if (!isVaultTransactionConfirmed) {
+      const vaultMultisigInput = findVaultMultisigInput(vaultTransaction, vaultPayment.address!);
 
       return vaultMultisigInput ? vaultMultisigInput.prevout.value : 0;
     }
 
     const vaultTransactionOutput = getScriptMatchingOutputFromTransaction(
-      fundingTransaction,
+      vaultTransaction,
       vaultPayment.script
     );
 

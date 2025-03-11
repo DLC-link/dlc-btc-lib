@@ -22,6 +22,7 @@ import { DUST_LIMIT } from '../../constants/dlc-handler.constants.js';
 import {
   BitcoinInputSigningConfig,
   BitcoinTransaction,
+  BitcoinTransactionVectorInput,
   BitcoinTransactionVectorOutput,
   BlockData,
   FeeRates,
@@ -630,6 +631,20 @@ export function getInputByPaymentTypeArray(
       getInputPaymentType(inputIndex, transaction.getInput(config.index), bitcoinNetwork),
     ];
   });
+}
+
+/**
+ * Finds the input in a transaction that matches the vault's multisig address
+ *
+ * @param transaction - The Bitcoin transaction to search
+ * @param vaultAddress - The vault's multisig address to match
+ * @returns The matching input or undefined if not found
+ */
+export function findVaultMultisigInput(
+  transaction: BitcoinTransaction,
+  vaultAddress: string
+): BitcoinTransactionVectorInput | undefined {
+  return transaction.vin.find(input => input.prevout.scriptpubkey_address === vaultAddress);
 }
 
 export function getScriptMatchingOutputFromTransaction(

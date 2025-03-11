@@ -21,7 +21,7 @@ The Proof of Reserve system verifies and calculates the total value of Bitcoin d
    - Checking for valid transaction IDs (either funding or withdraw-deposit)
    - Fetching the transaction from the Bitcoin blockchain
    - Verifying the transaction has sufficient confirmations
-   - For transactions with insufficient confirmations that represent deposit-more transactions (those spending a previous vault UTXO to add funds), the system returns the value of the input corresponding to the vault's multisig address
+   - For transactions with insufficient confirmations that represent deposit-more or withdraw transactions (those spending a previous vault UTXO), the system returns the value of the input corresponding to the vault's multisig address
    - For confirmed transactions, the system identifies and returns the value of the output matching the vault's multisig script
 
 2. Aggregates the verified deposit values to determine the total Bitcoin reserves
