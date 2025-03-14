@@ -1,7 +1,11 @@
 import { Network } from 'bitcoinjs-lib';
+import { isNotNil } from 'ramda';
 
 import { fetchBitcoinBlockchainBlockHeight } from '../functions/bitcoin/bitcoin-request-functions.js';
-import { getVaultDepositAmount } from '../functions/proof-of-reserve/proof-of-reserve-functions.js';
+import {
+  getVaultAddress,
+  getVaultDepositAmount,
+} from '../functions/proof-of-reserve/proof-of-reserve-functions.js';
 import { RawVault } from '../models/ethereum-models.js';
 
 /**
@@ -27,6 +31,20 @@ export class ProofOfReserveHandler {
     this.bitcoinBlockchainAPI = bitcoinBlockchainAPI;
     this.bitcoinNetwork = bitcoinNetwork;
     this.extendedAttestorGroupPublicKey = extendedAttestorGroupPublicKey;
+  }
+
+  /**
+   * Gets all vault addresses from a list of vaults.
+   *
+   * @param vaults - An array of vault objects containing address information
+   * @returns A promise that resolves to an array of vault addresses
+   */
+  async getAllVaultAddresses(vaults: RawVault[]): Promise<string[]> {
+    return Promise.all(
+      vaults.map(vault =>
+        getVaultAddress(vault, this.extendedAttestorGroupPublicKey, this.bitcoinNetwork)
+      )
+    ).then(addresses => addresses.filter(isNotNil));
   }
 
   /**
