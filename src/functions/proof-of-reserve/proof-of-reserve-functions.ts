@@ -13,6 +13,32 @@ import {
 } from '../bitcoin/bitcoin-request-functions.js';
 
 /**
+ * Gets the address of a vault.
+ *
+ * @param vault - The vault object containing transaction IDs and other relevant data
+ * @param extendedAttestorGroupPublicKey - The extended public key of the attestor group
+ * @param bitcoinNetwork - The Bitcoin network to use
+ * @returns A promise that resolves to the address of the vault
+ */
+export async function getVaultAddress(
+  vault: RawVault,
+  extendedAttestorGroupPublicKey: string,
+  bitcoinNetwork: Network
+): Promise<string | undefined> {
+  try {
+    const { uuid, taprootPubKey, fundingTxId } = vault;
+
+    if (!fundingTxId) return;
+
+    return getVaultPayment(uuid, taprootPubKey, extendedAttestorGroupPublicKey, bitcoinNetwork)
+      .address!;
+  } catch (error) {
+    console.log(`Error getting Vault Address: ${error}`);
+    return;
+  }
+}
+
+/**
  * Calculates the value of the vault's output in the transaction in satoshis.
  *
  * @param vault - The vault object containing transaction IDs and other relevant data
