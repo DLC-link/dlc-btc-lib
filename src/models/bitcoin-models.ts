@@ -90,7 +90,7 @@ export interface BitcoinTransactionVectorOutput {
   pegout?: BitcoinTransactionPegOut | null;
 }
 
-interface BitcoinTransactionVectorInput {
+export interface BitcoinTransactionVectorInput {
   inner_redeemscript_asm?: string;
   inner_witnessscript_asm?: string;
   is_coinbase: boolean;

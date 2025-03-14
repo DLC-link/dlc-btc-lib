@@ -1,46 +1,57 @@
 import { Network } from 'bitcoinjs-lib';
 
-import { deriveUnhardenedPublicKey } from '../functions/bitcoin/bitcoin-functions.js';
 import { fetchBitcoinBlockchainBlockHeight } from '../functions/bitcoin/bitcoin-request-functions.js';
-import { verifyVaultDeposit } from '../functions/proof-of-reserve/proof-of-reserve-functions.js';
+import { getVaultDepositAmount } from '../functions/proof-of-reserve/proof-of-reserve-functions.js';
 import { RawVault } from '../models/ethereum-models.js';
 
+/**
+ * Handles the calculation and verification of Proof of Reserve for a list of vaults.
+ */
 export class ProofOfReserveHandler {
   private bitcoinBlockchainAPI: string;
   private bitcoinNetwork: Network;
-  private attestorGroupPublicKey: string;
+  private extendedAttestorGroupPublicKey: string;
 
+  /**
+   * Creates a new ProofOfReserveHandler instance.
+   *
+   * @param bitcoinBlockchainAPI - The URL of the Bitcoin blockchain API
+   * @param bitcoinNetwork - The Bitcoin network to use
+   * @param extendedAttestorGroupPublicKey - The extended public key of the attestor group
+   */
   constructor(
     bitcoinBlockchainAPI: string,
     bitcoinNetwork: Network,
-    attestorGroupPublicKey: string
+    extendedAttestorGroupPublicKey: string
   ) {
     this.bitcoinBlockchainAPI = bitcoinBlockchainAPI;
     this.bitcoinNetwork = bitcoinNetwork;
-    this.attestorGroupPublicKey = attestorGroupPublicKey;
+    this.extendedAttestorGroupPublicKey = extendedAttestorGroupPublicKey;
   }
 
+  /**
+   * Calculates the total value of deposits for a list of vaults in satoshis.
+   *
+   * @param vaults - An array of vault objects containing deposit information
+   * @returns A promise that resolves to the total value of deposits in the vaults in satoshis
+   */
   async calculateProofOfReserve(vaults: RawVault[]): Promise<number> {
     const bitcoinBlockchainBlockHeight = await fetchBitcoinBlockchainBlockHeight(
       this.bitcoinBlockchainAPI
     );
 
-    const derivedAttestorGroupPublicKey = deriveUnhardenedPublicKey(
-      this.attestorGroupPublicKey,
-      this.bitcoinNetwork
-    );
-
-    const verifiedDeposits = await Promise.all(
+    const depositAmounts = await Promise.all(
       vaults.map(vault =>
-        verifyVaultDeposit(
+        getVaultDepositAmount(
           vault,
-          derivedAttestorGroupPublicKey,
+          this.extendedAttestorGroupPublicKey,
           bitcoinBlockchainBlockHeight,
           this.bitcoinBlockchainAPI,
           this.bitcoinNetwork
         )
       )
     );
-    return verifiedDeposits.reduce((a, b) => a + b, 0);
+
+    return depositAmounts.reduce((a, b) => a + b, 0);
   }
 }
