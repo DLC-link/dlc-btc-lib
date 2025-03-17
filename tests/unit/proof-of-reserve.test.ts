@@ -1,10 +1,7 @@
 import { bitcoin, testnet } from 'bitcoinjs-lib/src/networks.js';
 
 import * as bitcoinRequestFunctions from '../../src/functions/bitcoin/bitcoin-request-functions.js';
-import {
-  getVaultAddress,
-  getVaultDepositAmount,
-} from '../../src/functions/proof-of-reserve/proof-of-reserve-functions.js';
+import { getVaultProofOfReserveData } from '../../src/functions/proof-of-reserve/proof-of-reserve-functions.js';
 import {
   TEST_MAINNET_BITCOIN_BLOCKCHAIN_API,
   TEST_TESTNET_BITCOIN_BLOCKCHAIN_API,
@@ -24,11 +21,7 @@ import {
   TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_2,
   TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_3,
 } from '../mocks/bitcoin.test.constants.js';
-import {
-  TEST_VAULT_2,
-  TEST_VAULT_3,
-  TEST_VAULT_4,
-} from '../mocks/ethereum-vault.test.constants.js';
+import { TEST_VAULT_2, TEST_VAULT_3 } from '../mocks/ethereum-vault.test.constants.js';
 
 describe('Proof of Reserve Calculation', () => {
   beforeEach(() => {
@@ -40,7 +33,7 @@ describe('Proof of Reserve Calculation', () => {
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
 
-      const result = await getVaultDepositAmount(
+      const result = await getVaultProofOfReserveData(
         TEST_VAULT_2,
         TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_1,
@@ -48,7 +41,10 @@ describe('Proof of Reserve Calculation', () => {
         testnet
       );
 
-      expect(result).toBe(10000000);
+      expect(result).toStrictEqual({
+        amount: 10000000,
+        address: 'tb1pd4l9qxw8jhg9l57ls9cnq6d28gcfayf2v9244vlt6mj80apvracqgdt090',
+      });
     });
 
     it('should return 0 if the funding transaction is not found', async () => {
@@ -58,7 +54,7 @@ describe('Proof of Reserve Calculation', () => {
           throw new Error('Transaction not found');
         });
 
-      const result = await getVaultDepositAmount(
+      const result = await getVaultProofOfReserveData(
         TEST_VAULT_2,
         TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_1,
@@ -66,7 +62,7 @@ describe('Proof of Reserve Calculation', () => {
         testnet
       );
 
-      expect(result).toBe(0);
+      expect(result).toBeUndefined();
     });
 
     it("should return 0 when the vault's funding transaction is not yet confirmed", async () => {
@@ -74,7 +70,7 @@ describe('Proof of Reserve Calculation', () => {
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_1);
 
-      const result = await getVaultDepositAmount(
+      const result = await getVaultProofOfReserveData(
         TEST_VAULT_2,
         TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_2,
@@ -82,7 +78,7 @@ describe('Proof of Reserve Calculation', () => {
         testnet
       );
 
-      expect(result).toBe(0);
+      expect(result).toBeUndefined();
     });
 
     it("should return 0 if the vault's funding transaction lacks an output with the multisig's script", async () => {
@@ -90,7 +86,7 @@ describe('Proof of Reserve Calculation', () => {
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_2);
 
-      const result = await getVaultDepositAmount(
+      const result = await getVaultProofOfReserveData(
         TEST_VAULT_2,
         TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_1,
@@ -98,7 +94,7 @@ describe('Proof of Reserve Calculation', () => {
         testnet
       );
 
-      expect(result).toBe(0);
+      expect(result).toBeUndefined();
     });
 
     it("should return 0 if the vault is legacy and it's funding transaction lacks an output with the multisig's script", async () => {
@@ -106,7 +102,7 @@ describe('Proof of Reserve Calculation', () => {
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_MAINNET_FUNDING_TRANSACTION_1);
 
-      const result = await getVaultDepositAmount(
+      const result = await getVaultProofOfReserveData(
         TEST_VAULT_3,
         TEST_MAINNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_3,
@@ -114,7 +110,7 @@ describe('Proof of Reserve Calculation', () => {
         bitcoin
       );
 
-      expect(result).toBe(0);
+      expect(result).toBeUndefined();
     });
 
     it("should return the vault's previous deposit amount when the vault's funding transaction is not yet confirmed", async () => {
@@ -122,7 +118,7 @@ describe('Proof of Reserve Calculation', () => {
         .spyOn(bitcoinRequestFunctions, 'fetchBitcoinTransaction')
         .mockImplementationOnce(async () => TEST_TESTNET_FUNDING_TRANSACTION_7);
 
-      const result = await getVaultDepositAmount(
+      const result = await getVaultProofOfReserveData(
         TEST_VAULT_2,
         TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
         TEST_BITCOIN_BLOCKCHAIN_BLOCK_HEIGHT_2,
@@ -130,26 +126,10 @@ describe('Proof of Reserve Calculation', () => {
         testnet
       );
 
-      expect(result).toBe(100000);
-    });
-  });
-  describe('getVaultAddress', () => {
-    it('should return the vault address', async () => {
-      const result = await getVaultAddress(
-        TEST_VAULT_2,
-        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
-        testnet
-      );
-      expect(result).toBe('tb1pd4l9qxw8jhg9l57ls9cnq6d28gcfayf2v9244vlt6mj80apvracqgdt090');
-    });
-
-    it('should return none if the vault has no funding transaction', async () => {
-      const result = await getVaultAddress(
-        TEST_VAULT_4,
-        TEST_TESTNET_ATTESTOR_EXTENDED_GROUP_PUBLIC_KEY_1,
-        testnet
-      );
-      expect(result).toBeUndefined();
+      expect(result).toStrictEqual({
+        amount: 100000,
+        address: 'tb1pd4l9qxw8jhg9l57ls9cnq6d28gcfayf2v9244vlt6mj80apvracqgdt090',
+      });
     });
   });
 });

@@ -1,11 +1,9 @@
 import { Network } from 'bitcoinjs-lib';
 import { isNotNil } from 'ramda';
+import { ProofOfReserveData } from 'src/models/proof-of-reserve.models.js';
 
 import { fetchBitcoinBlockchainBlockHeight } from '../functions/bitcoin/bitcoin-request-functions.js';
-import {
-  getVaultAddress,
-  getVaultDepositAmount,
-} from '../functions/proof-of-reserve/proof-of-reserve-functions.js';
+import { getVaultProofOfReserveData } from '../functions/proof-of-reserve/proof-of-reserve-functions.js';
 import { RawVault } from '../models/ethereum-models.js';
 
 /**
@@ -34,42 +32,37 @@ export class ProofOfReserveHandler {
   }
 
   /**
-   * Gets all vault addresses from a list of vaults.
-   *
-   * @param vaults - An array of vault objects containing address information
-   * @returns A promise that resolves to an array of vault addresses
-   */
-  async getAllVaultAddresses(vaults: RawVault[]): Promise<string[]> {
-    return Promise.all(
-      vaults.map(vault =>
-        getVaultAddress(vault, this.extendedAttestorGroupPublicKey, this.bitcoinNetwork)
-      )
-    ).then(addresses => addresses.filter(isNotNil));
-  }
-
-  /**
-   * Calculates the total value of deposits for a list of vaults in satoshis.
+   * Gets the Proof of Reserve data for a list of vaults.
    *
    * @param vaults - An array of vault objects containing deposit information
-   * @returns A promise that resolves to the total value of deposits in the vaults in satoshis
+   * @returns A promise that resolves to the Proof of Reserve data for the vaults
    */
-  async calculateProofOfReserve(vaults: RawVault[]): Promise<number> {
+  async getProofOfReserveData(vaults: RawVault[]): Promise<ProofOfReserveData> {
     const bitcoinBlockchainBlockHeight = await fetchBitcoinBlockchainBlockHeight(
       this.bitcoinBlockchainAPI
     );
 
-    const depositAmounts = await Promise.all(
-      vaults.map(vault =>
-        getVaultDepositAmount(
-          vault,
-          this.extendedAttestorGroupPublicKey,
-          bitcoinBlockchainBlockHeight,
-          this.bitcoinBlockchainAPI,
-          this.bitcoinNetwork
+    const proofOfReserveData = (
+      await Promise.all(
+        vaults.map(vault =>
+          getVaultProofOfReserveData(
+            vault,
+            this.extendedAttestorGroupPublicKey,
+            bitcoinBlockchainBlockHeight,
+            this.bitcoinBlockchainAPI,
+            this.bitcoinNetwork
+          )
         )
       )
-    );
+    ).filter(isNotNil);
 
-    return depositAmounts.reduce((a, b) => a + b, 0);
+    return proofOfReserveData.reduce(
+      (acc, curr) => {
+        acc.proofOfReserve += curr.amount;
+        acc.vaultAddresses.push(curr.address);
+        return acc;
+      },
+      { proofOfReserve: 0, vaultAddresses: [] as string[] }
+    );
   }
 }
