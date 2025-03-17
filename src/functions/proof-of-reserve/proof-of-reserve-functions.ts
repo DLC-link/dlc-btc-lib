@@ -1,4 +1,5 @@
 import { Network } from 'bitcoinjs-lib';
+import { VaultProofOfReserveData } from 'src/models/proof-of-reserve.models.js';
 
 import { RawVault } from '../../models/ethereum-models.js';
 import { isNonEmptyString } from '../../utilities/index.js';
@@ -49,20 +50,20 @@ export async function getVaultAddress(
  * @returns A promise that resolves to the value of the vault's output in the transaction in satoshis, or 0 if the transaction is not confirmed or invalid
  * @throws Will log an error message if there is an issue verifying the vault deposit
  */
-export async function getVaultDepositAmount(
+export async function getVaultProofOfReserveData(
   vault: RawVault,
   extendedAttestorGroupPublicKey: string,
   bitcoinBlockchainBlockHeight: number,
   bitcoinBlockchainAPI: string,
   bitcoinNetwork: Network
-): Promise<number> {
+): Promise<VaultProofOfReserveData | undefined> {
   try {
     const { uuid, taprootPubKey, wdTxId, fundingTxId } = vault;
 
     const hasWithdrawDepositTransaction = isNonEmptyString(wdTxId);
     const hasFundingTransaction = isNonEmptyString(fundingTxId);
 
-    if (!hasWithdrawDepositTransaction && !hasFundingTransaction) return 0;
+    if (!hasWithdrawDepositTransaction && !hasFundingTransaction) return;
 
     const txID = hasWithdrawDepositTransaction ? wdTxId : fundingTxId;
 
@@ -83,7 +84,9 @@ export async function getVaultDepositAmount(
     if (!isVaultTransactionConfirmed) {
       const vaultMultisigInput = findVaultMultisigInput(vaultTransaction, vaultPayment.address!);
 
-      return vaultMultisigInput ? vaultMultisigInput.prevout.value : 0;
+      return vaultMultisigInput
+        ? { amount: vaultMultisigInput.prevout.value, address: vaultPayment.address! }
+        : undefined;
     }
 
     const vaultTransactionOutput = getScriptMatchingOutputFromTransaction(
@@ -91,13 +94,11 @@ export async function getVaultDepositAmount(
       vaultPayment.script
     );
 
-    if (!vaultTransactionOutput) {
-      return 0;
-    }
+    if (!vaultTransactionOutput) return;
 
-    return vaultTransactionOutput.value;
+    return { amount: vaultTransactionOutput.value, address: vaultPayment.address! };
   } catch (error) {
     console.log(`Error verifying Vault Deposit: ${error}`);
-    return 0;
+    return;
   }
 }
