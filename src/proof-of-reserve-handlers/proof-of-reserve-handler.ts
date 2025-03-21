@@ -1,10 +1,10 @@
 import { Network } from 'bitcoinjs-lib';
 import { isNotNil } from 'ramda';
-import { ProofOfReserveData } from 'src/models/proof-of-reserve.models.js';
 
 import { fetchBitcoinBlockchainBlockHeight } from '../functions/bitcoin/bitcoin-request-functions.js';
 import { getVaultProofOfReserveData } from '../functions/proof-of-reserve/proof-of-reserve-functions.js';
 import { RawVault } from '../models/ethereum-models.js';
+import { ProofOfReserveData } from '../models/proof-of-reserve.models.js';
 
 /**
  * Handles the calculation and verification of Proof of Reserve for a list of vaults.

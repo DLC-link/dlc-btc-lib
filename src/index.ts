@@ -5,11 +5,13 @@ import { LedgerDLCHandler } from './dlc-handlers/ledger-dlc-handler.js';
 import { UnisatFordefiDLCHandler } from './dlc-handlers/unisat-fordefi-dlc-handler.js';
 import { EthereumHandler } from './network-handlers/ethereum-handler.js';
 import { RippleHandler } from './network-handlers/ripple-handler.js';
+import { StarknetKeypairHandler } from './network-handlers/starknet-keypair-handler.js';
 import { GemXRPHandler } from './network-handlers/xrp-gem-wallet-handler.js';
 import { LedgerXRPHandler } from './network-handlers/xrp-ledger-handler.js';
 import { ProofOfReserveHandler } from './proof-of-reserve-handlers/proof-of-reserve-handler.js';
 
 export {
+  StarknetKeypairHandler,
   KeyPairDLCHandler,
   LedgerDLCHandler,
   LeatherDLCHandler,

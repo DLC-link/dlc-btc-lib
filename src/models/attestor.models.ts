@@ -24,7 +24,13 @@ export enum XRPLAttestorChainID {
   'ripple-xrpl-devnet' = 'ripple-xrpl-devnet',
 }
 
-export type AttestorChainID = EVMAttestorChainID | XRPLAttestorChainID;
+export enum StarknetAttestorChainID {
+  'starknet-mainnet' = 'starknet-mainnet',
+  'starknet-testnet' = 'starknet-testnet',
+  'starknet-localhost' = 'starknet-localhost',
+}
+
+export type AttestorChainID = EVMAttestorChainID | XRPLAttestorChainID | StarknetAttestorChainID;
 
 export interface FundingTXAttestorInfo {
   vaultUUID: string;

@@ -39,3 +39,12 @@ export class RippleError extends Error {
     this.name = 'RippleError';
   }
 }
+
+export class StarknetError extends Error {
+  receipt: any;
+  constructor(message: string, receipt?: any) {
+    super(message);
+    this.name = 'StarknetError';
+    this.receipt = receipt;
+  }
+}
